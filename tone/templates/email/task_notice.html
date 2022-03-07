@@ -1,0 +1,173 @@
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  </head>
+  <style>
+      b{text-indent:0;}
+      table{width:300px;text-indent:2em;font-size:12px;}
+      td{width:50px;}
+      tr{height:12px;}
+  </style>
+  <body text="#000000" bgcolor="#FFFFFF">
+    <div class="moz-text-html" lang="x-unicode">
+      <div class="__aliyun_email_body_block">
+      <br>
+      <div style="clear:both;">
+          <p style="font-size:13.0px;">Task： <a href="{{job_skp_link}}">{{job_name}}</a>
+              <br>Creator： {{creator}}
+              <br>Kernel： {{kernel_version}}
+              <br>Baseline：{{baseline}}
+              <br>Start：{{start_time}}
+              <br>End：{{end_time}}
+              <br>
+              <br>
+          </p>
+          {% if func_result or perf_result %}
+                <b>Summary:</b><br><br>
+          {% endif %}
+          {% if func_result %}
+          <div style="font-size:12px;line-height: 14px;">Functional test: <br>
+              <table>
+                    <tr><td>Total:{{total_tests}}</td><td>Pass:{{pass_count}}</td><td>Fail:{{fail_count}}</td></tr>
+              </table>
+          </div>
+          {% endif %}
+          {% if perf_result %}
+         <div style="font-size:12px;line-height: 14px;">Performance tests:<br>
+              <table>
+                    <tr>
+                        <td>Total:{{perf_result.count}}</td><td>Decline:{{perf_result.decline}}</td><td>Increase:{{perf_result.increase}}</td>
+<!--                        <td>Normal:{{perf_result.normal}}</td><td>Invalid:{{perf_result.invalid}}</td><td>NA:{{perf_result.na}}</td>-->
+                    </tr>
+              </table>
+          </div>
+          {% endif %}
+          <br>
+          {% if func_result %}
+          <b>Functional Test Results:</b>
+          <p>
+             {% for fresult in func_result %}
+                 <span style="line-height:1.1;color:#333333;font-size:13.0px;font-style:normal;">
+                {% if fresult.result == "success" %}
+                 {{fresult.suite_name}} (<span style="color:lightgreen;">{{fresult.result}}</span>)： total: {{fresult.conf_count}}, pass: {{fresult.conf_success}}, fail: {{fresult.conf_fail}}, skip: {{fresult.conf_skip}}.<br>
+                {% elif fresult.result == "fail" %}
+                 {{fresult.suite_name}} (<span style="color:red;">{{fresult.result}}</span>)： total: {{fresult.conf_count}}, pass: {{fresult.conf_success}}, fail: {{fresult.conf_fail}}, skip: {{fresult.conf_skip}}.<br>
+                {% else %}
+                 {{fresult.suite_name}} (<span>{{fresult.result}}</span>)：
+                     {% if fresult.conf_count != 0 %}
+                     total: {{fresult.conf_count}},
+                     {% endif %}
+                     pass: {{fresult.conf_success}}, fail: {{fresult.conf_fail}}, skip: {{fresult.conf_skip}}.<br>
+                {% endif %}
+                </span>
+             {% endfor %}
+             <br>
+         </p>
+         {% endif %}
+         {% if perf_result %}
+          <b>Performance Test Results:</b>
+          {% if nightly_flag == 0 %}
+                <br><span style="color:gray;font-size: 8px">Data format：metric: baseline  current  rate (last rate)</span>
+          {% elif nightly_flag == 1 %}
+                <br><span style="color:gray;font-size: 8px">Data format：metric: baseline  current  rate </span>
+          {% endif %}
+          <p>
+                    <!--decline-->
+              {% for case_name, indicators in perf_result_decline.items %}
+                   {% for indicator in indicators %}
+                        {% if forloop.first %}
+                              <p style="font-size:13.0px;margin-top:4px;margin-bottom:-1px">
+                               {{case_name}}:
+                               </p>
+                        {% else %}
+                        {% endif %}
+                       <div style="display:flex;align-items:center;font-size:12px;text-indent:2em;">
+                       {% if indicator.link != '' %}
+                               <span style="display: inline-block;margin-right:8px;">{{indicator.indicator}}:&nbsp; {{indicator.baseline_value}} &nbsp;&nbsp;{{indicator.test_value}} &nbsp; <span style="color:red;">{{indicator.change_rate}}<b>↓</b> </span>
+                                   {% if indicator.last_test_value != '' %}
+                                        ({{indicator.last_test_value}} &nbsp;
+                                        {% if indicator.last_cmp_note == 'decline' %}
+                                            <span style="color:red;">{{indicator.last_change_rate}}<b>↓</b>)</span>
+                                        {% elif indicator.last_cmp_note == 'increase' %}
+                                            <span style="color:green;">{{indicator.last_change_rate}}<b>↑</b>)</span>
+                                        {% else %}
+                                            <span>{{indicator.last_change_rate}})</span>
+                                        {% endif %}
+                                    {% endif %}
+                               </span>
+                               <a style="display: flex;" href="{{indicator.link}}"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAABDklEQVQoU2MUEN+3/8NLJ0cGHEBI6qDs/3///P///+fM+J9pJ6OA2N5bH145q+HSICi2P4aBkUH7////GQyMDGcIagAZJCC+bx4DI8MBhn8MtQQ1CIvvM//3n6Hn3UtHO2HJw5ooGoSk9lox/GFMY2NibHjxwvFBQ8N/ponT9x9jYWbOfP3M/jzINrgGB4f9LBeu/TvFyMQ0l+Hf/1QGxv87GBkYX/5n/K/2/oVzJsyPcA0C4vvyGBgZ5D+8cCo2Nj7DevfJp0yG//8TuFl5XJ8+NX+LooGdUcTwF8PbM4y8XObv7lh8whViKE4SkT8k+eah3XN8ilE0EFKI4QfiNYjvfcPIwPCSGA2MDIwTAZUjfB3jEwe0AAAAAElFTkSuQmCC"/> </a>
+                        {% else %}
+                               {{indicator.indicator}}:&nbsp; {{indicator.baseline_value}} &nbsp;&nbsp;{{indicator.test_value}}  &nbsp;<span style="color:red;">{{indicator.change_rate}}<b>↓</b> </span>
+                        {% endif %}
+                       </div>
+                   {% endfor %}
+              {% endfor %}
+              {% for case_name, indicators in perf_result_increase.items %}
+                   {% for indicator in indicators %}
+                        {% if forloop.first %}
+                            <p style="font-size:13.0px;margin-top:4px;margin-bottom:-1px">
+                            {{case_name}}:
+                            </p>
+                        {% else %}
+                        {% endif %}
+                       <div style="display:flex;align-items:center;font-size:12px;text-indent:2em;">
+                       {% if indicator.link != '' %}
+                                <span style="display: inline-block;margin-right:8px;">{{indicator.indicator}}:&nbsp; {{indicator.baseline_value}} &nbsp;&nbsp;{{indicator.test_value}} &nbsp; <span style="color:green;">{{indicator.change_rate}}<b>↑</b></span>
+                                    {% if indicator.last_test_value != '' %}
+                                        ({{indicator.last_test_value}} &nbsp;
+                                        {% if indicator.last_cmp_note == 'decline' %}
+                                            <span style="color:red;">{{indicator.last_change_rate}}<b>↓</b>)</span>
+                                        {% elif indicator.last_cmp_note == 'increase' %}
+                                            <span style="color:green;">{{indicator.last_change_rate}}<b>↑</b>)</span>
+                                        {% else %}
+                                            <span>{{indicator.last_change_rate}})</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </span>
+                                <a style="display: flex;" href="{{indicator.link}}"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAABDklEQVQoU2MUEN+3/8NLJ0cGHEBI6qDs/3///P///+fM+J9pJ6OA2N5bH145q+HSICi2P4aBkUH7////GQyMDGcIagAZJCC+bx4DI8MBhn8MtQQ1CIvvM//3n6Hn3UtHO2HJw5ooGoSk9lox/GFMY2NibHjxwvFBQ8N/ponT9x9jYWbOfP3M/jzINrgGB4f9LBeu/TvFyMQ0l+Hf/1QGxv87GBkYX/5n/K/2/oVzJsyPcA0C4vvyGBgZ5D+8cCo2Nj7DevfJp0yG//8TuFl5XJ8+NX+LooGdUcTwF8PbM4y8XObv7lh8whViKE4SkT8k+eah3XN8ilE0EFKI4QfiNYjvfcPIwPCSGA2MDIwTAZUjfB3jEwe0AAAAAElFTkSuQmCC"/></a>
+                        {% else %}
+                                {{indicator.indicator}}:&nbsp; {{indicator.baseline_value}} &nbsp;&nbsp;{{indicator.test_value}} &nbsp; <span style="color:green;">{{indicator.change_rate}}<b>↑</b></span>
+                        {% endif %}
+                       </div>
+                   {% endfor %}
+              {% endfor %}
+              {% for case_name, indicators in perf_result_other.items %}
+                   {% for indicator in indicators %}
+                        {% if forloop.first %}
+                            <p style="font-size:13.0px;margin-top:4px;margin-bottom:-1px">
+                            {{case_name}}:
+                            </p>
+                        {% else %}
+                        {% endif %}
+                       <div style="display:flex;align-items:center;font-size:12px;text-indent:2em;">
+                       {% if indicator.link != '' %}
+                                 <span style="display: inline-block;margin-right:8px;">{{indicator.indicator}}:&nbsp; {{indicator.baseline_value}} &nbsp;&nbsp;{{indicator.test_value}} &nbsp;&nbsp; {{indicator.change_rate}}
+                                     {% if indicator.last_test_value != '' %}
+                                        ({{indicator.last_test_value}} &nbsp;
+                                        {% if indicator.last_cmp_note == 'decline' %}
+                                            <span style="color:red;">{{indicator.last_change_rate}}<b>↓</b>)</span>
+                                        {% elif indicator.last_cmp_note == 'increase' %}
+                                            <span style="color:green;">{{indicator.last_change_rate}}<b>↑</b>)</span>
+                                        {% else %}
+                                            <span>{{indicator.last_change_rate}})</span>
+                                        {% endif %}
+                                    {% endif %}
+                                 </span>
+                                 <a style="display: flex;" href="{{indicator.link}}"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAABDklEQVQoU2MUEN+3/8NLJ0cGHEBI6qDs/3///P///+fM+J9pJ6OA2N5bH145q+HSICi2P4aBkUH7////GQyMDGcIagAZJCC+bx4DI8MBhn8MtQQ1CIvvM//3n6Hn3UtHO2HJw5ooGoSk9lox/GFMY2NibHjxwvFBQ8N/ponT9x9jYWbOfP3M/jzINrgGB4f9LBeu/TvFyMQ0l+Hf/1QGxv87GBkYX/5n/K/2/oVzJsyPcA0C4vvyGBgZ5D+8cCo2Nj7DevfJp0yG//8TuFl5XJ8+NX+LooGdUcTwF8PbM4y8XObv7lh8whViKE4SkT8k+eah3XN8ilE0EFKI4QfiNYjvfcPIwPCSGA2MDIwTAZUjfB3jEwe0AAAAAElFTkSuQmCC"/></a>
+                        {% else %}
+                                 {{indicator.indicator}}:&nbsp; {{indicator.baseline_value}} &nbsp;&nbsp;{{indicator.test_value}} &nbsp;&nbsp; {{indicator.change_rate}}
+                        {% endif %}
+                       </div>
+                   {% endfor %}
+              {% endfor %}
+              </p>
+              <b>Details：</b>
+              <p style="font-size:13.0px;">
+                  &nbsp;&nbsp;&nbsp; <a href="{{perf_chart_link}}">{{perf_chart_link}}</a>
+              </p>
+          {% endif %}
+      </div>
+     </div>
+    </div>
+  </body>
+</html>

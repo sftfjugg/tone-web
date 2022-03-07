@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="27px" height="26px" viewBox="0 0 27 26" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 63.1 (92452) - https://sketch.com -->
+    <title></title>
+    <desc>Created with Sketch.</desc>
+    <g id="首页/加入" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="5-导航样式" transform="translate(-75.000000, -290.000000)" fill-rule="nonzero">
+            <g id="导航备份-3" transform="translate(39.000000, 264.000000)">
+                <g id="首页" transform="translate(36.500000, 26.000000)">
+                    <rect id="矩形" fill="#000000" opacity="0" x="0" y="0" width="25.6" height="25.6"></rect>
+                    <path d="M1.7776,7.2528 L10.0896,0.9616 C11.7344,-0.3072 13.8656,-0.3072 15.5104,0.9616 L23.8224,7.2496 C24.9424,8.1136 25.6000003,9.4512 25.6000003,10.8656 L25.6000003,21.0304 C25.6004244,22.2421861 25.1193418,23.4044859 24.2626296,24.2614981 C23.4059174,25.1185104 22.2437862,25.6 21.032,25.6 L4.568,25.6 C2.04516326,25.6 0,23.5548367 0,21.032 L0,10.8688 C0,9.4528 0.656,8.1168 1.7776,7.2528 Z" id="路径" fill="#0362FB"></path>
+                    <polygon id="路径" fill="#2B93F7" points="4.8 14.4 9.6 14.4 9.6 19.2 4.8 19.2"></polygon>
+                    <polygon id="路径" fill="#67E1F8" points="9.6 9.6 14.4 9.6 14.4 14.4 9.6 14.4"></polygon>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

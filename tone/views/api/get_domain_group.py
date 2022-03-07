@@ -1,0 +1,59 @@
+# _*_ coding:utf-8 _*_
+"""
+Module Description:
+Date:
+Author: Yfh
+"""
+import json
+
+from tone.core.utils.tone_thread import ToneThread
+from tone.models import TestCase, TestDomain, TestSuite, DomainRelation
+from tone.core.utils.helper import CommResp
+from tone.core.common.expection_handler.error_catch import api_catch_error
+from tone.core.common.constant import DEFAULT_DOMAIN
+
+
+@api_catch_error
+def get_domain_info(request):
+    resp = CommResp()
+    conf_list = json.loads(request.body)
+    resp.data = get_domain_group(conf_list)
+    return resp.json_resp()
+
+
+def _get_domain_group(conf, res_data):
+    conf_obj = TestCase.objects.get_value(id=conf)
+    domains = DomainRelation.objects.filter(object_type='case', object_id=conf)
+    suite_id = conf_obj.test_suite_id
+    test_type = TestSuite.objects.get_value(id=suite_id).test_type
+    if test_type in res_data:
+        if domains.exists():
+            for _domain in domains:
+                domain = TestDomain.objects.get_value(id=_domain.domain_id).name
+                insert_conf(domain, res_data, test_type, suite_id, conf)
+        else:
+            domain = DEFAULT_DOMAIN
+            insert_conf(domain, res_data, test_type, suite_id, conf)
+
+
+def get_domain_group(conf_list):
+    res_data = {'functional': dict(), 'performance': dict()}
+    thread_tasks = []
+    for conf in conf_list:
+        thread_tasks.append(
+            ToneThread(_get_domain_group, (conf, res_data))
+        )
+        thread_tasks[-1].start()
+    for thread_task in thread_tasks:
+        thread_task.join()
+    return res_data
+
+
+def insert_conf(domain, res_data, test_type, suite_id, conf):
+    if domain in res_data[test_type]:
+        if suite_id in res_data[test_type][domain]:
+            res_data[test_type][domain][suite_id].append(conf)
+        else:
+            res_data[test_type][domain][suite_id] = [conf]
+    else:
+        res_data[test_type][domain] = {suite_id: [conf]}

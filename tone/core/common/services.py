@@ -1,0 +1,4 @@
+
+
+class CommonService(object):
+    pass

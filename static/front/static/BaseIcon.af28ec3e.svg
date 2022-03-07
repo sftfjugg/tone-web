@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="10px" height="14px" viewBox="0 0 10 14" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title></title>
+    <g id="页面-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="3个group目录收起" transform="translate(-263.000000, -767.000000)" fill-rule="nonzero">
+            <g id="编组-2" transform="translate(119.000000, 686.000000)">
+                <g id="编组-8" transform="translate(21.000000, 64.000000)">
+                    <g id="basegroup" transform="translate(120.000000, 16.000000)">
+                        <rect id="矩形" fill="#FFFFFF" opacity="0" x="0" y="0" width="16" height="16" rx="2"></rect>
+                        <path d="M4,1 C3.72417824,1.00077249 3.50077249,1.22417824 3.5,1.5 L3.5,14.5 C3.5,14.7761424 3.72385763,15 4,15 C4.27614237,15 4.5,14.7761424 4.5,14.5 L4.5,1.5 C4.49922751,1.22417824 4.27582176,1.00077249 4,1 L4,1 Z M4.5,2 L12.5,6.5 L4.5,11" id="形状" fill="#1890FF"></path>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="20px" height="78px" viewBox="0 0 20 78" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>展开</title>
+    <defs>
+        <path d="M1.23076923,4.48717949 L12,0 L12,0 L12,70 L1.23076923,65.5128205 C0.485475353,65.2022814 -2.76958888e-15,64.4740684 0,63.6666667 L0,6.33333333 C-3.20922796e-16,5.52593163 0.485475353,4.7977186 1.23076923,4.48717949 Z" id="path-1"></path>
+        <filter x="-50.0%" y="-8.6%" width="200.0%" height="117.1%" filterUnits="objectBoundingBox" id="filter-2">
+            <feOffset dx="0" dy="0" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="2" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0.833106884   0 0 0 0 0.82924932   0 0 0 0 0.82924932  0 0 0 0.5 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+    </defs>
+    <g id="页面-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="新建报告模版-目录默认展开" transform="translate(-195.000000, -56.000000)" fill-rule="nonzero">
+            <g id="Group-5" transform="translate(0.000000, 50.000000)">
+                <g id="展开" transform="translate(205.000000, 45.000000) scale(-1, 1) translate(-205.000000, -45.000000) translate(199.000000, 10.000000)">
+                    <use fill="black" fill-opacity="1" filter="url(#filter-2)" xlink:href="#path-1"></use>
+                    <use fill="#FFFFFF" xlink:href="#path-1"></use>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

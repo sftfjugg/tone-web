@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="16px" height="16px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 63.1 (92452) - https://sketch.com -->
+    <title></title>
+    <desc>Created with Sketch.</desc>
+    <g id="申请审批" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="1-加入申请" transform="translate(-307.000000, -285.000000)">
+            <g id="表格" transform="translate(240.000000, 111.000000)">
+                <g transform="translate(0.000000, 45.000000)" id="内容">
+                    <g transform="translate(15.000000, 0.000000)">
+                        <g id="创建人备份-3" transform="translate(40.000000, 0.000000)">
+                            <g id="加入" transform="translate(12.000000, 129.000000)">
+                                <rect id="矩形备份-5" fill="#1890FF" x="0" y="0" width="16" height="16" rx="2"></rect>
+                                <path d="M3.9,12.04 C5.18,10.68 5.84,8.53 5.88,5.58 L7.21,5.58 C7.19,8.26 7.15,9.87 7.09,10.39 C7.01,10.96 6.71,11.25 6.2,11.25 C5.96,11.25 5.68,11.23 5.36,11.21 L5.54,11.87 C5.9,11.89 6.15,11.91 6.3,11.91 C7.18,11.91 7.67,11.49 7.77,10.67 C7.87,9.93 7.92,8 7.92,4.88 L5.88,4.88 L5.88,2.86 L5.16,2.86 L5.16,4.88 L3.56,4.88 L3.56,5.58 L5.16,5.58 C5.13,8.32 4.53,10.32 3.37,11.57 L3.9,12.04 Z M9.53,11.85 L9.53,11.18 L11.41,11.18 L11.41,11.85 L12.11,11.85 L12.11,4.32 L8.84,4.32 L8.84,11.85 L9.53,11.85 Z M11.41,10.49 L9.53,10.49 L9.53,5.01 L11.41,5.01 L11.41,10.49 Z" id="加" fill="#FFFFFF" fill-rule="nonzero"></path>
+                            </g>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>
