@@ -1,0 +1,8 @@
+*.pyc
+/.idea
+*.swp
+.DS_Store
+/test
+/venv
+app.properties
+antx.properties
