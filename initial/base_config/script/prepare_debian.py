@@ -69,6 +69,8 @@ prepare()
     echo "tone make install error"
     exit 1
   fi
+  
+  sudo ln -fs /bin/bash /bin/sh
 }
 
 
