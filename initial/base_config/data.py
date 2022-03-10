@@ -178,4 +178,4 @@ BASE_CONFIG_DATA = [
         'bind_stage': '',
         'description': 'Debian系统run case脚本',
     }
-],
+]
