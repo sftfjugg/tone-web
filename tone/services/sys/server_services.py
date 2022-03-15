@@ -475,8 +475,9 @@ class TestServerService(CommonService):
 class CloudServerService(CommonService):
     @staticmethod
     def filter(queryset, data):
-        q = Q(in_pool=True)
-        q &= Q()
+        q = Q()
+        if not data.get('in_pool'):
+            q &= Q(in_pool=True)
         if data.get('cluster_id'):
             server_id_list = TestClusterServer.objects.filter(cluster_id=data.get('cluster_id')).values_list(
                 'server_id', flat=True)
@@ -503,6 +504,8 @@ class CloudServerService(CommonService):
             q &= Q(description__icontains=data.get('description'))
         if data.get('ws_id'):
             q &= Q(ws_id=data.get('ws_id'))
+        if data.get('private_ip'):
+            q &= Q(private_ip__in=data.getlist('private_ip'))
         for item in ['state', 'real_state']:
             if data.get(item):
                 q &= Q(**{'{}__in'.format(item): data.getlist(item)})
