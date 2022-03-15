@@ -58,14 +58,6 @@ def auto_send_message():
         send_message()
 
 
-# @app.task
-# @lock_run_task(60 * 1, 'auto_run_cbp_task')
-# def auto_run_cbp_task():
-#     cbp_service = CBPService()
-#     cbp_service.cbp_task_run()
-#     cbp_service.cbp_task_check()
-
-
 @app.task
 @lock_run_task(60 * 1, 'auto_dashboard_benchmark_task')
 def auto_dashboard_benchmark_task():
