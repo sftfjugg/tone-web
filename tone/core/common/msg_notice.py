@@ -659,15 +659,17 @@ class OutSiteMsgHandle(object):
                 case_name = suite_name + ': ' + conf_name
                 presult_e['case_name'] = case_name
                 if nightly_tag:
+                    job_tag = JobTag.objects.filter(name=nightly_tag).first()
+                    tag_id = job_tag.id if job_tag else ''
                     start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
                     end_date = datetime.now().strftime('%Y-%m-%d')
                     presult_e['link'] = '{}/ws/{}/test_analysis/time?' \
                                         'test_type={}&show_type=0&provider_env={}&start_time={}&end_time={}&' \
-                                        'tag=&project_id={}&test_suite_id={}&test_case_id={}&' \
+                                        'tag={}&project_id={}&test_suite_id={}&test_case_id={}&' \
                                         'metric={}&title={}%2F{}'. \
                         format(get_skip_url(), job_obj.ws_id, job_obj.test_type, job_obj.server_provider, start_date,
-                               end_date, job_obj.project_id, case_result.test_suite_id, case_id, case_result.metric,
-                               suite_name, conf_name)
+                               end_date, tag_id, job_obj.project_id, case_result.test_suite_id, case_id,
+                               case_result.metric, suite_name, conf_name)
                 else:
                     presult_e['link'] = ''
                 last_presult_e = None
