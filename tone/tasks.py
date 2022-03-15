@@ -13,16 +13,6 @@ from tone.services.sys.dashboard_services import calculate_benchmark_data
 logger = logging.getLogger('schedule')
 
 
-# @app.task
-# @lock_run_task(60 * 5, 'sync_suite_case')
-# def sync_suite_case_tone():
-#     """
-#     定时同步suite，以及suite下的case数据到 SuiteData 和 CaseData 表中
-#     :return:
-#     """
-#     return sync_suite_task()
-
-
 @app.task
 @lock_run_task(60 * 5, 'sync_suite_case_toneagent')
 def sync_suite_case_toneagent():
