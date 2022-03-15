@@ -196,6 +196,7 @@ def get_job_case_server(job_case_id, template=None, is_config=False):
     elif job_case.server_object_id and run_mode == 'cluster':
         server = TestCluster.objects.get_value(id=job_case.server_object_id).name
     elif job_case.server_tag_id:
+        is_instance = None
         server_tag_id_list = str(job_case.server_tag_id).split(',')
         server = ','.join(ServerTag.objects.filter(id__in=server_tag_id_list).values_list('name', flat=True)) \
             if ServerTag.objects.filter(id__in=server_tag_id_list).exists else None
@@ -210,6 +211,7 @@ def get_job_case_server(job_case_id, template=None, is_config=False):
             CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id).private_ip else \
             CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id).sn
     else:
+        is_instance = None
         server = '随机'
     return server, is_instance
 
