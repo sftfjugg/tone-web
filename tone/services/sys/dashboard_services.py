@@ -87,16 +87,10 @@ class DashboardService(CommonService):
                 'user_total_num': user_total_num
             }
         elif data_type == 'benchmark':
-            benchmark_num = TestSuite.objects.all().count()
-            test_conf_num = TestCase.objects.all().count()
-            test_case_num = len(set(list(FuncResult.objects.all().values_list('sub_case_name', flat=True))))
-            test_metric_num = TestMetric.objects.all().count()
-            return {
-                'benchmark_num': benchmark_num,
-                'test_conf_num': test_conf_num,
-                'test_case_num': test_case_num,
-                'test_metric_num': test_metric_num
-            }
+            benchmark_data = redis_cache.get('dashboard_benchmark')
+            if benchmark_data[0]:
+                return benchmark_data[1]
+            return {}
         elif data_type == 'baseline':
             baseline_total_num = Baseline.objects.all().count()
             func_baseline_res_num = FuncBaselineDetail.objects.all().count()
@@ -547,3 +541,17 @@ class DashboardService(CommonService):
                     'FailCase': file_case_count
                 })
         return True, ws_chart_data
+
+
+def calculate_benchmark_data():
+    benchmark_num = TestSuite.objects.all().count()
+    test_conf_num = TestCase.objects.all().count()
+    test_case_num = len(set(list(FuncResult.objects.all().values_list('sub_case_name', flat=True))))
+    test_metric_num = TestMetric.objects.all().count()
+    benchmark_data = {
+        'benchmark_num': benchmark_num,
+        'test_conf_num': test_conf_num,
+        'test_case_num': test_case_num,
+        'test_metric_num': test_metric_num
+    }
+    redis_cache.set('dashboard_benchmark', benchmark_data)

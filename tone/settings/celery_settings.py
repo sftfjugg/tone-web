@@ -25,4 +25,8 @@ CELERY_BEAT_SCHEDULE = {
     #     'task': 'tone.tasks.auto_run_cbp_task',
     #     'schedule': timedelta(seconds=12),
     # },
+    'auto_dashboard_benchmark_task': {
+        'task': 'tone.tasks.auto_dashboard_benchmark_task',
+        'schedule': timedelta(seconds=3600),
+    },
 }

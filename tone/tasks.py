@@ -8,6 +8,7 @@ from tone.core.utils.schedule_lock import lock_run_task
 from tone.services.notice.core.notice_service import send_message
 from tone.services.portal.sync_portal_task_servers import sync_portal_task
 from tone.services.sys.sync_suite_task_servers import sync_suite_tone_task, sync_suite_desc_tone_task
+from tone.services.sys.dashboard_services import calculate_benchmark_data
 
 logger = logging.getLogger('schedule')
 
@@ -63,3 +64,9 @@ def auto_send_message():
 #     cbp_service = CBPService()
 #     cbp_service.cbp_task_run()
 #     cbp_service.cbp_task_check()
+
+
+@app.task
+@lock_run_task(60 * 1, 'auto_dashboard_benchmark_task')
+def auto_dashboard_benchmark_task():
+    calculate_benchmark_data()
