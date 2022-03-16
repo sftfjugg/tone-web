@@ -12,7 +12,7 @@ from tone.serializers.sys.project_serializers import ProductSerializer, ProjectS
     RepoBranchSerializer, ProjectBranchSerializer
 from tone.models import Product, Project, RepoBranch, Repo, ProjectBranchRelation
 from tone.services.sys.product_services import ProductService, ProjectService, RepoService, RepoBranchService, \
-    CheckGitLabService, ProjectBranchService, ProductDragService, ProjectDragService
+    CheckGitLabService, ProjectBranchService, ProductDragService, ProjectDragService, BranchProjectService
 from tone.core.common.expection_handler.error_catch import views_catch_error
 
 
@@ -137,6 +137,23 @@ class RepositoryView(CommonAPIView):
         """
         self.service.delete(request.data, operator=request.user)
         return Response(self.get_response_code())
+
+
+class RepositoryProjectView(CommonAPIView):
+    serializer_class = RepoBranchSerializer
+    queryset = RepoBranch.objects.all()
+    service_class = BranchProjectService
+    permission_classes = []
+    order_by = ['-gmt_created']
+
+    @method_decorator(views_catch_error)
+    def get(self, request):
+        """
+        查询Repository
+        """
+        queryset = self.service.filter(self.get_queryset(), request.GET)
+        response_data = self.get_response_only_for_data(queryset)
+        return Response(response_data)
 
 
 class CodeBranchView(CommonAPIView):

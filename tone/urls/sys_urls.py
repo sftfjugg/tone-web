@@ -33,6 +33,7 @@ urlpatterns = [
     path('product/drag/', product_views.ProductDragView.as_view(), name='product_drag_views'),
     path('project/drag/', product_views.ProjectDragView.as_view(), name='project_drag_views'),
     path('repository/', product_views.RepositoryView.as_view(), name='repository'),
+    path('repository/project/', product_views.RepositoryProjectView.as_view(), name='repository_project'),
     path('branch/', product_views.CodeBranchView.as_view(), name='branch'),
     path('branch/relation/', product_views.ProjectBranchView.as_view(), name='branch_relation'),
     path('check/gitlab/', product_views.CheckGitLabView.as_view(), name='gitlab'),

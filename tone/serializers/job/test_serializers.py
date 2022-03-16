@@ -88,12 +88,13 @@ class JobTestConfigSerializer(CommonSerializer):
     monitor_info = serializers.JSONField()
     rpm_info = serializers.JSONField()
     tags = serializers.SerializerMethodField()
+    project_id = serializers.SerializerMethodField()
 
     class Meta:
         model = TestJob
         fields = ['product_name', 'project_name', 'iclone_info', 'env_info', 'rpm_info', 'script_info', 'monitor_info',
                   'cleanup_info', 'notice_info', 'test_config', 'need_reboot', 'kernel_info', 'build_pkg_info',
-                  'kernel_version', 'tags', 'report_name', 'report_template_id', 'callback_api']
+                  'kernel_version', 'tags', 'report_name', 'report_template_id', 'callback_api', 'project_id']
 
     @staticmethod
     def get_tags(obj):
@@ -112,6 +113,12 @@ class JobTestConfigSerializer(CommonSerializer):
         project_name = Project.objects.filter(id=obj.project_id).first().name if Project.objects.filter(
             id=obj.project_id).first() else ''
         return project_name
+
+    @staticmethod
+    def get_project_id(obj):
+        project_id = Project.objects.filter(id=obj.project_id).first().id if Project.objects.filter(
+            id=obj.project_id).exists() else ''
+        return project_id
 
     @staticmethod
     def get_test_config(obj):

@@ -415,3 +415,48 @@ class ProjectDragService(CommonService):
                 querysets.save()
             queryset = Project.objects.filter(ws_id=ws_id, product_id=product_id).order_by('drag_modified')
             return True, queryset
+
+
+class BranchProjectService(CommonService):
+
+    @staticmethod
+    def filter(queryset, data):
+        q = Q()
+        project_id = data.get('project_id') if data.get('project_id') else None
+        branch_id_list = []
+        if project_id:
+            branch_id_list = list(ProjectBranchRelation.objects.filter(project_id=project_id).values('branch_id',
+                                                                                                     'repo_id'))
+            for branch_id in branch_id_list:
+                q |= Q(id=branch_id['branch_id'], repo_id=branch_id['repo_id'])
+        if branch_id_list:
+            repo_ids = []
+            for qs in queryset.filter(q):
+                if qs.repo_id in repo_ids:
+                    continue
+                else:
+                    repo_ids.append(qs.repo_id)
+            repo_list = []
+            for repo_id in repo_ids:
+                repo = Repo.objects.filter(id=repo_id).values('git_url', 'name')
+                branch_ids = list(RepoBranch.objects.filter(repo_id=repo_id).values('id'))
+                branch_list = []
+                for branch_id in list(branch_ids):
+                    repo_branch = \
+                        RepoBranch.objects.filter(id=branch_id['id']).values('id', 'name', 'description')
+                    branch_dict = {
+                        "id": list(repo_branch)[0]['id'],
+                        "name": list(repo_branch)[0]['name'],
+                        "description": list(repo_branch)[0]['description']
+                    }
+                    branch_list.append(branch_dict)
+                repo = {
+                    "repo_id": repo_id,
+                    "repo_git_url": list(repo)[0]['git_url'],
+                    "repo_name": list(repo)[0]['name'],
+                    "branch_dict": branch_list
+                }
+                repo_list.append(repo)
+            return repo_list
+        else:
+            return []
