@@ -438,22 +438,22 @@ class BranchProjectService(CommonService):
                     repo_ids.append(qs.repo_id)
             repo_list = []
             for repo_id in repo_ids:
-                repo = Repo.objects.filter(id=repo_id).values('git_url', 'name')
+                list_repo = list(Repo.objects.filter(id=repo_id).values('git_url', 'name'))
                 branch_ids = list(RepoBranch.objects.filter(repo_id=repo_id).values('id'))
                 branch_list = []
                 for branch_id in list(branch_ids):
                     repo_branch = \
-                        RepoBranch.objects.filter(id=branch_id['id']).values('id', 'name', 'description')
+                        list(RepoBranch.objects.filter(id=branch_id['id']).values('id', 'name', 'description'))
                     branch_dict = {
-                        "id": list(repo_branch)[0]['id'],
-                        "name": list(repo_branch)[0]['name'],
-                        "description": list(repo_branch)[0]['description']
+                        "id": repo_branch[0]['id'],
+                        "name": repo_branch[0]['name'],
+                        "description": repo_branch[0]['description']
                     }
                     branch_list.append(branch_dict)
                 repo = {
                     "repo_id": repo_id,
-                    "repo_git_url": list(repo)[0]['git_url'],
-                    "repo_name": list(repo)[0]['name'],
+                    "repo_git_url": list_repo[0]['git_url'],
+                    "repo_name": list_repo[0]['name'],
                     "branch_dict": branch_list
                 }
                 repo_list.append(repo)
