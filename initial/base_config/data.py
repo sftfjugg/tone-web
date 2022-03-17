@@ -174,7 +174,13 @@ BASE_CONFIG_DATA = [
     {
         'config_type': 'script',
         'config_key': 'RUN_TEST_DEBIAN',
-        'config_value': RUN_TEST_DEBIAN,
+        'config_value': RUN_TEST_DEBIAN.format(
+            tone_storage_host=cp.get('tone_storage_host'),
+            tone_storage_sftp_port=cp.get('tone_storage_sftp_port'),
+            tone_storage_proxy_port=cp.get('tone_storage_proxy_port'),
+            tone_storage_user=cp.get('tone_storage_user'),
+            tone_storage_password=cp.get('tone_storage_password')
+        ),
         'bind_stage': '',
         'description': 'Debian系统run case脚本',
     }

@@ -53,6 +53,7 @@ prepare()
 {
   #clone tone
   run_cmd yum install -y git make
+  run_cmd yum install -y python-devel python-pip python3-devel python3-pip
   clone_tone $tone_install
   if [ $? -ne 0 ]; then
     echo "clone tone from $tone_git_url failed."

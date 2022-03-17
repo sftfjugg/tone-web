@@ -53,8 +53,8 @@ prepare()
 {
   #clone tone
   run_cmd apt-get update
-  run_cmd apt-get install -y git
-  run_cmd apt-get install -y make  
+  run_cmd apt-get install -y git make
+  run_cmd apt-get install -y python-dev python-pip python3-dev python3-pip
   clone_tone $tone_install
   if [ $? -ne 0 ]; then
     echo "clone tone from $tone_git_url failed."
