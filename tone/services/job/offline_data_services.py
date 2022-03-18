@@ -3,7 +3,6 @@ import logging
 import shutil
 import traceback
 import uuid
-import re
 import tarfile
 import json
 import time
@@ -15,7 +14,6 @@ import yaml
 from threading import Thread
 from django.db.models import Q
 from django.db import transaction
-from urllib.parse import unquote
 
 from tone import settings
 from tone.core.utils.sftp_client import sftp_client
@@ -28,10 +26,8 @@ from tone.models.sys.server_models import TestServer, TestServerSnapshot, CloudS
 from tone.models.job.result_models import FuncResult, PerfResult, ResultFile
 from tone.models.sys.baseline_models import PerfBaselineDetail, Baseline
 from tone.core.common.constant import OFFLINE_DATA_DIR, RESULTS_DATA_DIR
-from tone.settings import MEDIA_ROOT, BASE_DIR
+from tone.settings import MEDIA_ROOT
 from tone.services.job.test_services import JobTestService
-
-logger = logging.getLogger(__name__)
 
 
 class OfflineDataUploadService(object):
@@ -213,21 +209,13 @@ class OfflineDataUploadService(object):
         tar_file.close()
         return code, msg
 
-    def _save_server(self, args, server_type, test_job_id, ws_id, req_ip):
-        server_id = 0
+    def _save_server(self, args, req_ip, server_type, test_job_id, ws_id):
         server_snapshot_id = 0
-        ip = args.get('ip', '')
-        if req_ip:
-            ip = req_ip
-        if not ip:
-            return server_id, server_snapshot_id
         if server_type == 'aligroup':
-            server_id = self._save_server_info(ip, ws_id)
-            server_snapshot_id = self._save_server_snapshot(ip, ws_id, test_job_id)
+            server_snapshot_id = self._save_server_snapshot(args, req_ip, ws_id, test_job_id)
         elif server_type == 'aliyun':
-            server_id = self._save_cloud_info(ip, ws_id, test_job_id)
-            server_snapshot_id = self._save_cloud_snapshot(ip, ws_id, test_job_id)
-        return server_id, server_snapshot_id
+            server_snapshot_id = self._save_cloud_snapshot(args, req_ip, ws_id, test_job_id)
+        return server_snapshot_id
 
     def _save_cluster_server(self, server_list, server_type, test_job_id, ws_id):
         server_snapshot_id = 0
@@ -333,8 +321,9 @@ class OfflineDataUploadService(object):
                     continue
                 test_case = TestCase.objects.filter(short_name=case_short_name, test_suite_id=test_suite.id).first()
                 if not test_case:
-                    continue
-                result_file = filename.split(case_short_name)[1][1:]
+                    return 201, '', 'case [%s] not exist error.' % case_short_name
+                case_index = filename.find(case_short_name)
+                result_file = filename[(len(case_short_name) + case_index + 1):]
                 local_dir = '%s%d/%s_%d/%s' % (MEDIA_ROOT, test_job_id, case_short_name, _timestamp, result_file)
                 result_link = f'http://{settings.TONE_STORAGE_HOST}:{settings.TONE_STORAGE_PROXY_PORT}' \
                               f'{RESULTS_DATA_DIR}/{local_dir.strip(MEDIA_ROOT).strip(result_file)}'
@@ -361,13 +350,11 @@ class OfflineDataUploadService(object):
                                      test_case.name == case_conf['test_case']]
                         if len(case_list) > 0:
                             server = case_list[0]['server']
-                            server_id, server_snapshot_id = self._save_server(server, server_type, test_job_id, ws_id,
-                                                                               req_ip)
+                            server_snapshot_id = self._save_server(server, req_ip, server_type, test_job_id, ws_id)
                             TestJobCase.objects.filter(job_id=test_job_id, test_suite_id=test_suite.id,
                                                        test_case_id=test_case.id).update(
-                                state='success', server_object_id=server_id,
-                                server_snapshot_id=server_snapshot_id,
-                                start_time=tmp_start, end_time=tmp_end)
+                                state='success', server_snapshot_id=server_snapshot_id, start_time=tmp_start,
+                                end_time=tmp_end)
                             TestJobSuite.objects.filter(job_id=test_job_id, test_suite_id=test_suite.id).\
                                 update(state='success', start_time=tmp_start, end_time=tmp_end)
                     if test_type == 'performance':
@@ -454,7 +441,10 @@ class OfflineDataUploadService(object):
             cloud_server = CloudServer.objects.create(**cloud_dict)
         return cloud_server.id
 
-    def _save_server_snapshot(self, ip, ws_id, test_job_id):
+    def _save_server_snapshot(self, case_info, req_ip, ws_id, test_job_id):
+        ip = case_info['ip']
+        if req_ip:
+            ip = req_ip
         test_server_snapshot = TestServerSnapshot.objects.filter(ip=ip, ws_id=ws_id).first()
         if not test_server_snapshot:
             server_dict = dict(
@@ -465,12 +455,16 @@ class OfflineDataUploadService(object):
             test_server_snapshot = TestServerSnapshot.objects.create(**server_dict)
         return test_server_snapshot.id
 
-    def _save_cloud_snapshot(self, ip, ws_id, test_job_id):
+    def _save_cloud_snapshot(self, args, req_ip, ws_id, test_job_id):
+        instance = args['instance']
+        if req_ip:
+            instance = req_ip
         cloud_server_snapshot = CloudServerSnapshot.objects.filter(job_id=test_job_id,
-                                                                   instance_id=ip, ws_id=ws_id).first()
+                                                                   instance_id=instance, ws_id=ws_id).first()
         if not cloud_server_snapshot:
             cloud_server_dict = dict(
-                instance_id=ip,
+                private_ip=instance,
+                pub_ip=instance,
                 ws_id=ws_id,
                 job_id=test_job_id
             )
