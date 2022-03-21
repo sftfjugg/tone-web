@@ -884,7 +884,8 @@ def product_project(product_id, data, product_name, product_description, product
                                 'today_job_id': day_query.id,
                                 'today_query_name': day_query.name,
                                 'today_query_state': day_query.state,
-                                'today_query_job_start_time': processing_time(str(day_query.start_time)),
+                                'today_query_job_start_time': datetime.strftime(day_query.start_time,
+                                                                                '%Y-%m-%d %H:%M:%S'),
                                 'today_query_pass': json.loads(day_query.test_result)['pass'],
                                 'today_query_fail': json.loads(day_query.test_result)['fail'],
                             })
@@ -892,7 +893,8 @@ def product_project(product_id, data, product_name, product_description, product
                             today_query_list.append({
                                 'today_job_id': day_query.id,
                                 'today_query_name': day_query.name,
-                                'today_query_job_start_time': processing_time(str(day_query.start_time)),
+                                'today_query_job_start_time': datetime.strftime(day_query.start_time,
+                                                                                '%Y-%m-%d %H:%M:%S'),
                                 'today_query_state': 'pending',
                                 'today_query_pass': 0,
                                 'today_query_fail': 0,
@@ -902,7 +904,8 @@ def product_project(product_id, data, product_name, product_description, product
                                 'today_job_id': day_query.id,
                                 'today_query_name': day_query.name,
                                 'today_query_state': day_query.state,
-                                'today_query_job_start_time': processing_time(str(day_query.start_time)),
+                                'today_query_job_start_time': datetime.strftime(day_query.start_time,
+                                                                                '%Y-%m-%d %H:%M:%S'),
                                 'today_query_pass': 0,
                                 'today_query_fail': 0,
                             })
@@ -973,6 +976,3 @@ def get_day_querys(data, now, product_id, project_id, hours_24_ago):
                                             ws_id=data.get('ws_id')).order_by('-gmt_created')
     return day_querys
 
-
-def processing_time(day_query_time):
-    return day_query_time.replace('T', '')[:-7]
