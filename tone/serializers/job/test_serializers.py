@@ -12,7 +12,7 @@ from tone.core.common.serializers import CommonSerializer
 from tone.models import TestJob, JobType, Project, Product, TestJobCase, TestJobSuite, TestCase, TestSuite, \
     JobTagRelation, JobTag, TestStep, FuncResult, PerfResult, ResultFile, User, TestMetric, FuncBaselineDetail, \
     TestServerSnapshot, CloudServerSnapshot, PlanInstanceTestRelation, PlanInstance, ReportObjectRelation, Report, \
-    BusinessSuiteRelation, TestBusiness, WorkspaceCaseRelation, JobMonitorItem, MonitorInfo
+    BusinessSuiteRelation, TestBusiness, WorkspaceCaseRelation, JobMonitorItem, MonitorInfo, BaseConfig
 from tone.models.sys.baseline_models import Baseline, PerfBaselineDetail
 from tone.core.common.constant import CASE_STEP_STAGE_MAP, PREPARE_STEP_STAGE_MAP, \
     FUNC_CASE_RESULT_TYPE_MAP, PERF_CASE_RESULT_TYPE_MAP, SUITE_STEP_PREPARE_MAP
@@ -46,6 +46,22 @@ class JobTestSerializer(CommonSerializer):
         state = obj.state
         if obj.state == 'pending_q':
             state = 'pending'
+        if obj.test_type == 'functional' and (obj.state == 'fail' or obj.state == 'success'):
+            func_view_config = BaseConfig.objects.filter(config_type='ws', ws_id=obj.ws_id,
+                                                         config_key='FUNC_RESULT_VIEW_TYPE').first()
+            if func_view_config and func_view_config.config_value == '2':
+                func_result = FuncResult.objects.filter(test_job_id=obj.id)
+                if func_result.count() == 0:
+                    state = 'fail'
+                    return state
+                func_result_list = FuncResult.objects.filter(test_job_id=obj.id, sub_case_result=2)
+                if func_result_list.count() == 0:
+                    state = 'pass'
+                else:
+                    if func_result_list.filter(match_baseline=0).count() > 0:
+                        state = 'fail'
+                    else:
+                        state = 'pass'
         return state
 
     @staticmethod
