@@ -248,6 +248,22 @@ class JobTestSummarySerializer(CommonSerializer):
         state = obj.state
         if obj.state == 'pending_q':
             state = 'pending'
+        if obj.test_type == 'functional' and (obj.state == 'fail' or obj.state == 'success'):
+            func_view_config = BaseConfig.objects.filter(config_type='ws', ws_id=obj.ws_id,
+                                                         config_key='FUNC_RESULT_VIEW_TYPE').first()
+            if func_view_config and func_view_config.config_value == '2':
+                func_result = FuncResult.objects.filter(test_job_id=obj.id)
+                if func_result.count() == 0:
+                    state = 'fail'
+                    return state
+                func_result_list = FuncResult.objects.filter(test_job_id=obj.id, sub_case_result=2)
+                if func_result_list.count() == 0:
+                    state = 'pass'
+                else:
+                    if func_result_list.filter(match_baseline=0).count() > 0:
+                        state = 'fail'
+                    else:
+                        state = 'pass'
         return state
 
     @staticmethod
