@@ -26,7 +26,10 @@ class PerfAnalysisService(CommonService):
     def get_metric(data):
         test_suite = data.get('test_suite_id', None)
         test_case = data.get('test_case_id', None)
-        perf_res = PerfResult.objects.filter(test_suite_id=test_suite, test_case_id=test_case).last()
+        project_id = data.get('project_id')
+        test_job_id = TestJob.objects.filter(project_id=project_id).last().id
+        perf_res = PerfResult.objects.filter(test_suite_id=test_suite, test_case_id=test_case,
+                                             test_job_id=test_job_id).last()
         if not perf_res:
             return None
         metrics = PerfResult.objects.filter(test_job_id=perf_res.test_job_id, test_suite_id=test_suite,
