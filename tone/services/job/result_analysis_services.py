@@ -27,7 +27,8 @@ class PerfAnalysisService(CommonService):
         test_suite = data.get('test_suite_id', None)
         test_case = data.get('test_case_id', None)
         project_id = data.get('project_id')
-        test_job_id = TestJob.objects.filter(project_id=project_id).last().id
+        test_last_job = TestJob.objects.filter(project_id=project_id)
+        test_job_id = test_last_job.last().id if test_last_job else None
         perf_res = PerfResult.objects.filter(test_suite_id=test_suite, test_case_id=test_case,
                                              test_job_id=test_job_id).last()
         if not perf_res:
