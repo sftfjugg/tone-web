@@ -1354,7 +1354,7 @@ class TestClusterServerService(CommonService):
         if test_server:
             test_server.update(private_ip=data.get('private_ip'), channel_type=data.get('channel_type'))
             server_state = data.get('state')
-            if server_state in ['Reserved', 'Available']:
+            if server_state in ['Reserved', 'Available', 'Unusable']:
                 test_server.update(state=server_state)
         return True, cluster_server.first()
 

@@ -208,6 +208,7 @@ class TestClusterSerializer(CommonSerializer):
     owner_name = serializers.SerializerMethodField()
     tag_list = serializers.SerializerMethodField()
     emp_id = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
 
     class Meta:
         model = TestCluster
@@ -232,6 +233,22 @@ class TestClusterSerializer(CommonSerializer):
         if owner is None:
             return None
         return owner.last_name or owner.first_name
+
+    @staticmethod
+    def get_state(obj):
+        test_cluster_server_list = TestClusterServer.objects.filter(cluster_id=obj.id)
+        if test_cluster_server_list:
+            test_server_state_list = []
+            for test_cluster_server in list(test_cluster_server_list):
+                server_id = test_cluster_server.server_id
+                test_server = TestServer.objects.filter(id=server_id).first()
+                if test_server:
+                    test_server_state = test_server.state
+                    test_server_state_list.append(test_server_state)
+            if 'Unusable' in test_server_state_list:
+                return 'Unusable'
+            else:
+                return 'Available'
 
 
 class TestClusterServerSerializer(CommonSerializer):
