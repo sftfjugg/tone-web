@@ -563,7 +563,6 @@ class OfflineDataUploadService(object):
 
     def import_perf_avg(self, test_job_id, results, test_suite_id, test_case_id, start_date, end_date, baseline_id):
         perf_obj_list = []
-        metric_obj_list = []
         for item in results:
             perf_history = PerfResult.objects.filter(test_job_id=test_job_id, test_suite_id=test_suite_id,
                                                      test_case_id=test_case_id, metric=item['metric']).first()
@@ -604,19 +603,7 @@ class OfflineDataUploadService(object):
                 dag_step_id=0
             )
             perf_obj_list.append(perf_obj)
-            metric_obj = TestMetric(
-                name=item['metric'],
-                object_type='case',
-                object_id=test_case_id,
-                cv_threshold=item['cv'],
-                cmp_threshold=0,
-                direction='increase',
-                unit=item['unit']
-            )
-            if not TestMetric.objects.filter(object_id=test_case_id, object_type='case', name=item['metric']).exists():
-                metric_obj_list.append(metric_obj)
         PerfResult.objects.bulk_create(perf_obj_list)
-        TestMetric.objects.bulk_create(metric_obj_list)
         return 200, ''
 
     def _get_cmp_result(self, compare_result, item, baseline_value, test_case_id, test_suite_id):
