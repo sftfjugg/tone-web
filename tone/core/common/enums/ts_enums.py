@@ -3,7 +3,8 @@ class TestServerEnums:
         ('Available', 'Available'),
         ('Occupied', 'Occupied'),
         ('Broken', 'Broken'),
-        ('Reserved', 'Reserved')
+        ('Reserved', 'Reserved'),
+        ('Unusable', 'Unusable')
     )
 
     RUN_ENV_CHOICES = (
