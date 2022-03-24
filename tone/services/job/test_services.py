@@ -476,6 +476,8 @@ class JobTestSummaryService(CommonService):
             q &= Q(id=data.get('job_id'))
         else:
             raise JobTestException(ErrorCode.JOB_NEED)
+        if data.get('ws_id'):
+            q &= Q(ws_id=data.get('ws_id'))
         return queryset.filter(q)
 
 
