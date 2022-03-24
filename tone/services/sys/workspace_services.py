@@ -22,7 +22,7 @@ from tone.core.utils.sftp_client import sftp_client
 from tone.core.utils.short_uuid import short_uuid
 from tone.models import WorkspaceMember, Workspace, ApproveInfo, WorkspaceAccessHistory, User, TestCase, \
     WorkspaceCaseRelation, TestSuite, Product, Project, TestJob, Role, RoleMember, JobTag, TestServer, CloudServer, \
-    InSiteWorkProcessMsg, InSiteWorkProcessUserMsg, InSiteSimpleMsg, BaseConfig
+    InSiteWorkProcessMsg, InSiteWorkProcessUserMsg, InSiteSimpleMsg, BaseConfig, FuncResult
 from tone.services.report.report_services import ReportTemplateService
 from tone.settings import MEDIA_ROOT
 
@@ -846,6 +846,8 @@ class DashboardListService(CommonService):
 def product_project(product_id, data, product_name, product_description, product_is_default, tmp_product,
                     tmp_product_data, project_list):
     if Project.objects.filter(product_id=product_id):
+        func_view_config = BaseConfig.objects.filter(config_type='ws', ws_id=data.get('ws_id'),
+                                                     config_key='FUNC_RESULT_VIEW_TYPE').first()
         for tmp_project in Project.objects.filter(product_id=product_id).order_by('drag_modified'):
             if tmp_project.is_show:
                 project_id = tmp_project.id
@@ -875,9 +877,8 @@ def product_project(product_id, data, product_name, product_description, product
                             today_query_list.append({
                                 'today_job_id': day_query.id,
                                 'today_query_name': day_query.name,
-                                'today_query_state': day_query.state,
-                                'today_query_job_start_time': datetime.strftime(day_query.start_time,
-                                                                                '%Y-%m-%d %H:%M:%S'),
+                                'today_query_state':
+                                    get_job_state(day_query.id, day_query.test_type, day_query.state, func_view_config),
                                 'today_query_pass': json.loads(day_query.test_result)['pass'],
                                 'today_query_fail': json.loads(day_query.test_result)['fail'],
                             })
@@ -939,6 +940,26 @@ def product_project(product_id, data, product_name, product_description, product
             'project_list': [],
         })
     return tmp_product_data
+
+
+def get_job_state(test_job_id, test_type, state, func_view_config):
+    if state == 'pending_q':
+        state = 'pending'
+    if test_type == 'functional' and (state == 'fail' or state == 'success'):
+        if func_view_config and func_view_config.config_value == '2':
+            func_result = FuncResult.objects.filter(test_job_id=test_job_id)
+            if func_result.count() == 0:
+                state = 'fail'
+                return state
+            func_result_list = FuncResult.objects.filter(test_job_id=test_job_id, sub_case_result=2)
+            if func_result_list.count() == 0:
+                state = 'pass'
+            else:
+                if func_result_list.filter(match_baseline=0).count() > 0:
+                    state = 'fail'
+                else:
+                    state = 'pass'
+    return state
 
 
 def get_day_querys(data, now, product_id, project_id, hours_24_ago):
