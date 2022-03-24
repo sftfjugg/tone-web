@@ -403,15 +403,7 @@ class WorkspaceMemberService(CommonService):
         for emp_id in emp_id_list:
             if User.objects.filter(emp_id=emp_id).exists():
                 user = User.objects.filter(emp_id=emp_id).first()
-            else:
-                try:
-                    user_info = buc.get_user(emp_id)
-                except Exception:
-                    return False, 'buc error'
-                with transaction.atomic():
-                    user = User.objects.create(**user_info)
-                    RoleMember.objects.create(user_id=user.id, role_id=Role.objects.get(title='user').id)
-            user_list.append(user.id)
+                user_list.append(user.id)
         ws_id = data.get('ws_id')
         user_object_list = []
         for user_id in user_list:
