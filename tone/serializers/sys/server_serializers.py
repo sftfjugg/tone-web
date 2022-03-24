@@ -262,11 +262,13 @@ class TestClusterServerSerializer(CommonSerializer):
     def get_test_server(obj):
         if obj.cluster_type == 'aligroup':
             test_cluster_server = TestClusterServer.objects.filter(server_id=obj.server_id)
-            cluster_id = test_cluster_server.first().cluster_id if test_cluster_server else None
-            test_cluster = TestCluster.objects.filter(id=cluster_id)
-            occupied_job_id = test_cluster.first().occupied_job_id if test_cluster else None
-            TestServer.objects.filter(id=obj.server_id).update(occupied_job_id=occupied_job_id)
-            return TestServerSerializer(TestServer.objects.filter(id=obj.server_id).first(), many=False).data
+            if test_cluster_server:
+                cluster_id = test_cluster_server.first().cluster_id
+                test_cluster = TestCluster.objects.filter(id=cluster_id)
+                if test_cluster:
+                    occupied_job_id = test_cluster.first().occupied_job_id if test_cluster else None
+                    TestServer.objects.filter(id=obj.server_id).update(occupied_job_id=occupied_job_id)
+                    return TestServerSerializer(TestServer.objects.filter(id=obj.server_id).first(), many=False).data
         else:
             return CloudServerSerializer(CloudServer.objects.filter(id=obj.server_id).first(), many=False).data
 
