@@ -576,6 +576,23 @@ class JobTestResultService(CommonService):
             raise JobTestException(ErrorCode.JOB_NEED)
         return queryset.filter(q)
 
+    @staticmethod
+    def filter_search(response, data):
+        test_suites = response['data'][0]['test_suite']
+        resp = []
+        for test_suite in test_suites:
+            if test_suite['test_type'] == '功能测试':
+                if not data.get('state'):
+                    resp.append(test_suite)
+                elif test_suite['conf_{}'.format(data.get('state'))]:
+                    resp.append(test_suite)
+            else:
+                if not data.get('state'):
+                    resp.append(test_suite)
+                elif test_suite[data.get('state')]:
+                    resp.append(test_suite)
+        return resp
+
 
 class JobTestConfResultService(CommonService):
     @staticmethod
@@ -589,6 +606,24 @@ class JobTestConfResultService(CommonService):
         q &= Q(test_suite_id=data.get('suite_id'))
         q &= Q(state__in=['success', 'fail', 'stop', 'skip'])
         return queryset.filter(q)
+
+    @staticmethod
+    def filter_search(response, data):
+        result_data = response['data']
+        resp = []
+        for result in result_data:
+            test_type = TestJob.objects.filter(id=data.get('job_id')).first().test_type
+            if test_type == 'functional':
+                if not data.get('state'):
+                    resp.append(dict(result))
+                elif result['result_data']['case_{}'.format(data.get('state'))]:
+                    resp.append(dict(result))
+            else:
+                if not data.get('state'):
+                    resp.append(dict(result))
+                elif result['result_data']['{}'.format(data.get('state'))]:
+                    resp.append(dict(result))
+        return resp
 
 
 class JobTestCaseResultService(CommonService):

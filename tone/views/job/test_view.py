@@ -224,7 +224,8 @@ class JobTestResultView(CommonAPIView):
         获取JobTestResult
         """
         queryset = self.service.filter(self.get_queryset(), request.GET)
-        response_data = self.get_response_data(queryset, page=False)
+        response = self.service.filter_search(self.get_response_data(queryset, page=False), request.GET)
+        response_data = self.get_response_only_for_data(response)
         return Response(response_data)
 
 
@@ -241,7 +242,8 @@ class JobTestConfResultView(CommonAPIView):
         获取JobTestResult
         """
         queryset = self.service.filter(self.get_queryset(), request.GET)
-        response_data = self.get_response_data(queryset, page=False)
+        response = self.service.filter_search(self.get_response_data(queryset, page=False), request.GET)
+        response_data = self.get_response_only_for_data(response)
         return Response(response_data)
 
 
