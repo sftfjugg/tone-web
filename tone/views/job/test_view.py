@@ -11,18 +11,18 @@ from django.utils.decorators import method_decorator
 
 from tone import settings
 from tone.core.common.views import CommonAPIView, BaseView
-from tone.models import TestJob, TestJobCase, FuncResult, ResultFile, PerfResult, JobCollection, TestJobSuite, \
-    JobMonitorItem, MonitorInfo, User
+from tone.models import TestJob, TestJobCase, FuncResult, ResultFile, PerfResult,\
+    JobCollection, TestJobSuite, MonitorInfo
 from tone.serializers.job.test_serializers import JobTestSerializer, JobTestSummarySerializer, \
     JobTestConfigSerializer, JobTestResultSerializer, JobTestConfResultSerializer, \
     JobTestCaseResultSerializer, JobTestCaseVersionSerializer, JobTestCaseFileSerializer, \
     JobTestCasePerResultSerializer, JobTestPrepareSerializer, JobTestProcessSuiteSerializer, \
-    JobTestProcessCaseSerializer, JobMonitorItemSerializer, JobTestProcessMonitorSerializer
+    JobTestProcessCaseSerializer, JobTestProcessMonitorSerializer
 from tone.services.job.test_services import JobTestService, JobTestConfigService, JobTestSummaryService, \
     JobTestResultService, JobTestConfResultService, JobTestCaseResultService, \
-    JobTestCaseVersionService, JobTestCaseFileService, EditorNoteService, JobCollectionService, EditorStateService, \
+    JobTestCaseVersionService, JobTestCaseFileService, EditorNoteService, JobCollectionService, UpdateStateService, \
     JobTestPrepareService, JobTestProcessSuiteService, JobTestProcessCaseService, JobTestCasePerResultService, \
-    JobMonitorItemService, JobTestProcessMonitorJobService, DataConversionService
+    JobTestProcessMonitorJobService, DataConversionService
 from tone.core.common.constant import JOB_MONITOR_ITEM
 from tone.core.common.expection_handler.custom_error import JobTestException
 from tone.core.common.expection_handler.error_catch import views_catch_error
@@ -392,14 +392,14 @@ class JobCollectionView(CommonAPIView):
 
 class EditorStateView(CommonAPIView):
     permission_classes = []
-    service_class = EditorStateService
+    service_class = UpdateStateService
 
     @method_decorator(views_catch_error)
     def post(self, request):
         """
         创建CodeBranch
         """
-        self.service.editor_state(request.data)
+        self.service.update_state(request.data, request.user.id)
         return Response(self.get_response_code())
 
 

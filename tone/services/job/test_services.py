@@ -713,102 +713,82 @@ class JobCollectionService(CommonService):
         JobCollection.objects.filter(job_id=job_id, user_id=operator.id).delete()
 
 
-class EditorStateService(CommonService):
-    @staticmethod  # noqa: C901
-    def editor_state(data):
-        editor_obj = data.get('editor_obj')
+class UpdateStateService(CommonService):
+    def update_state(self, data, user_id):
+        update_obj = data.get('editor_obj')
         state = data.get('state')
-        user_id = data.get('user_id')
-        user_query = User.objects.filter(id=user_id)
-        user_first_name = user_query.values('first_name')[0]['first_name'] if user_query.values('first_name') else None
-        user_last_name = user_query.values('last_name')[0]['last_name']
-        if user_first_name:
-            user = user_last_name + "(" + '{}'.format(user_first_name) + ")"
-        else:
-            user = user_last_name
-        if editor_obj not in ['job', 'test_job_suite', 'test_job_conf']:
+        operation_note = self._get_operation_note(user_id, state)
+        if update_obj not in ['job', 'test_job_suite', 'test_job_conf']:
+            raise JobTestException(ErrorCode.EDITOR_OBJ_ERROR)
+        if update_obj == 'job':
+            self._update_job_state(data, state, operation_note)
+        elif update_obj == 'test_job_suite':
+            self._update_suite_state(data, state, operation_note)
+        elif update_obj == 'test_job_conf':
+            self._update_conf_state(data, state, operation_note)
+
+    @staticmethod
+    def _get_operation_note(user_id, state):
+        user = User.objects.filter(id=user_id)
+        user_name = user.first().last_name if user.exists() else ''
+        operation_note = f'{state} by {user_name}'
+        return operation_note
+
+    @staticmethod
+    def _update_job_state(data, state, operation_note):
+        job_id = data.get('job_id')
+        assert job_id, JobTestException(ErrorCode.ID_NEED)
+        if state not in ['stop']:
             raise JobTestException(ErrorCode.EDITOR_OBJ_ERROR)
         with transaction.atomic():
-            if editor_obj == 'job':
-                job_id = data.get('job_id')
-                assert job_id, JobTestException(ErrorCode.ID_NEED)
-                if state not in ['stop']:
-                    raise JobTestException(ErrorCode.EDITOR_OBJ_ERROR)
-                if not TestJob.objects.filter(id=job_id).exists() or \
-                        (TestJob.objects.get(id=job_id).state not in ["running", "pending", "pending_q"]):
-                    raise JobTestException(ErrorCode.STOP_JOB_ERROR)
-                TestJob.objects.filter(id=job_id, state__in=['running', 'pending', 'pending_q']).update(state=state)
-                message = '{} by {}'.format(state, user)
-                TestJobCase.objects.filter(job_id=job_id).update(note=message)
-            elif editor_obj == 'test_job_suite':
-                test_job_suite_id = data.get('test_job_suite_id')
-                if state not in ['stop', 'skip']:
-                    raise JobTestException(ErrorCode.EDITOR_OBJ_ERROR)
-                assert test_job_suite_id, JobTestException(ErrorCode.ID_NEED)
-                if state == 'stop':
-                    if not TestJobSuite.objects.filter(id=test_job_suite_id).exists() or TestJobSuite.objects.get(
-                            id=test_job_suite_id).state not in ["running", "pending"]:
-                        raise JobTestException(ErrorCode.STOP_SUITE_ERROR)
+            TestJob.objects.filter(
+                id=job_id,
+                state__in=['running', 'pending', 'pending_q']
+            ).update(state=state)
+            TestJobCase.objects.filter(job_id=job_id).update(note=operation_note)
 
-                    job_suite = TestJobSuite.objects.filter(id=test_job_suite_id, state='running').first()
-                    job_suite.state = state
-                    job_cases = TestJobCase.objects.filter(job_id=job_suite.job_id, test_suite_id=job_suite.test_suite_id,
-                                                           state__in=['running', 'pending'])
-                    message = '{} by {}'.format(state, user)
-                    TestJobCase.objects.filter(job_id=job_suite.job_id, test_suite_id=job_suite.test_suite_id).update(
-                        note=message)
-                else:
-                    job_suite = TestJobSuite.objects.filter(id=test_job_suite_id,
-                                                            state__in=['pending', 'running']).first()
-                    job_cases = TestJobCase.objects.filter(job_id=job_suite.job_id,
-                                                           test_suite_id=job_suite.test_suite_id,
-                                                           state='pending')
-                job_cases.update(state=state)
-                job_suite.save()
-                if state == 'skip':
-                    # if not TestJobSuite.objects.filter(id=test_job_suite_id).exists() or TestJobSuite.objects.get(
-                    #         id=test_job_suite_id).state not in ["pending", 'running']:
-                    #     raise JobTestException(ErrorCode.REFRESH_PAGE_CODE)
-                    job_suite_running = TestJobSuite.objects.filter(id=test_job_suite_id, state='running').first()
-                    job_suite_pending = TestJobSuite.objects.filter(id=test_job_suite_id, state='pending').first()
-                    if job_suite_running or job_suite_pending:
-                        if job_suite_running:
-                            job_cases = TestJobCase.objects.filter(job_id=job_suite_running.job_id,
-                                                                   test_suite_id=job_suite_running.test_suite_id,
-                                                                   state='pending')
-                            job_cases.update(state=state)
-                            job_suite_running.save()
-                            message = '{} by {}'.format(state, user)
-                            TestJobCase.objects.filter(job_id=job_suite_running.job_id,
-                                                       test_suite_id=job_suite_running.test_suite_id, ).update(
-                                note=message)
-                        else:
-                            job_suite_pending.state = state
-                            job_cases = TestJobCase.objects.filter(job_id=job_suite_pending.job_id,
-                                                                   test_suite_id=job_suite_pending.test_suite_id,
-                                                                   state='pending')
-                            job_cases.update(state=state)
-                            job_suite_pending.save()
-                            message = '{} by {}'.format(state, user)
-                            TestJobCase.objects.filter(job_id=job_suite_pending.job_id,
-                                                       test_suite_id=job_suite_pending.test_suite_id).update(
-                                note=message)
-            elif editor_obj == 'test_job_conf':
-                test_job_conf_id = data.get('test_job_conf_id')
-                assert test_job_conf_id, JobTestException(ErrorCode.ID_NEED)
-                if state not in ['stop', 'skip']:
-                    raise JobTestException(ErrorCode.EDITOR_OBJ_ERROR)
-                if state == 'stop' and not TestJobCase.objects.filter(id=test_job_conf_id,
-                                                                      state__in=['running', 'pending']).exists():
-                    raise JobTestException(ErrorCode.STOP_CASE_ERROR)
-                if state == 'skip' and not TestJobCase.objects.filter(id=test_job_conf_id,
-                                                                      state__in=['running', 'pending']).exists():
-                    raise JobTestException(ErrorCode.SKIP_CASE_ERROR)
-                TestJobCase.objects.filter(id=test_job_conf_id, state__in=['pending', 'running']).update(state=state)
-                message = '{} by {}'.format(state, user)
-                TestJobCase.objects.filter(id=test_job_conf_id).update(note=message)
-            else:
-                pass
+    @staticmethod
+    def _update_suite_state(data, state, operation_note):
+        test_job_suite_id = data.get('test_job_suite_id')
+        if state not in ['stop', 'skip']:
+            raise JobTestException(ErrorCode.EDITOR_OBJ_ERROR)
+        assert test_job_suite_id, JobTestException(ErrorCode.ID_NEED)
+        job_suite = TestJobSuite.objects.filter(
+            id=test_job_suite_id,
+            state__in=['running', 'pending']
+        ).first()
+        if not job_suite:
+            raise JobTestException(ErrorCode.STOP_SUITE_ERROR)
+        job_id = job_suite.job_id
+        suite_id = job_suite.test_suite_id
+        if state == 'stop':
+            q = Q(job_id=job_id, test_suite_id=suite_id, state__in=['running', 'pending'])
+        else:
+            q = Q(job_id=job_id, test_suite_id=suite_id, state='pending')
+        with transaction.atomic():
+            TestJobCase.objects.filter(q).update(state=state, note=operation_note)
+            if not TestJobCase.objects.filter(job_id=job_id, test_suite_id=suite_id, state='running').exists():
+                TestJobSuite.objects.filter(id=test_job_suite_id).update(state=state)
+
+    @staticmethod
+    def _update_conf_state(data, state, operation_note):
+        test_job_conf_id = data.get('test_job_conf_id')
+        assert test_job_conf_id, JobTestException(ErrorCode.ID_NEED)
+        if state not in ['stop', 'skip']:
+            raise JobTestException(ErrorCode.EDITOR_OBJ_ERROR)
+        if state == 'stop' and not TestJobCase.objects.filter(
+                id=test_job_conf_id, state__in=['running', 'pending']
+        ).exists():
+            raise JobTestException(ErrorCode.STOP_CASE_ERROR)
+        if state == 'skip' and not TestJobCase.objects.filter(
+                id=test_job_conf_id, state__in=['running', 'pending']
+        ).exists():
+            raise JobTestException(ErrorCode.SKIP_CASE_ERROR)
+        with transaction.atomic():
+            TestJobCase.objects.filter(
+                id=test_job_conf_id, state__in=['pending', 'running']
+            ).update(state=state)
+            TestJobCase.objects.filter(id=test_job_conf_id).update(note=operation_note)
 
 
 class JobRerunService(CommonService):
