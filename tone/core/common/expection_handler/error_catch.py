@@ -26,9 +26,13 @@ def views_catch_error(func):
         except Exception as err:
             logger = get_logger()
             try:
-                err_code = eval(str(err))
-                code = err_code[0]
-                msg = err_code[1]
+                if len(err.args) > 0 and len(err.args[0]) == 2:
+                    err_code = err.args[0]
+                    code = err_code[0]
+                    msg = err_code[1]
+                else:
+                    msg = str(err)
+                    code = 500
             except SyntaxError:
                 error_detail = traceback.format_exc()
                 code = 500
