@@ -29,13 +29,13 @@ class ErrorCode(object):
 
     USERNAME_NOT_REGISTER = (804, "该用户名未注册或未配置token")
 
-    TOKEN_FORMAT_ERROR = (997, "format error")
+    TOKEN_FORMAT_ERROR = (997, "token格式错误")
 
-    TOKEN_OVERDUE = (998, "token overdue")
+    TOKEN_OVERDUE = (998, "token已过期")
 
-    TOKEN_INVALID = (999, "token invalid")
+    TOKEN_INVALID = (999, "token无效")
 
-    TOKEN_NEED = (1000, "token is required !")
+    TOKEN_NEED = (1000, "缺少参数token")
 
     # auth: 1001~1200
     TOKEN_ERROR = (1001, "token错误")
