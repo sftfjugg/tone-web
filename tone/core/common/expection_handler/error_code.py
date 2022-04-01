@@ -19,13 +19,13 @@ class ErrorCode(object):
     # common
     PROGRAM_ERROR = (500, "程序出错")
 
-    NAME_NEED = (800, "name 必须传")
+    NAME_NEED = (800, "缺少参数name")
 
-    WS_NEED = (801, "ws_id 必须传")
+    WS_NEED = (801, "缺少参数ws_id")
 
-    JOB_NEED = (802, "job_id 必须传")
+    JOB_NEED = (802, "缺少参数job_id")
 
-    ID_NEED = (803, "缺失记录id")
+    ID_NEED = (803, "缺少参数记录id")
 
     USERNAME_NOT_REGISTER = (804, "该用户名未注册或未配置token")
 
