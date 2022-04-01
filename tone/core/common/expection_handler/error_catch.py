@@ -62,7 +62,7 @@ def api_catch_error(func):
                 msg = str(err)
                 code = 500
             resp.result = False
-            if settings.ENV_TYPE == 'prod':
+            if settings.ENV_TYPE == 'prod' and code == 500:
                 resp.msg = '系统错误，请联系开发'
             else:
                 resp.msg = msg
