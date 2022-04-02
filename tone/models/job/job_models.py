@@ -76,7 +76,7 @@ class TestJob(BaseModel):
     created_from = models.CharField(max_length=64, choices=JOB_CREATED_FROM_CHOICES,
                                     default='web', db_index=True, help_text='创建类型')
     ws_id = models.CharField(max_length=64, help_text='workspace id')
-    note = models.CharField(max_length=255, null=True, blank=True, help_text='NOTE')
+    note = models.TextField(null=True, blank=True, help_text='NOTE')
     test_result = models.CharField(max_length=64, null=True, blank=True, help_text='结果统计')
     state_desc = models.TextField(null=True, blank=True)
     build_job_id = models.IntegerField(null=True, help_text='build job id')
