@@ -454,7 +454,10 @@ def get_perf_suite_list(report_item_id):
         suite_data['suite_name'] = test_suite_obj.test_suite_name
         suite_data['suite_id'] = test_suite_obj.test_suite_id
         suite_data['show_type'] = test_suite_obj.show_type
-        suite_data['test_suite_description'] = test_suite_obj.test_suite_description
+        suite_data['test_suite_description'] = ''
+        test_suite = TestSuite.objects.filter(name=test_suite_obj.test_suite_name).first()
+        if test_suite:
+            suite_data['test_suite_description'] = test_suite.doc
         suite_data['test_env'] = test_suite_obj.test_env
         suite_data['test_description'] = test_suite_obj.test_description
         suite_data['test_conclusion'] = test_suite_obj.test_conclusion
