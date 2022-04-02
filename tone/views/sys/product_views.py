@@ -37,7 +37,7 @@ class ProductView(CommonAPIView):
         """
         创建Product
         """
-        self.service.create(request.data, operator=request.user)
+        self.service.create(request.data)
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
@@ -45,7 +45,7 @@ class ProductView(CommonAPIView):
         """
         修改Product
         """
-        self.service.update(request.data, operator=request.user)
+        self.service.update(request.data)
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
@@ -53,7 +53,7 @@ class ProductView(CommonAPIView):
         """
         删除Product
         """
-        self.service.delete(request.data, operator=request.user)
+        self.service.delete(request.data)
         return Response(self.get_response_code())
 
 
@@ -78,7 +78,7 @@ class ProjectView(CommonAPIView):
         """
         创建Project
         """
-        self.service.create(request.data, operator=request.user)
+        self.service.create(request.data)
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
@@ -86,7 +86,7 @@ class ProjectView(CommonAPIView):
         """
         修改Project
         """
-        self.service.update(request.data, operator=request.user)
+        self.service.update(request.data)
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
@@ -94,7 +94,7 @@ class ProjectView(CommonAPIView):
         """
         删除Project
         """
-        self.service.delete(request.data, operator=request.user)
+        self.service.delete(request.data)
         return Response(self.get_response_code())
 
 
@@ -119,7 +119,7 @@ class RepositoryView(CommonAPIView):
         """
         创建Repository
         """
-        self.service.create(request.data, operator=request.user)
+        self.service.create(request.data)
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
@@ -127,7 +127,7 @@ class RepositoryView(CommonAPIView):
         """
         修改Repository
         """
-        self.service.update(request.data, operator=request.user)
+        self.service.update(request.data)
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
@@ -135,7 +135,7 @@ class RepositoryView(CommonAPIView):
         """
         删除Repository
         """
-        self.service.delete(request.data, operator=request.user)
+        self.service.delete(request.data)
         return Response(self.get_response_code())
 
 
@@ -177,7 +177,7 @@ class CodeBranchView(CommonAPIView):
         """
         创建CodeBranch
         """
-        self.service.create(request.data, operator=request.user)
+        self.service.create(request.data)
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
@@ -185,7 +185,7 @@ class CodeBranchView(CommonAPIView):
         """
         修改CodeBranch
         """
-        self.service.update(request.data, operator=request.user)
+        self.service.update(request.data)
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
@@ -193,7 +193,7 @@ class CodeBranchView(CommonAPIView):
         """
         删除CodeBranch
         """
-        self.service.delete(request.data, operator=request.user)
+        self.service.delete(request.data)
         return Response(self.get_response_code())
 
 
@@ -222,7 +222,7 @@ class ProjectBranchView(CommonAPIView):
         """
         创建Project Branch关联
         """
-        self.service.create(request.data, operator=request.user)
+        self.service.create(request.data)
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
@@ -230,7 +230,7 @@ class ProjectBranchView(CommonAPIView):
         """
         修改Project Branch关联
         """
-        self.service.update(request.data, operator=request.user)
+        self.service.update(request.data)
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
@@ -238,7 +238,7 @@ class ProjectBranchView(CommonAPIView):
         """
         删除Project Branch关联
         """
-        self.service.delete(request.data, operator=request.user)
+        self.service.delete(request.data)
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
