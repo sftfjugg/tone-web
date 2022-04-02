@@ -24,7 +24,7 @@ class ProductService(CommonService):
         q &= Q(ws_id=data.get('ws_id')) if data.get('ws_id') else q
         return queryset.filter(q)
 
-    def update(self, data, operator):
+    def update(self, data):
         prd_id = data.get('prd_id')
         assert prd_id, ProductException(ErrorCode.PRODUCT_ID_NEED)
         obj = Product.objects.get(id=prd_id)
@@ -38,7 +38,7 @@ class ProductService(CommonService):
                 pass
         obj.save()
 
-    def create(self, data, operator):
+    def create(self, data):
         name = data.get('name')
         description = data.get('description')
         ws_id = data.get('ws_id')
@@ -49,7 +49,7 @@ class ProductService(CommonService):
         Product.objects.create(name=name, description=description, ws_id=ws_id, command=command)
 
     @staticmethod
-    def delete(data, operator):
+    def delete(data):
         prd_id = data.get('prd_id')
         assert prd_id, ProductException(ErrorCode.PRODUCT_ID_NEED)
         if Product.objects.filter(id=prd_id, is_default=True).exists():
@@ -78,7 +78,7 @@ class ProjectService(CommonService):
         q &= Q(is_show=data.get('is_show')) if data.get('is_show') else q
         return queryset.filter(q)
 
-    def update(self, data, operator):
+    def update(self, data):
         project_id = data.get('project_id')
         is_show = data.get('is_show') if data.get('is_show') else 0
         assert project_id, ProductException(ErrorCode.PROJECT_ID_NEED)
@@ -97,7 +97,7 @@ class ProjectService(CommonService):
                 pass
         obj.save()
 
-    def create(self, data, operator):
+    def create(self, data):
         name = data.get('name')
         description = data.get('description')
         ws_id = data.get('ws_id')
@@ -112,7 +112,7 @@ class ProjectService(CommonService):
                                product_id=product_id, is_show=is_show)
 
     @staticmethod
-    def delete(data, operator):
+    def delete(data):
         project_id = data.get('project_id')
         assert project_id, ProductException(ErrorCode.PROJECT_ID_NEED)
         if Project.objects.filter(id=project_id, is_default=True).exists():
@@ -164,7 +164,7 @@ class RepoService(CommonService):
         q &= Q(ws_id=data.get('ws_id')) if data.get('ws_id') else q
         return queryset.filter(q)
 
-    def update(self, data, operator):
+    def update(self, data):
         repo_id = data.get('repo_id')
         ws_id = data.get('ws_id')
         assert repo_id, ProductException(ErrorCode.REPOSITORY_ID_NEED)
@@ -184,7 +184,7 @@ class RepoService(CommonService):
                     pass
             obj.save()
 
-    def create(self, data, operator):
+    def create(self, data):
         name = data.get('name')
         description = data.get('description')
         git_url = data.get('git_url')
@@ -197,7 +197,7 @@ class RepoService(CommonService):
         Repo.objects.create(name=name, description=description, git_url=git_url, ws_id=ws_id)
 
     @staticmethod
-    def delete(data, operator):
+    def delete(data):
         repo_id = data.get('repo_id')
         assert repo_id, ProductException(ErrorCode.REPOSITORY_ID_NEED)
         with transaction.atomic():
@@ -225,7 +225,7 @@ class RepoBranchService(CommonService):
         q &= Q(repo_id=data.get('repo_id')) if data.get('repo_id') else q
         return queryset.filter(q)
 
-    def update(self, data, operator):
+    def update(self, data):
         branch_id = data.get('branch_id')
         assert branch_id, ProductException(ErrorCode.BRANCH_ID_NEED)
         obj = RepoBranch.objects.get(id=branch_id)
@@ -241,7 +241,7 @@ class RepoBranchService(CommonService):
                 pass
         obj.save()
 
-    def create(self, data, operator):
+    def create(self, data):
         name = data.get('name')
         description = data.get('description')
         repo_id = data.get('repo_id')
@@ -252,7 +252,7 @@ class RepoBranchService(CommonService):
         RepoBranch.objects.create(name=name, description=description, repo_id=repo_id)
 
     @staticmethod
-    def delete(data, operator):
+    def delete(data):
         branch_id = data.get('branch_id')
         assert branch_id, ProductException(ErrorCode.BRANCH_ID_NEED)
         RepoBranch.objects.filter(id=branch_id).delete()
@@ -283,7 +283,7 @@ class ProjectBranchService(CommonService):
         return queryset.filter(q)
 
     @staticmethod
-    def create(data, operator):
+    def create(data):
         project_id = data.get('project_id')
         repo_id = data.get('repo_id')
         branch_id = data.get('branch_id')
@@ -295,13 +295,13 @@ class ProjectBranchService(CommonService):
                                              is_master=is_master)
 
     @staticmethod
-    def delete(data, operator):
+    def delete(data):
         relation_id = data.get('relation_id')
         assert relation_id, ProductException(ErrorCode.RELATION_ID_NEED)
         ProjectBranchRelation.objects.filter(id=relation_id).delete()
 
     @staticmethod
-    def update(data, operator):
+    def update(data):
         relation_id = data.get('relation_id')
         assert relation_id, ProductException(ErrorCode.RELATION_ID_NEED)
         obj = ProjectBranchRelation.objects.get(id=relation_id)
