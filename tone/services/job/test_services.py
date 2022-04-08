@@ -417,19 +417,23 @@ class JobTestService(CommonService):
             job_id_li.append(job_id)
         if not self.check_delete_permission(operator, job_id_li):
             return False, '无权限删除非自己创建的job'
-        for job_id in job_id_li:
-            with transaction.atomic():
-                test_job = TestJob.objects.get(id=job_id)
-                if test_job.state in ['pending', 'pending_q']:
-                    job_cases = TestJobCase.objects.filter(job_id=job_id)
-                    for job_case in job_cases:
-                        if test_job.server_provider == "aligroup":
-                            job_case.server_object_id and TestServer.objects.filter(
-                                id=job_case.server_object_id).update(spec_use=0)
-                        else:
-                            job_case.server_object_id and CloudServer.objects.filter(
-                                id=job_case.server_object_id).update(spec_use=0)
-                TestJob.objects.filter(id=job_id).delete()
+        pending_jobs = TestJob.objects.filter(
+            id__in=job_id_li, state__in=['pending', 'pending_q']
+        )
+        group_pending_jobs = pending_jobs.filter(server_provider='aligroup')
+        yun_pending_jobs = pending_jobs.filter(server_provider='aliyun')
+        group_server_ids = TestJobCase.objects.filter(
+            job_id__in=group_pending_jobs.values_list('id', flat=True)
+        ).values_list('server_object_id', flat=True)
+        yun_server_ids = TestJobCase.objects.filter(
+            job_id__in=yun_pending_jobs.values_list('id', flat=True)
+        ).values_list('server_object_id', flat=True)
+        with transaction.atomic():
+            TestJob.objects.filter(id__in=job_id_li).delete()
+            if group_server_ids:
+                TestServer.objects.filter(id__in=group_server_ids).update(spec_use=0)
+            if yun_server_ids:
+                CloudServer.objects.filter(id__in=yun_server_ids).update(spec_use=0)
         return True, '删除成功'
 
     @staticmethod
