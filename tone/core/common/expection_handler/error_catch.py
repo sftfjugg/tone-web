@@ -26,8 +26,8 @@ def views_catch_error(func):
         except Exception as err:
             logger = get_logger()
             try:
-                if len(err.args) > 0 and len(err.args[0]) == 2:
-                    err_code = err.args[0]
+                if len(err.args) > 0 and len(err.args) == 2:
+                    err_code = err.args
                     code = err_code[0]
                     msg = err_code[1]
                 else:
@@ -59,9 +59,13 @@ def api_catch_error(func):
             resp = CommResp()
             logger = get_logger()
             try:
-                err_code = eval(str(err))
-                code = err_code[0]
-                msg = err_code[1]
+                if len(err.args) > 0 and len(err.args[0]) == 2:
+                    err_code = err.args[0]
+                    code = err_code[0]
+                    msg = err_code[1]
+                else:
+                    msg = str(err)
+                    code = 500
             except SyntaxError:
                 msg = str(err)
                 code = 500
