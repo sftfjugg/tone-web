@@ -49,17 +49,17 @@ class ErrorCode(object):
 
     KERNEL_NONEXISTENT = (1202, "kernel_info不存在")
 
-    KERNEL_NAME_LACK = (1203, "kernel name is must need !")
+    KERNEL_NAME_LACK = (1203, "缺少参数kernel name")
 
-    KERNEL_VERSION_LACK = (1204, "kernel version is must need !")
+    KERNEL_VERSION_LACK = (1204, "缺少参数kernel version")
 
-    KERNEL_PACKAGE_LACK = (1205, "kernel_link, devel_link, headers_link is must need !")
+    KERNEL_PACKAGE_LACK = (1205, "缺少参数kernel_link, devel_link, headers_link")
 
-    KERNEL_ID_LACK = (1206, "kernel_id is must need !")
+    KERNEL_ID_LACK = (1206, "缺少参数kernel_id")
 
     KERNEL_VERSION_DUPLICATION = (1207, "已存在同名version")
 
-    TAG_NONEXISTENT = (1301, "该ws下tag不存在")
+    TAG_NONEXISTENT = (1301, "该workspace下tag不存在")
 
     TAG_DUPLICATION = (1302, "已存在同名tag")
 
@@ -67,31 +67,31 @@ class ErrorCode(object):
 
     TYPE_DUPLICATION = (1304, "已存在同名job_type")
 
-    TYPE_ID_LACK = (1305, "job_type id must need")
+    TYPE_ID_LACK = (1305, "缺少参数job_type id")
 
-    ITEM_NONEXISTENT = (1306, "的原子项不存在")
+    ITEM_NONEXISTENT = (1306, "job_type的原子项不存在")
 
     SYS_TYPE_ATOMIC = (1307, "系统类型无法删除")
 
-    ITEM_MUST_DIC = (1308, "item_dic is must dict !")
+    ITEM_MUST_DIC = (1308, "参数item_dic类型应该是dict")
 
-    SERVER_TYPE_LACK = (1309, "server_type is must need !")
+    SERVER_TYPE_LACK = (1309, "缺少参数server_type")
 
-    TEST_TYPE_LACK = (1310, "test_type is must need !")
+    TEST_TYPE_LACK = (1310, "缺少参数test_type")
 
-    TAG_ID_NEED = (1311, "tag_id is must need !")
+    TAG_ID_NEED = (1311, "缺少参数tag_id")
 
     TEST_JOB_NONEXISTENT = (1351, "Job不存在")
 
-    TEST_CONF_NEED = (1352, "test_config is must need !")
+    TEST_CONF_NEED = (1352, "缺少参数test_config")
 
-    TEST_CONF_LIST = (1353, "test_config must be list !")
+    TEST_CONF_LIST = (1353, "参数test_config类型应该是list")
 
-    TEST_SUITE_NEED = (1354, "test_suite_id must need")
+    TEST_SUITE_NEED = (1354, "缺少参数test_suite_id")
 
-    TEST_SUITE_NAME_NEED = (1354, "test_suite_name must need")
+    TEST_SUITE_NAME_NEED = (1354, "缺少参数test_suite_name")
 
-    CASES_LIST = (1354, "cases_list must be list !")
+    CASES_LIST = (1354, "参数cases_list类型应该是list")
 
     SERVER_NONEXISTENT = (1355, "workspace下机器不存在")
 
