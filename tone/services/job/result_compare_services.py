@@ -56,7 +56,8 @@ class CompareSuiteInfoService(CommonService):
                     baseline_id=obj_id) if test_type == 'func' else PerfBaselineDetail.objects.filter(
                     baseline_id=obj_id)
             all_test_suites = list(TestSuite.objects.values_list('id', 'name'))
-            all_test_cases = list(TestCase.objects.values_list('id', 'name'))
+            case_id_list = TestJobCase.objects.filter(job_id=obj_id).values_list('test_case_id')
+            all_test_cases = list(TestCase.objects.filter(id__in=case_id_list).values_list('id', 'name'))
             for job_case in job_cases:
                 suite_id = job_case.test_suite_id
                 case_id = job_case.test_case_id
