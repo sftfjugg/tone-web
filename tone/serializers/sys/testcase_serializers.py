@@ -330,11 +330,11 @@ class TestMetricSerializer(CommonSerializer):
 
     @staticmethod
     def get_cv_threshold(obj):
-        return obj.cv_threshold * 100
+        return round(float(obj.cv_threshold * 100), 2) if obj.cv_threshold else ''
 
     @staticmethod
     def get_cmp_threshold(obj):
-        return obj.cmp_threshold * 100
+        return round(float(obj.cmp_threshold * 100), 2) if obj.cmp_threshold else ''
 
     @staticmethod
     def get_obj_name(obj):
