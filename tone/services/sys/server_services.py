@@ -54,7 +54,7 @@ class TestServerService(CommonService):
 
     @staticmethod
     def filter_specify_machine(queryset, data):
-        q = ()
+        q = Q()
         if data.get('ws_id'):
             q &= Q(ws_id=data.get('ws_id'))
         if data.get('state'):
