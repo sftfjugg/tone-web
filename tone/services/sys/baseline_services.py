@@ -619,7 +619,7 @@ class PerfBaselineService(CommonService):
                 perf_baseline_detail_list.append(perf_baseline_detail_obj)
         return True, PerfBaselineDetail.objects.bulk_create(perf_baseline_detail_list)
 
-    def _add_perf_baseline(self, perf_res_id, job_id, server_provider, baseline_id, ):
+    def _add_perf_baseline(self, perf_res_id, job_id, server_provider, baseline_id):
         sm_name = ''
         instance_type = ''
         image = ''
@@ -682,7 +682,7 @@ class PerfBaselineService(CommonService):
                 perf_result.save()
             return perf_baseline_detail_obj
         else:
-            perf_detail.update(
+            PerfBaselineDetail.objects.filter(id=perf_detail.first().id).update(
                 baseline_id=baseline_id,
                 test_job_id=job_id,
                 test_suite_id=suite_id,
