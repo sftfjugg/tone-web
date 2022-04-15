@@ -204,13 +204,13 @@ class ReportHandle(object):
             compare_data.append(compare_obj)
             ReportItemMetric.objects.create(report_item_conf_id=report_item_conf.id,
                                             test_metric=perf_result.metric,
-                                            test_value=perf_baseline.test_value if perf_baseline else '',
-                                            cv_value=perf_baseline.cv_value.replace('±', '') if perf_baseline else '',
-                                            unit=perf_baseline.unit if perf_baseline else '',
-                                            max_value=perf_baseline.max_value if perf_baseline else '',
-                                            min_value=perf_baseline.min_value if perf_baseline else '',
-                                            value_list=perf_baseline.value_list if perf_baseline else '',
-                                            direction=metric_obj.direction if metric_obj else '',
+                                            test_value=perf_baseline.test_value if perf_baseline else '0',
+                                            cv_value=perf_baseline.cv_value.replace('±', '') if perf_baseline else '0',
+                                            unit=perf_baseline.unit if perf_baseline else None,
+                                            max_value=perf_baseline.max_value if perf_baseline else '0',
+                                            min_value=perf_baseline.min_value if perf_baseline else '0',
+                                            value_list=perf_baseline.value_list if perf_baseline else '[]',
+                                            direction=metric_obj.direction if metric_obj else 'na',
                                             compare_data=compare_data)
         else:
             ReportItemMetric.objects.create(report_item_conf_id=report_item_conf.id,
