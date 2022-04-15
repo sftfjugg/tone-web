@@ -55,6 +55,7 @@ class PerfAnalysisService(CommonService):
         assert start_time, AnalysisException(ErrorCode.START_TIME_NEED)
         assert end_time, AnalysisException(ErrorCode.END_TIME_NEED)
         end_time = date_add(end_time, 1)
+        job_list = []
         with connection.cursor() as cursor:
             sql = self.get_sql(provider_env, tag)
             for metric in metrics:
@@ -63,15 +64,21 @@ class PerfAnalysisService(CommonService):
                                start_time=datetime.strptime(start_time, '%Y-%m-%d'),
                                end_time=datetime.strptime(end_time, '%Y-%m-%d'), tag=tag, provider_env=provider_env))
                 rows = cursor.fetchall()
-                metric_data = self.get_metric_data(rows, provider_env)
-                result_data = self.get_result_data(metric_data, provider_env, start_time, end_time)
-                job_list = self.get_job_list(result_data, provider_env)
-                # baseline_id = self.get_baseline_id(test_suite, test_case, metric)
-                baseline_data = self.get_baseline_data(test_suite, test_case, metric, job_list)
-                metric_map[metric] = {
-                    'result_data': result_data,
-                    'baseline_data': baseline_data
-                }
+                if rows:
+                    metric_data = self.get_metric_data(rows, provider_env)
+                    result_data = self.get_result_data(metric_data, provider_env, start_time, end_time)
+                    job_list = self.get_job_list(result_data, provider_env)
+                    # baseline_id = self.get_baseline_id(test_suite, test_case, metric)
+                    baseline_data = self.get_baseline_data(test_suite, test_case, metric, job_list)
+                    metric_map[metric] = {
+                        'result_data': result_data,
+                        'baseline_data': baseline_data
+                    }
+                else:
+                    metric_map[metric] = {
+                        'result_data': {},
+                        'baseline_data': {'value': 'null', 'cv_value': 'null'}
+                    }
         res_data = {
             'job_list': job_list,
             'metric_map': metric_map
