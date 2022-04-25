@@ -27,16 +27,19 @@ class PerfAnalysisService(CommonService):
         test_suite = data.get('test_suite_id', None)
         test_case = data.get('test_case_id', None)
         project_id = data.get('project_id')
-        test_last_job = TestJob.objects.filter(project_id=project_id)
-        test_job_id = test_last_job.last().id if test_last_job else None
-        perf_res = PerfResult.objects.filter(test_suite_id=test_suite, test_case_id=test_case,
-                                             test_job_id=test_job_id).last()
-        if not perf_res:
-            return None
-        metrics = PerfResult.objects.filter(test_job_id=perf_res.test_job_id, test_suite_id=test_suite,
-                                            test_case_id=test_case).values('metric')
-        metric_list = sorted(list(set([metric['metric'] for metric in metrics])))
-        return metric_list
+        if not project_id:
+            assert project_id, AnalysisException(ErrorCode.PROJECT_ID_NEED)
+        test_job = TestJob.objects.filter(project_id=project_id)
+        if test_job:
+            test_job_id = test_job.last().id
+            perf_res = PerfResult.objects.filter(test_suite_id=test_suite, test_case_id=test_case,
+                                                 test_job_id=test_job_id).last()
+            if not perf_res:
+                return None
+            metrics = PerfResult.objects.filter(test_job_id=perf_res.test_job_id, test_suite_id=test_suite,
+                                                test_case_id=test_case).values_list('metric', flat=True)
+            metric_list = sorted(list(set(metrics)))
+            return metric_list
 
     def filter(self, data):
         metric_map = dict()
