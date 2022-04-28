@@ -103,7 +103,7 @@ class ErrorCode(object):
 
     DATA_FORM_ERROR = (1359, "data_from 参数有误 !")
 
-    CONFIG_ID_NEED = (1360, "config is must need !")
+    CONFIG_ID_NEED = (1360, "缺少参数config!")
 
     CONFIG_NONEXISTENT = (1361, "config不存在")
 
@@ -111,19 +111,19 @@ class ErrorCode(object):
 
     CONFIG_KEY_NEED = (1363, "config_key 必须传")
 
-    CONFIG_TYPE_NEED = (1364, "config_type 必须传")
+    CONFIG_TYPE_NEED = (1364, "缺少参数config_type")
 
     TEST_TEMPLATE_NONEXISTENT = (1365, "TestTemplate不存在")
 
-    TEMPLATE_NEED = (1366, "template_id 必须传")
+    TEMPLATE_NEED = (1366, "缺少参数template_id")
 
     DEFAULT_DUPLICATION = (1367, "同一workspace下默认job_type唯一")
 
     PRODUCT_DUPLICATION = (1368, "workspace下已存在同名product")
 
-    PRODUCT_ID_NEED = (1369, "prd_id is must need !")
+    PRODUCT_ID_NEED = (1369, "缺少参数prd_id!")
 
-    PRODUCT_NEED = (1370, "product_id 必须传")
+    PRODUCT_NEED = (1370, "缺少参数product_id")
 
     PROJECT_DUPLICATION = (1371, "已存在同名project")
 
@@ -131,20 +131,20 @@ class ErrorCode(object):
 
     PRODUCT_VERSION_NEED = (1391, "产品版本必传")
 
-    PROJECT_ID_NEED = (1372, "project_id is must need !")
+    PROJECT_ID_NEED = (1372, "缺少参数project_id!")
 
-    GIT_URL_NEED = (1373, "git_url 必须传")
+    GIT_URL_NEED = (1373, "缺少参数git_url")
 
     REPOSITORY_DUPLICATION = (1374, "project下已存在同名仓库")
 
-    REPOSITORY_ID_NEED = (1375, "repository_id is must need !")
+    REPOSITORY_ID_NEED = (1375, "缺少参数repository_id!")
     BRANCH_DUPLICATION = (1376, "仓库下已存在同名branch")
 
-    BRANCH_ID_NEED = (1377, "branch_id is must need !")
+    BRANCH_ID_NEED = (1377, "缺少参数branch_id!")
 
-    SUITE_NEED = (1378, "suite_id must need")
+    SUITE_NEED = (1378, "缺少参数suite_id")
 
-    CASE_NEED = (1379, "case_id must need")
+    CASE_NEED = (1379, "缺少参数case_id")
 
     TEMPLATE_NAME_EXIST = (1380, "该ws下模板名字已存在")
 
@@ -160,7 +160,7 @@ class ErrorCode(object):
 
     EDITOR_OBJ_ERROR = (1386, "编辑对象不在范围内")
 
-    RELATION_ID_NEED = (1387, "relation_id is must need !")
+    RELATION_ID_NEED = (1387, "缺少参数relation_id!")
 
     STOP_JOB_ERROR = (1388, "只允许停止running状态job")
 
@@ -174,7 +174,7 @@ class ErrorCode(object):
 
     DEFAULT_PRODUCT_CAN_NOT_DELETE = (1343, "无法删除默认product")
 
-    CREATOR_NEED = (500, "creator is required !")
+    CREATOR_NEED = (500, "缺少参数creator!")
 
     SUPPORT_POST = (500, "job create only support POST request !")
 
@@ -184,57 +184,57 @@ class ErrorCode(object):
 
     NO_PRODUCT = (500, "product 不存在")
 
-    TOKEN_ID_NEED = (1342, "token_id is must need !")
+    TOKEN_ID_NEED = (1342, "缺少参数token_id!")
 
-    PROJECT_NOT_EXISTS = (1343, "project name not exists !")
+    PROJECT_NOT_EXISTS = (1343, "project name不存在!")
 
-    BASELINE_NOT_EXISTS = (1344, "this ws baseline name not exists !")
+    BASELINE_NOT_EXISTS = (1344, "该workspace下baseline name不存在!")
 
-    SUITE_NOT_EXISTS = (1345, "this ws suite name not exists !")
+    SUITE_NOT_EXISTS = (1345, "该workspace下suite name不存在!")
 
-    CASE_NOT_EXISTS = (1346, "this ws case name not exists !")
+    CASE_NOT_EXISTS = (1346, "该workspace下case name不存在!")
 
-    SERVER_NOT_EXISTS = (1347, "this ws server ip not exists !")
+    SERVER_NOT_EXISTS = (1347, "该workspace下server ip不存在!")
 
-    SERVER_TAG_NOT_EXISTS = (1348, "this ws server tag not exists !")
+    SERVER_TAG_NOT_EXISTS = (1348, "该workspace下server tag不存在!")
 
-    CLUSTER_NOT_EXISTS = (1349, "this ws cluster name not exists !")
+    CLUSTER_NOT_EXISTS = (1349, "该workspace下cluster name不存在!")
 
-    WS_NAME_NEED = (1350, " workspace  required !")
+    WS_NAME_NEED = (1350, "缺少参数workspace!")
 
     WS_NOT_EXISTS = (1351, " workspace  not exists !")
 
-    TEST_CASE_NEED = (1352, " test_case_id  必须传 !")
+    TEST_CASE_NEED = (1352, "缺少参数test_case_id!")
 
-    START_TIME_NEED = (1353, " start_time  必须传 !")
+    START_TIME_NEED = (1353, "缺少参数start_time!")
 
-    END_TIME_NEED = (1354, " end_time  必须传 !")
+    END_TIME_NEED = (1354, "缺少参数end_time!")
 
-    METRIC_NEED = (1355, " metric  必须传 !")
+    METRIC_NEED = (1355, "缺少参数metric!")
 
-    SUB_CASE_NEED = (1356, " sub_case  必须传 !")
+    SUB_CASE_NEED = (1356, "缺少参数sub_case!")
 
-    BASE_JOB_NEED = (1357, " base_group  必须传 !")
+    BASE_JOB_NEED = (1357, "缺少参数base_group!")
 
-    COMPARE_LIST_NEED = (1358, " compare_groups  必须传 !")
+    COMPARE_LIST_NEED = (1358, "缺少参数compare_groups!")
 
-    BASE_SUITE_OBJ_NEED = (1359, " base_suite_obj  必须传 !")
+    BASE_SUITE_OBJ_NEED = (1359, "缺少参数base_suite_obj!")
 
-    REPORT_SOURCE_NEED = (1360, " report_source  必须传 !")
+    REPORT_SOURCE_NEED = (1360, "缺少参数report_source!")
 
-    TEST_ENV_NEED = (1361, " test_env  必须传 !")
+    TEST_ENV_NEED = (1361, "缺少参数test_env!")
 
-    TEST_ITEM_NEED = (1362, " test_item  必须传 !")
+    TEST_ITEM_NEED = (1362, "缺少参数test_item!")
 
-    ITEM_NAME_NEED = (1363, " 测试项名字  必须传 !")
+    ITEM_NAME_NEED = (1363, "缺少参数测试项名字!")
 
-    SUITE_LIST_NEED = (1364, "测试项 suite_list  必须传 !")
+    SUITE_LIST_NEED = (1364, "缺少参数测试项 suite_list!")
 
-    SHOW_TYPE_NEED = (1365, "show_type  必须传 !")
+    SHOW_TYPE_NEED = (1365, "缺少参数show_type!")
 
-    CONF_LIST = (1366, "conf_list  必须传 !")
+    CONF_LIST = (1366, "缺少参数conf_list!")
 
-    REPORT_ID_NEED = (1367, "report_id  必须传 !")
+    REPORT_ID_NEED = (1367, "缺少参数report_id!")
 
     BUSINESS_TYPE_ERROR = (1368, "业务测试 business_type in (functional, performance, business) !")
 
