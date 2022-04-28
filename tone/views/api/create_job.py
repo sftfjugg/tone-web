@@ -63,7 +63,9 @@ def conversion_data(data):  # noqa: C901
         job_type = get_job_type(template.job_type_id)
         data['template_id'] = template.id
     else:
-        job_type = get_job_type_for_name(data.get('job_type'), ws_id)
+        job_type = data.get('job_type')
+        assert job_type, ValueError(ErrorCode.TYPE_ID_LACK)
+        job_type = get_job_type_for_name(job_type, ws_id)
         data['job_type'] = job_type.id
     provider = job_type.server_type
     if data.get('project'):
