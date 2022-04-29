@@ -70,7 +70,7 @@ class JobDataHandle(BaseHandle):
                     if Project.objects.filter(is_default=True, ws_id=self.ws_id).exists() else None
             self.data_dic['project_id'] = project_id
             self.data_dic['product_id'] = self.get_product(self.data_dic['project_id'])
-
+            self.data_dic['note'] = self.data.get('note', '')
         elif self.data_from == 'template':
             api = self.data.get('api', None)
             template_id = self.data.get('template_id')
@@ -98,7 +98,19 @@ class JobDataHandle(BaseHandle):
                 self.data_dic['iclone_info'] = self.data.get('iclone_info')
             else:
                 self.data_dic['iclone_info'] = template_obj.iclone_info
-            self.data_dic['kernel_info'] = self.data.get('kernel_info', template_obj.kernel_info)
+            kernel_info = self.data.get('kernel_info')
+            if not kernel_info:
+                kernel_info = template_obj.kernel_info
+            else:
+                if not kernel_info.get('kernel'):
+                    kernel_info['kernel'] = template_obj.kernel_info.get('kernel')
+                if not kernel_info.get('devel'):
+                    kernel_info['devel'] = template_obj.kernel_info.get('devel')
+                if not kernel_info.get('headers'):
+                    kernel_info['headers'] = template_obj.kernel_info.get('headers')
+                if not kernel_info.get('scripts') or len(kernel_info.get('scripts')) == 0:
+                    kernel_info['scripts'] = template_obj.kernel_info.get('scripts')
+            self.data_dic['kernel_info'] = kernel_info
             self.data_dic['build_pkg_info'] = self.data.get('build_pkg_info', template_obj.build_pkg_info)
             self.data_dic['script_info'] = self.data.get('script_info', template_obj.script_info)
             self.data_dic['rpm_info'] = self.data.get('rpm_info', template_obj.rpm_info)
@@ -139,6 +151,7 @@ class JobDataHandle(BaseHandle):
                 self.data_dic['project_id'] = Project.objects.filter(is_default=True, ws_id=self.ws_id).first().id \
                     if Project.objects.filter(is_default=True, ws_id=self.ws_id).exists() else None
             self.data_dic['product_id'] = self.get_product(self.data_dic['project_id'])
+            self.data_dic['note'] = self.data.get('note', '')
         elif self.data_from == 'rerun':
             job_id = self.data.get('job_id')
             self.data_dic['source_job_id'] = job_id
