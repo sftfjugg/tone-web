@@ -68,7 +68,6 @@ class PerfAnalysisService(CommonService):
                     metric_data = self.get_metric_data(rows, provider_env)
                     result_data = self.get_result_data(metric_data, provider_env, start_time, end_time)
                     job_list = self.get_job_list(result_data, provider_env)
-                    # baseline_id = self.get_baseline_id(test_suite, test_case, metric)
                     baseline_data = self.get_baseline_data(test_suite, test_case, metric, job_list)
                     metric_map[metric] = {
                         'result_data': result_data,
