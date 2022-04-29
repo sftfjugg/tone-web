@@ -971,17 +971,17 @@ def get_day_querys(data, now, product_id, project_id, hours_24_ago):
         day_querys = TestJob.objects.filter(product_id=product_id, project_id=project_id,
                                             start_time__gte=hours_24_ago,
                                             start_time__lte=now).order_by('-gmt_created')
-    if data.get('hours_48_ago'):
+    elif data.get('hours_48_ago'):
         hours_48_ago = (now - timedelta(days=2))
         day_querys = TestJob.objects.filter(product_id=product_id, project_id=project_id,
                                             start_time__gte=hours_48_ago,
                                             start_time__lte=now).order_by('-gmt_created')
-    if data.get('seven_day_ago'):
+    elif data.get('seven_day_ago'):
         seven_day_ago = (now - timedelta(days=7))
         day_querys = TestJob.objects.filter(product_id=product_id, project_id=project_id,
                                             start_time__gte=seven_day_ago,
                                             start_time__lte=now).order_by('-gmt_created')
-    if data.get('date'):
+    elif data.get('date'):
         start_time = data.get('date') + " 00:00:00"
         end_time = data.get('date') + " 23:59:59"
         day_querys = TestJob.objects.filter(product_id=product_id, project_id=project_id,
