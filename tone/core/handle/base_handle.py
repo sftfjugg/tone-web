@@ -184,9 +184,13 @@ class BaseHandle(metaclass=ABCMeta):
             else:
                 server_object = CloudServer.objects.filter(template_name=self.default_server)
         if server_object.exists():
+            if server_object.first().ws_id != self.data_dic['ws_id']:
+                raise JobTestException(ErrorCode.SERVER_NOT_IN_THIS_WS)
             case_dict['server_object_id'] = server_object.first().id
         else:
             customer_server = self.default_server
+            if TestServer.objects.filter(ip=customer_server.get('custom_ip')).exists():
+                raise JobTestException(ErrorCode.SERVER_USED_BY_OTHER_WS)
             self.package_customer_server(
                 customer_server.get('custom_ip'),
                 customer_server.get('custom_channel'),
