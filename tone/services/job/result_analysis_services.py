@@ -77,7 +77,7 @@ class PerfAnalysisService(CommonService):
                 else:
                     metric_map[metric] = {
                         'result_data': {},
-                        'baseline_data': {'value': 'null', 'cv_value': 'null'}
+                        'baseline_data': {'value': '', 'cv_value': ''}
                     }
         res_data = {
             'job_list': job_list,
