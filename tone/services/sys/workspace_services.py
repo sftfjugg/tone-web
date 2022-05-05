@@ -964,28 +964,28 @@ def get_job_state(test_job_id, test_type, state, func_view_config):
 
 def get_day_querys(data, now, product_id, project_id, hours_24_ago):
     day_querys = TestJob.objects.filter(product_id=product_id, project_id=project_id,
-                                        gmt_created__gte=hours_24_ago,
-                                        gmt_created__lte=now).order_by('-gmt_created')
+                                        start_time__gte=hours_24_ago,
+                                        start_time__lte=now).order_by('-start_time')
     if data.get('hours_24_ago'):
         hours_24_ago = (now - timedelta(days=1))
         day_querys = TestJob.objects.filter(product_id=product_id, project_id=project_id,
-                                            gmt_created__gte=hours_24_ago,
-                                            gmt_created__lte=now).order_by('-gmt_created')
-    if data.get('hours_48_ago'):
+                                            start_time__gte=hours_24_ago,
+                                            start_time__lte=now).order_by('-start_time')
+    elif data.get('hours_48_ago'):
         hours_48_ago = (now - timedelta(days=2))
         day_querys = TestJob.objects.filter(product_id=product_id, project_id=project_id,
-                                            gmt_created__gte=hours_48_ago,
-                                            gmt_created__lte=now).order_by('-gmt_created')
-    if data.get('seven_day_ago'):
+                                            start_time__gte=hours_48_ago,
+                                            start_time__lte=now).order_by('-start_time')
+    elif data.get('seven_day_ago'):
         seven_day_ago = (now - timedelta(days=7))
         day_querys = TestJob.objects.filter(product_id=product_id, project_id=project_id,
-                                            gmt_created__gte=seven_day_ago,
-                                            gmt_created__lte=now).order_by('-gmt_created')
-    if data.get('date'):
+                                            start_time__gte=seven_day_ago,
+                                            start_time__lte=now).order_by('-start_time')
+    elif data.get('date'):
         start_time = data.get('date') + " 00:00:00"
         end_time = data.get('date') + " 23:59:59"
         day_querys = TestJob.objects.filter(product_id=product_id, project_id=project_id,
-                                            gmt_created__gte=start_time, gmt_created__lte=end_time,
-                                            ws_id=data.get('ws_id')).order_by('-gmt_created')
+                                            start_time__gte=start_time, start_time__lte=end_time,
+                                            ws_id=data.get('ws_id')).order_by('-start_time')
     return day_querys
 
