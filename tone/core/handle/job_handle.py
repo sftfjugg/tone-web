@@ -357,6 +357,14 @@ class JobDataHandle(BaseHandle):
                                                                 in_pool=False)
                 self.server_map[custom_ip] = server_snapshot.id
             return self.server_map[custom_ip]
+        elif self.default_cloud_server:
+            instance_id = self.default_cloud_server.get('instance_id')
+            if self.cloud_server_map.get(instance_id):
+                return self.cloud_server_map.get(instance_id)
+            else:
+                server_snapshot_id = self._get_default_cloud_server()
+                self.cloud_server_map[instance_id] = server_snapshot_id
+                return server_snapshot_id
 
     def get_server_obj(self, case):
         if case.run_mode == 'cluster':
