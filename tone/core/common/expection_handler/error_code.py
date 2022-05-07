@@ -241,3 +241,7 @@ class ErrorCode(object):
     CASE_MACHINE_NUM_ERROR = (1369, "case_machine  数量错误 !")
 
     MONITOR_IP_OR_SN_ERROR = (1369, "监控配置 IP/SN错误 !")
+
+    SERVER_NOT_IN_THIS_WS = (1371, "该机器不在当前workspace机器池中")
+
+    SERVER_USED_BY_OTHER_WS = (1372, "该机器已在其他workspace中使用")
