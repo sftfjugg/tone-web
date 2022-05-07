@@ -4,6 +4,7 @@ Module Description:
 Date:
 Author: Yfh
 """
+import time
 from abc import ABCMeta, abstractmethod
 
 from django.db import transaction
@@ -12,7 +13,7 @@ from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.custom_error import JobTestException
 from tone.core.utils.verify_tools import check_ip
 from tone.models import TestServer, TestClusterServer, CloudServer, TestServerSnapshot, Product, Project, TestSuite, \
-    CloudServerSnapshot, TestCluster
+    CloudServerSnapshot, TestCluster, CloudAk
 from tone.core.common.job_result_helper import get_server_ip_sn
 from tone.services.sys.server_services import CloudServerService
 
