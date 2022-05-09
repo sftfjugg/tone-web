@@ -49,7 +49,7 @@ class JobDataHandle(BaseHandle):
             self.data_dic['kernel_info'] = self.data.get('kernel_info', dict())
             self.data_dic['build_pkg_info'] = self.data.get('build_pkg_info', dict())
             self.data_dic['script_info'] = self.data.get('script_info', list())
-            self.data_dic['rpm_info'] = self.data.get('rpm_info', list())
+            self.data_dic['rpm_info'] = self.calibration_rpm_data(self.data.get('rpm_info', list()))
             self.data_dic['monitor_info'] = self.restructure_monitor_info(self.data.get('monitor_info', list()))
             self.data_dic['need_reboot'] = self.data.get('need_reboot', False)
             self.data_dic['console'] = self.data.get('console', False)
@@ -113,7 +113,7 @@ class JobDataHandle(BaseHandle):
             self.data_dic['kernel_info'] = kernel_info
             self.data_dic['build_pkg_info'] = self.data.get('build_pkg_info', template_obj.build_pkg_info)
             self.data_dic['script_info'] = self.data.get('script_info', template_obj.script_info)
-            self.data_dic['rpm_info'] = self.data.get('rpm_info', template_obj.rpm_info)
+            self.data_dic['rpm_info'] = self.calibration_rpm_data(self.data.get('rpm_info', template_obj.rpm_info))
             self.data_dic['monitor_info'] = self.restructure_monitor_info(template_obj.monitor_info)
             self.data_dic['callback_api'] = self.data.get('callback_api', template_obj.callback_api)
             self.data_dic['report_name'], self.data_dic['report_template_id'] = self.get_report_info()
@@ -175,7 +175,7 @@ class JobDataHandle(BaseHandle):
             self.data_dic['kernel_info'] = self.data.get('kernel_info', dict())
             self.data_dic['build_pkg_info'] = self.data.get('build_pkg_info', dict())
             self.data_dic['script_info'] = self.data.get('script_info', list())
-            self.data_dic['rpm_info'] = self.data.get('rpm_info', list())
+            self.data_dic['rpm_info'] = self.calibration_rpm_data(self.data.get('rpm_info', list()))
             self.data_dic['monitor_info'] = self.restructure_monitor_info(self.data.get('monitor_info', list()))
             self.data_dic['callback_api'] = self.data.get('callback_api')
             self.data_dic['need_reboot'] = self.data.get('need_reboot', False)
@@ -224,7 +224,7 @@ class JobDataHandle(BaseHandle):
             self.data_dic['kernel_info'] = self.data.get('kernel_info', dict())
             self.data_dic['build_pkg_info'] = self.data.get('build_pkg_info', dict())
             self.data_dic['script_info'] = self.data.get('script_info', list())
-            self.data_dic['rpm_info'] = self.data.get('rpm_info', list())
+            self.data_dic['rpm_info'] = self.calibration_rpm_data(self.data.get('rpm_info', list()))
             self.data_dic['monitor_info'] = self.data.get('monitor_info', list())
             self.data_dic['need_reboot'] = self.data.get('need_reboot', False)
             self.data_dic['console'] = self.data.get('console', False)
@@ -338,6 +338,15 @@ class JobDataHandle(BaseHandle):
                 self.pack_suite(suite, provider)
         else:
             pass
+
+    @staticmethod
+    def calibration_rpm_data(rpm_data):
+        """[{"pos": "before", "rpm": "http://a.rpm,http://b.rpm"}]
+        -> [{"pos": "before", "rpm": "http://a.rpm\nhttp://b.rpm"}]"""
+        return [
+            {'pos': item['pos'], 'rpm': item['rpm'].replace(',', '\n')}
+            for item in rpm_data
+        ]
 
     def create_server_snapshot(self):
         if self.default_server and isinstance(self.default_server, dict):
