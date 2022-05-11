@@ -72,6 +72,10 @@ SYS_PERMISSION_CONFIG = {
         'DELETE': {'sys_admin'},
         'PUT': {'sys_admin'},
     },
+    # 基础配置管理
+    '/api/sys/config/history/': {
+        'GET': {'sys_admin'},
+    },
     # 帮助文档
     '/api/sys/help_doc/': {
         'POST': {'sys_admin'},
