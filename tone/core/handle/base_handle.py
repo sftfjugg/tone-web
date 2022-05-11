@@ -4,6 +4,7 @@ Module Description:
 Date:
 Author: Yfh
 """
+import time
 from abc import ABCMeta, abstractmethod
 
 from django.db import transaction
@@ -12,8 +13,9 @@ from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.custom_error import JobTestException
 from tone.core.utils.verify_tools import check_ip
 from tone.models import TestServer, TestClusterServer, CloudServer, TestServerSnapshot, Product, Project, TestSuite, \
-    CloudServerSnapshot, TestCluster
+    CloudServerSnapshot, TestCluster, CloudAk
 from tone.core.common.job_result_helper import get_server_ip_sn
+from tone.services.sys.server_services import CloudServerService
 
 
 class BaseHandle(metaclass=ABCMeta):
@@ -29,8 +31,9 @@ class BaseHandle(metaclass=ABCMeta):
         self.job_obj = None
         self.provider = None
         self.server_map = dict()
-        self.default_server = data.get('default_server', None)
-        self.default_cluster = data.get('default_cluster', None)
+        self.default_server = data.get('default_server')
+        self.default_cluster = data.get('default_cluster')
+        self.default_cloud_server = data.get('default_cloud_server')
 
     def __getattr__(self, item):
         return self.data.get(item)
@@ -196,6 +199,90 @@ class BaseHandle(metaclass=ABCMeta):
                 customer_server.get('custom_channel'),
                 provider, case_dict)
 
+    def _get_default_cloud_server(self):
+        cloud_server_config = self.default_cloud_server.copy()
+        access_id = cloud_server_config.pop('access_id')
+        access_key = cloud_server_config.pop('access_key')
+        instance_id = cloud_server_config.get('instance_id')
+        if self.data_dic.get('cloud_snapshot_id'):
+            return self.data_dic['cloud_snapshot_id']
+        ak = CloudAk.objects.filter(
+            access_id=access_id,
+            access_key=access_key,
+            ws_id=self.data_dic.get('ws_id')
+        )
+        if not ak.exists():
+            raise JobTestException(ErrorCode.AK_NOT_CORRECT)
+        ak_obj = ak.first()
+        if not instance_id:
+            # 根据server config实时创建机器实例
+            server_snapshot_obj = self.__create_cloud_config_snapshot(ak_obj, cloud_server_config)
+        else:
+            # 使用已有实例
+            server_snapshot_obj = self.__create_cloud_instance_snapshot(ak_obj, cloud_server_config)
+        return server_snapshot_obj.id
+
+    def __create_cloud_config_snapshot(self, ak_obj, cloud_server_config):
+        cloud_server_config.update({
+            'is_instance': False,
+            'ak_id': ak_obj.id,
+            'provider': ak_obj.provider,
+            'manufacturer': ak_obj.provider,
+            'ws_id': self.data_dic.get('ws_id'),
+            'kernel_version': '',
+            'console_type': '',
+            'console_conf': '',
+            'private_ip': '',
+            'pub_ip': '',
+            'description': '',
+            'template_name': f'{ak_obj.provider}_server_{time.time()}'
+        })
+        cloud_server_config.setdefault('bandwidth', 10)
+        cloud_server_config.setdefault('storage_size', 40)
+        cloud_server_config.setdefault('storage_number', 0)
+        cloud_server_config.setdefault('system_disk_size', 50)
+        cloud_server_config.setdefault('storage_type', 'cloud_ssd')
+        cloud_server_config.setdefault('system_disk_category', 'cloud_ssd')
+        return CloudServerSnapshot.objects.create(**cloud_server_config)
+
+    def __create_cloud_instance_snapshot(self, ak_obj, cloud_server_config):
+        driver, provider = CloudServerService().get_ali_driver(
+            ak_obj.id, region=cloud_server_config.get('region'))
+        if not driver:
+            return False, 'provider driver is none'
+        instance, disk_info = driver.get_instance(cloud_server_config.get('instance_id'))
+        if not instance:
+            raise JobTestException(ErrorCode.AK_NOT_CORRECT)
+        pub_ip = instance['public_ips'][0] if instance['public_ips'] \
+            else instance['extra']['eip_address']['ip_address']
+        cloud_server_instance = dict(
+            job_id=0,
+            parent_server_id=0,
+            is_instance=True,
+            ak_id=ak_obj.id,
+            region=cloud_server_config.get('region'),
+            zone=cloud_server_config.get('zone'),
+            instance_id=cloud_server_config.get('instance_id'),
+            manufacturer=ak_obj.provider,
+            ws_id=self.data_dic.get('ws_id'),
+            channel_type='toneagent',
+            release_rule=cloud_server_config.get('release_rule', 0),
+            provider=ak_obj.provider,
+            state='Available',
+            image=instance.get('image'),
+            instance_name=instance.get('name'),
+            hostname=instance.get('hostname'),
+            bandwidth=instance.get('bandwidth'),
+            instance_type=instance.get('instance_type'),
+            storage_type=disk_info.get('data_disk_category'),
+            storage_size=disk_info.get('data_disk_size'),
+            storage_number=disk_info.get('data_disk_count'),
+            sn=instance.get('serial_number'),
+            private_ip=instance.get('private_ips')[0],
+            pub_ip=pub_ip
+        )
+        return CloudServerSnapshot.objects.create(**cloud_server_instance)
+
     def check_server_param(self, case_dict, run_mode, case, provider):
         """
         检测server参数
@@ -207,6 +294,8 @@ class BaseHandle(metaclass=ABCMeta):
             if 'server' in case:
                 case.pop('server')
             return
+        if self.default_cloud_server:
+            case_dict['server_snapshot_id'] = self._get_default_cloud_server()
         server_config = case.get('server', {}) or case.get('customer_server', {})
         if server_config.get('id'):
             self.check_server(server_config.get('id'), provider)
