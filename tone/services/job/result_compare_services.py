@@ -102,14 +102,8 @@ class CompareSuiteInfoService(CommonService):
                     }
 
     def package_compare_data(self, compare_groups, data_dic, test_type):
-        thread_tasks = []
         for compare_group in compare_groups:
-            thread_tasks.append(
-                ToneThread(self._package_compare_data, (data_dic, test_type, compare_group))
-            )
-            thread_tasks[-1].start()
-        for thread_task in thread_tasks:
-            thread_task.join()
+            self._package_compare_data(data_dic, test_type, compare_group)
 
     def _package_compare_data(self, data_dic, test_type, compare_group):
         compare_obj_li = list()
