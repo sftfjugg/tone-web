@@ -41,6 +41,8 @@ class TestCaseService(CommonService):
         for field in form_fields:
             if data.get(field):
                 create_data.update({field: data.get(field)})
+        short_name = '-'.join([item.split('=')[-1] for item in data.get('name').split(',')])
+        create_data['short_name'] = short_name
         test_case = TestCase.objects.create(**create_data)
         # domain 关联
         self.create_domain_relation([test_case.id], domain_list)
