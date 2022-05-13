@@ -150,6 +150,7 @@ class PerfAnalysisService(CommonService):
         metric_data = list()
         if provider_env == 'aligroup':
             for row in rows:
+                server = get_job_case_run_server(row[12]) if row[13] == 'cluster' else row[7]
                 metric_data.append(
                     {
                         'job_id': row[0],
@@ -158,7 +159,7 @@ class PerfAnalysisService(CommonService):
                         'end_time': datetime.strftime(row[3], "%Y-%m-%d %H:%M:%S"),
                         'commit_id': json.loads(row[4]).get('commit_id', None),
                         'creator': row[5] or row[6],
-                        'server': row[7],
+                        'server': server,
                         'value': row[8],
                         'cv_value': row[9],
                         'note': row[10],
@@ -167,6 +168,7 @@ class PerfAnalysisService(CommonService):
                 )
         else:
             for row in rows:
+                server = get_job_case_run_server(row[16]) if row[15] == 'cluster' else row[7]
                 metric_data.append(
                     {
                         'job_id': row[0],
@@ -175,7 +177,7 @@ class PerfAnalysisService(CommonService):
                         'end_time': datetime.strftime(row[3], "%Y-%m-%d %H:%M:%S"),
                         'commit_id': json.loads(row[4]).get('commit_id', None),
                         'creator': row[5] or row[6],
-                        'server': row[7],
+                        'server': server,
                         'value': row[8],
                         'cv_value': row[9],
                         'note': row[10],

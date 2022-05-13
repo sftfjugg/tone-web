@@ -230,11 +230,11 @@ def get_job_case_run_server(job_case_id):
             id=job_case.server_snapshot_id).exists() else None
     elif run_mode == 'cluster' and server_provider == 'aligroup':
         if TestStep.objects.filter(job_case_id=job_case_id, stage='run_case').exists():
-            _server = TestStep.objects.get(job_case_id=job_case_id, stage='run_case').server
-            server = TestServerSnapshot.objects.get(id=_server).ip
+            _server = TestStep.objects.filter(job_case_id=job_case_id, stage='run_case').last().server
+            server = TestServerSnapshot.objects.get(id=_server).private_ip
     elif run_mode == 'cluster' and server_provider == 'aliyun':
         if TestStep.objects.filter(job_case_id=job_case_id, stage='run_case').exists():
-            _server = TestStep.objects.get(job_case_id=job_case_id, stage='run_case').server
+            _server = TestStep.objects.filter(job_case_id=job_case_id, stage='run_case').last().server
             server = CloudServerSnapshot.objects.get(id=_server).private_ip
     else:
         pass
