@@ -207,7 +207,7 @@ class JobTestProcessCaseView(CommonAPIView):
         获取JobTestProcess准备阶段数据
         """
         queryset = self.service.filter(self.get_queryset(), request.GET)
-        response_data = self.get_response_data(queryset, page=False)
+        response_data = self.get_response_data(queryset, page=True)
         return Response(response_data)
 
 
