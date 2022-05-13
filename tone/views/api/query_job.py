@@ -59,8 +59,8 @@ def job_query(request):
         result_item = {
             'test_suite_id': test_suite.id,
             'test_suite': test_suite.name,
+            'test_case_id': test_case.id,
             'test_case': test_case.name,
-            # 'case_state': case_state,
             'result_statistics': case_statics,
             'case_server': {
                 'config_server': ip,
