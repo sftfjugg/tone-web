@@ -6,7 +6,7 @@ Author: Yfh
 """
 import json
 
-from tone.models import TestJob, TestJobCase, TestSuite, TestCase, PerfResult
+from tone.models import TestJob, TestJobCase, TestSuite, TestCase, PerfResult, FuncResult
 from tone.core.utils.helper import CommResp
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.error_catch import api_catch_error
@@ -84,6 +84,17 @@ def job_query(request):
                         'baseline_value': metric_result.baseline_value,
                         'compare_result': metric_result.compare_result,
                         'track_result': metric_result.track_result
+                    }
+                )
+            result_item['case_result'] = result_list
+        elif job.test_type == 'functional':
+            sub_case_results = FuncResult.objects.filter(test_job_id=job.id, test_case_id=job_case.test_case_id)
+            result_list = list()
+            for sub_case_result in sub_case_results:
+                result_list.append(
+                    {
+                        'sub_case_name': sub_case_result.sub_case_name,
+                        'sub_case_result': sub_case_result.sub_case_result
                     }
                 )
             result_item['case_result'] = result_list
