@@ -57,6 +57,7 @@ def job_query(request):
         case_state, case_statics = calc_job_case(job_case.id, is_api=True)
         case_statics = _replace_statics_key(case_statics)
         result_item = {
+            'test_suite_id': test_suite.id,
             'test_suite': test_suite.name,
             'test_case': test_case.name,
             # 'case_state': case_state,
