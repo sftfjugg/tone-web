@@ -162,7 +162,10 @@ class BaseHandle(metaclass=ABCMeta):
         env_info_li = data.split(',')
         for info in env_info_li:
             item = info.split('=', 1)
-            env_data[item[0]] = item[1]
+            if ' ' in item[1]:
+                env_data[item[0]] = item[1]
+            else:
+                env_data[item[0]] = item[1].strip("'").strip('"')
         return env_data
 
     def _check_cluster_server_param(self, case_dict, run_mode, case, provider):
