@@ -4,6 +4,8 @@ Module Description:
 Date:
 Author: Yfh
 """
+import random
+import string
 from datetime import datetime
 import logging
 
@@ -45,7 +47,9 @@ class ReportHandle(object):
             logging.error(f'report save error: job_id {self.job_id}, report_template_id is null.')
             return
         with transaction.atomic():
-            report = Report.objects.create(name=self.job_obj.report_name, product_version=self.job_obj.product_version,
+            report_name = self.job_obj.report_name if self.job_obj.report_name else \
+                ''.join(random.sample(string.ascii_letters + string.digits, 18))
+            report = Report.objects.create(name=report_name, product_version=self.job_obj.product_version,
                                            project_id=self.job_obj.project_id, ws_id=self.job_obj.ws_id,
                                            tmpl_id=self.report_template_obj.id, creator=self.job_obj.creator)
             test_env = self.get_test_env()
