@@ -192,10 +192,10 @@ class UserService(CommonService):
                 continue
             user_list.append(item)
         source_data['data'] = user_list
-        if params.get('role_id'):
-            return source_data
         if flag and cur_user.id and params.get('page', '1') == '1':
             user_list.insert(0, UserSerializer(cur_user, many=False).data)
+        if params.get('role_id'):
+            return source_data
         return source_data
 
 
