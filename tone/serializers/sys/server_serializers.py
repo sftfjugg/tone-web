@@ -307,11 +307,11 @@ class CloudAkSerializer(CommonSerializer):
 
     @staticmethod
     def get_access_id(obj):
-        return '{}********{}'.format(obj.access_id[:6], obj.access_id[-6:])
+        return '{}******{}'.format(obj.access_id[:4], obj.access_id[-4:])
 
     @staticmethod
     def get_access_key(obj):
-        return '{}********{}'.format(obj.access_key[:6], obj.access_key[-6:])
+        return '{}******{}'.format(obj.access_key[:4], obj.access_key[-4:])
 
     @staticmethod
     def get_creator(obj):

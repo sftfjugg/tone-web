@@ -954,6 +954,8 @@ class CloudAkService(CommonService):
         update_data = dict()
         for field in allow_modify_fields:
             if data.get(field):
+                if field in ['access_id', 'access_key'] and '*' in field:
+                    continue
                 update_data.update({field: data.get(field)})
         update_data.update({'update_user': update_user})
         cloud_ak.update(**update_data)
