@@ -7,6 +7,7 @@ Author: Yfh
 import copy
 import random
 import string
+from datetime import datetime
 
 from tone.core.utils.verify_tools import check_ip
 from tone.models import Project, TestJob, JobType, TestTemplate, TestTmplCase, TestTmplSuite, \
@@ -31,8 +32,7 @@ class JobDataHandle(BaseHandle):
             self.ws_id = JobType.objects.get(id=job_type_id).ws_id
             self.data_dic['ws_id'] = self.ws_id
             job_type = JobType.objects.get(id=job_type_id)
-            self.data_dic['name'] = self.data.get('name') if self.data.get('name') else ''.join(
-                random.sample(string.ascii_letters + string.digits, 18))
+            self.data_dic['name'] = self.job_format(self.data)
             if self.data.get('baseline'):
                 self.data_dic['baseline_id'] = self.data.get('baseline')
             if self.data.get('cleanup_info'):
@@ -87,9 +87,15 @@ class JobDataHandle(BaseHandle):
             else:
                 template_tags = TemplateTagRelation.objects.filter(template_id=template_obj.id)
                 [self.tag_list.append(template_tag.tag_id) for template_tag in template_tags]
-            job_name = self.data.get('name', None) or template_obj.job_name
-            self.data_dic['name'] = job_name if job_name else ''.join(
-                random.sample(string.ascii_letters + string.digits, 18))
+            if self.data.get('name'):
+                if 'date​' in self.data.get('name'):
+                    self.data_dic['name'] = self.data.get('name').replace('{date}', '_' + str(datetime.now().date()))
+                else:
+                    self.data_dic['name'] = self.data.get('name')
+            elif template_obj.job_name:
+                self.data_dic['name'] = template_obj.job_name
+            else:
+                self.data_dic['name'] = ''.join(random.sample(string.ascii_letters + string.digits, 18))
             self.data_dic['job_type_id'] = job_type_id = template_obj.job_type_id
             if self.data.get('iclone_info'):
                 iclone_info = self.data.get('iclone_info')
@@ -162,8 +168,7 @@ class JobDataHandle(BaseHandle):
             else:
                 job_tags = JobTagRelation.objects.filter(job_id=job_id)
                 [self.tag_list.append(job_tag.tag_id) for job_tag in job_tags]
-            self.data_dic['name'] = self.data.get('name') if self.data.get('name') else ''.join(
-                random.sample(string.ascii_letters + string.digits, 18))
+            self.data_dic['name'] = self.job_format(self.data)
             self.data_dic['job_type_id'] = job_type_id = self.data.get('job_type')
             if self.data.get('iclone_info'):
                 iclone_info = self.data.get('iclone_info')
@@ -206,8 +211,7 @@ class JobDataHandle(BaseHandle):
             self.data_dic['ws_id'] = self.ws_id
             self.data_dic['state'] = self.data.get('state')
             job_type = JobType.objects.get(id=job_type_id)
-            self.data_dic['name'] = self.data.get('name') if self.data.get('name') else ''.join(
-                random.sample(string.ascii_letters + string.digits, 18))
+            self.data_dic['name'] = self.job_format(self.data)
             if self.data.get('baseline_id'):
                 self.data_dic['baseline_id'] = self.data.get('baseline_id')
             if self.data.get('cleanup_info'):
@@ -431,3 +435,15 @@ class JobDataHandle(BaseHandle):
             })
             new_monitor_info.append(tmp)
         return new_monitor_info
+
+    @staticmethod
+    def job_format(data):
+        data_dic = {}
+        if data.get('name'):
+            if '{date}' in data.get('name'):
+                data_dic['name'] = data.get('name').replace('{date}', '_' + str(datetime.now().date()))
+            else:
+                data_dic['name'] = data.get('name')
+        else:
+            data_dic['name'] = ''.join(random.sample(string.ascii_letters + string.digits, 18))
+        return data_dic['name']

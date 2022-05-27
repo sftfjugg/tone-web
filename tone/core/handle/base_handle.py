@@ -8,6 +8,7 @@ import time
 from abc import ABCMeta, abstractmethod
 
 from django.db import transaction
+from datetime import datetime
 
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.custom_error import JobTestException
@@ -60,6 +61,8 @@ class BaseHandle(metaclass=ABCMeta):
             self.case_list = sorted(
                 self.case_list,
                 key=lambda x: (-sorted_suite.index(x.get('test_suite_id')), x.get('priority')), reverse=True)
+            if '{date}' in self.data_dic['name']:
+                self.data_dic['name'] = self.data_dic['name'].replace('{date}', '_' + str(datetime.now().date()))
             return self.data_dic, self.case_list, self.suite_list, self.tag_list
 
     def check_data_from(self):
