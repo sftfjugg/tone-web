@@ -17,4 +17,5 @@ urlpatterns = [
     path('case/get_suite_list/', get_suite_info.get_suite_list, name='suite_list'),
     path('case/get_case_list/', get_suite_info.get_case_list, name='case_list'),
     path('case/get_metric_list/', get_suite_info.get_metric_list, name='metric_list'),
+    path('case/get_suite_all/', get_suite_info.get_metric_list, name='suite_all'),
 ]
