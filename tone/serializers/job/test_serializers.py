@@ -188,13 +188,14 @@ class JobTestSummarySerializer(CommonSerializer):
     plan_instance_name = serializers.SerializerMethodField()
     report_li = serializers.SerializerMethodField()
     business_type = serializers.SerializerMethodField()
+    pending_state_desc = serializers.SerializerMethodField()
 
     class Meta:
         model = TestJob
         fields = ['id', 'name', 'creator_name', 'gmt_created', 'end_time', 'state', 'test_type', 'baseline_name',
                   'provider_name', 'tags', 'project_name', 'product_version', 'job_type', 'case_result', 'note',
                   'creator', 'job_type_id', 'start_time', 'plan_instance_id', 'plan_instance_name', 'report_li',
-                  'created_from', 'business_type']
+                  'created_from', 'business_type', 'pending_state_desc']
 
     @staticmethod
     def get_business_type(obj):
@@ -298,6 +299,12 @@ class JobTestSummarySerializer(CommonSerializer):
         if obj.baseline_id and Baseline.objects.filter(id=obj.baseline_id).exists():
             baseline = Baseline.objects.get(id=obj.baseline_id).name
         return baseline
+
+    def get_pending_state_desc(self, obj):
+        state = self.get_state(obj)
+        if state == 'pending':
+            pending_state_desc = obj.state_desc
+            return pending_state_desc
 
     @staticmethod
     def get_job_type(obj):
