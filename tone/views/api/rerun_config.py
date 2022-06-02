@@ -24,6 +24,7 @@ def config_query(request):
         job = jobs.first()
     job_config = job.to_dict()
     job_config['baseline'] = job_config.get('baseline_id')
+    job_config['baseline_job_id'] = job_config.get('baseline_job_id')
     suite_config = list()
     tag_config = [tag.tag_id for tag in JobTagRelation.objects.filter(job_id=job_id) if
                   JobTag.objects.filter(id=tag.tag_id, source_tag='custom_tag').exists()]

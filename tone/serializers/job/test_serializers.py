@@ -195,7 +195,7 @@ class JobTestSummarySerializer(CommonSerializer):
         fields = ['id', 'name', 'creator_name', 'gmt_created', 'end_time', 'state', 'test_type', 'baseline_name',
                   'provider_name', 'tags', 'project_name', 'product_version', 'job_type', 'case_result', 'note',
                   'creator', 'job_type_id', 'start_time', 'plan_instance_id', 'plan_instance_name', 'report_li',
-                  'created_from', 'business_type', 'pending_state_desc']
+                  'created_from', 'business_type', 'pending_state_desc', 'baseline_job_id']
 
     @staticmethod
     def get_business_type(obj):

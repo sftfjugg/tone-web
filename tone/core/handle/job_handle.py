@@ -35,6 +35,7 @@ class JobDataHandle(BaseHandle):
             self.data_dic['name'] = self.job_format(self.data)
             if self.data.get('baseline'):
                 self.data_dic['baseline_id'] = self.data.get('baseline')
+            self.data_dic['baseline_job_id'] = self.data.get('baseline_job_id')
             if self.data.get('cleanup_info'):
                 self.data_dic['cleanup_info'] = self.data.get('cleanup_info')
             if self.data.get('tags') and isinstance(self.data.get('tags'), list):
@@ -81,6 +82,7 @@ class JobDataHandle(BaseHandle):
             self.template_obj = template_obj
             self.data_dic['tmpl_id'] = template_obj.id
             self.data_dic['baseline_id'] = self.data.get('baseline', template_obj.baseline_id)
+            self.data_dic['baseline_job_id'] = self.data.get('baseline_job_id', template_obj.baseline_job_id)
             self.data_dic['cleanup_info'] = self.data.get('cleanup_info', template_obj.cleanup_info)
             if self.data.get('tags') and isinstance(self.data.get('tags'), list) and api:
                 [self.tag_list.append(tag) for tag in self.data.get('tags')]
@@ -162,6 +164,7 @@ class JobDataHandle(BaseHandle):
             job_id = self.data.get('job_id')
             self.data_dic['source_job_id'] = job_id
             self.data_dic['baseline_id'] = self.data.get('baseline')
+            self.data_dic['baseline_job_id'] = self.data.get('baseline_job_id')
             self.data_dic['cleanup_info'] = self.data.get('cleanup_info')
             if self.data.get('tags') and isinstance(self.data.get('tags'), list):
                 [self.tag_list.append(tag) for tag in self.data.get('tags')]
@@ -214,6 +217,7 @@ class JobDataHandle(BaseHandle):
             self.data_dic['name'] = self.job_format(self.data)
             if self.data.get('baseline_id'):
                 self.data_dic['baseline_id'] = self.data.get('baseline_id')
+            self.data_dic['baseline_job_id'] = self.data.get('baseline_job_id')
             if self.data.get('cleanup_info'):
                 self.data_dic['cleanup_info'] = self.data.get('cleanup_info')
             if self.data.get('tags') and isinstance(self.data.get('tags'), list):
