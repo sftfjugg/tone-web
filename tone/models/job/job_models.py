@@ -48,6 +48,7 @@ class TestJob(BaseModel):
     product_id = models.IntegerField(help_text='product', null=True, blank=True)
     product_version = models.CharField(help_text='product_version', null=True, blank=True, max_length=64)
     baseline_id = models.IntegerField(help_text='基线', null=True, blank=True)
+    baseline_job_id = models.IntegerField(help_text='基线Job', null=True, blank=True)
     test_type = models.CharField(max_length=64, choices=TEST_TYPE_CHOICES, default='functional', db_index=True,
                                  help_text='测试类型')
     iclone_info = json.JSONField(default=dict(), null=True, blank=True, help_text='重装信息')
@@ -239,6 +240,7 @@ class TestTemplate(BaseModel):
     project_id = models.IntegerField(null=True, blank=True, help_text='project')
     product_id = models.IntegerField(null=True, blank=True, help_text='product')
     baseline_id = models.IntegerField(help_text='基线', null=True, blank=True)
+    baseline_job_id = models.IntegerField(help_text='基线Job', null=True, blank=True)
     iclone_info = json.JSONField(default=dict(), null=True, blank=True, help_text='重装信息')
     kernel_info = json.JSONField(default=dict(), null=True, blank=True, help_text='内核信息')
     build_pkg_info = json.JSONField(default=dict(), null=True, blank=True, help_text='build内核信息')
