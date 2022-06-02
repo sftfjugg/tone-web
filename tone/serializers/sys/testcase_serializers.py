@@ -453,6 +453,7 @@ class RetrieveCaseSerializer(CommonSerializer):
     domain_name_list = serializers.SerializerMethodField()
     suite_name = serializers.SerializerMethodField()
     recently_job = serializers.SerializerMethodField()
+    recently_job_list = serializers.SerializerMethodField()
     run_mode = serializers.SerializerMethodField()
     test_type = serializers.SerializerMethodField()
     creator_name = serializers.SerializerMethodField()
@@ -515,6 +516,19 @@ class RetrieveCaseSerializer(CommonSerializer):
                 ws_id = test_job.ws_id
                 recently_job = '/ws/{}/test_result/{}'.format(ws_id, job_id)
         return recently_job
+
+    @staticmethod
+    def get_recently_job_list(obj):
+        recently_job_list = []
+        test_job_case_list = TestJobCase.objects.filter(test_case_id=obj.id).order_by('-gmt_created')
+        for test_job_case in test_job_case_list:
+            job_id = test_job_case.job_id
+            test_job = TestJob.objects.filter(id=job_id).first()
+            if test_job and test_job.ws_id:
+                recently_job_list.append({'ws_id': test_job.ws_id, 'job_id': job_id})
+            if len(recently_job_list) == 6:
+                break
+        return recently_job_list
 
 
 class TestBusinessSerializer(CommonSerializer):

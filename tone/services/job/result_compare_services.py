@@ -210,7 +210,9 @@ class CompareEnvInfoService(CommonService):
                     continue
                 server_li.append({
                     'ip/sn': ip,
-                    'distro': snap_shot_obj.distro,
+                    'distro': snap_shot_obj.sm_name if job.server_provider == 'aligroup' else
+                    snap_shot_obj.instance_type,
+                    'os': snap_shot_obj.distro,
                     'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
                     'gcc': snap_shot_obj.gcc,
                 })
