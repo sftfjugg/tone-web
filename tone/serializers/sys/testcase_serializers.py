@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import Q, When, Case
 from rest_framework import serializers
 
 from tone.core.common.serializers import CommonSerializer
@@ -519,16 +519,12 @@ class RetrieveCaseSerializer(CommonSerializer):
 
     @staticmethod
     def get_recently_job_list(obj):
-        recently_job_list = []
-        test_job_case_list = TestJobCase.objects.filter(test_case_id=obj.id).order_by('-gmt_created')
-        for test_job_case in test_job_case_list:
-            job_id = test_job_case.job_id
-            test_job = TestJob.objects.filter(id=job_id).first()
-            if test_job and test_job.ws_id:
-                recently_job_list.append({'ws_id': test_job.ws_id, 'job_id': job_id})
-            if len(recently_job_list) == 6:
-                break
-        return recently_job_list
+        test_job_case_id_list = TestJobCase.objects.filter(test_case_id=obj.id).values_list(
+            'job_id', flat=True).order_by('-gmt_created')
+        preserved = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(test_job_case_id_list)])
+        test_job_list = TestJob.objects.filter(id__in=list(test_job_case_id_list)).values_list('ws_id', 'id').order_by(
+            preserved)[:6]
+        return [{'ws_id': test_job[0], 'job_id': test_job[1]} for test_job in test_job_list if test_job[0]]
 
 
 class TestBusinessSerializer(CommonSerializer):
