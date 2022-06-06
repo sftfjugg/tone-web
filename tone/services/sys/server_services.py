@@ -1422,6 +1422,7 @@ class TestClusterServerService(CommonService):
             else:
                 cloud_server = CloudServer.objects.filter(id=server.server_id)
                 cloud_server.update(spec_use=0)
+                cloud_server.delete()
             with transaction.atomic():
                 operation_li = list()
                 log_data = {
