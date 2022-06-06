@@ -90,7 +90,7 @@ class JobDataHandle(BaseHandle):
                 template_tags = TemplateTagRelation.objects.filter(template_id=template_obj.id)
                 [self.tag_list.append(template_tag.tag_id) for template_tag in template_tags]
             if self.data.get('name'):
-                if '{date}​' in self.data.get('name'):
+                if '{date}' in self.data.get('name'):
                     self.data_dic['name'] = self.data.get('name').replace('{date}', '_' + str(datetime.now().date()))
                 else:
                     self.data_dic['name'] = self.data.get('name')
