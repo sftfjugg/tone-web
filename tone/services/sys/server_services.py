@@ -658,7 +658,7 @@ class CloudServerService(CommonService):
             state=data.get('state', cloud_server.first().state)
         )
         private_ip = data.get('private_ip')
-        if private_ip is not None:
+        if private_ip:
             update_data.update({'private_ip': private_ip})
         is_instance = cloud_server.first().is_instance
         ws_id = CloudServer.objects.get(id=pk).ws_id
