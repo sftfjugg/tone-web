@@ -171,7 +171,7 @@ def get_server(server_ip, provider, run_mode, ws):
     elif run_mode == 'cluster':
         if not TestCluster.objects.filter(name=server_ip, ws_id=ws).exists():
             raise ValueError(ErrorCode.CLUSTER_NOT_EXISTS)
-        return CloudServer.objects.get(name=server_ip, ws_id=ws).id
+        return TestCluster.objects.get(name=server_ip, ws_id=ws).id
     else:
         raise ValueError(ErrorCode.PROGRAM_ERROR)
 
