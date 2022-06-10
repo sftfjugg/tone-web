@@ -926,7 +926,7 @@ class CloudAkService(CommonService):
         if cloud_ak is not None:
             return False, 'cloud ak already exists'
         form_fields = ['name', 'provider', 'access_id', 'access_key', 'ws_id', 'description',
-                       'enable', 'resource_group_id']
+                       'enable', 'resource_group_id', 'vm_quota']
         create_data = dict()
         for field in form_fields:
             create_data.update({field: data.get(field)})
@@ -950,7 +950,7 @@ class CloudAkService(CommonService):
         if cloud_ak.first() is None:
             return False, 'cloud ak not exists'
         allow_modify_fields = ['name', 'provider', 'access_id', 'access_key', 'description',
-                               'enable', 'resource_group_id']
+                               'enable', 'resource_group_id', 'vm_quota']
         update_data = dict()
         for field in allow_modify_fields:
             if data.get(field):
