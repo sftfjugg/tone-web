@@ -63,10 +63,12 @@ class EcsDriver(BaseDriver):
             logger.error('ecs sdk get_zones failed: {}'.format(str(e)))
             return []
 
-    def get_images(self):
+    def get_images(self, instance_type=None):
         try:
             request = DescribeImagesRequest()
             request.set_PageSize(100)
+            if instance_type:
+                request.set_InstanceType(instance_type)
             response = self.client.do_action_with_exception(request)
             images = json.loads(response)['Images']['Image']
             return [

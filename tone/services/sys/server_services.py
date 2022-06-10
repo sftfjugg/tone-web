@@ -779,7 +779,7 @@ class CloudServerService(CommonService):
             else:
                 ecs_driver = EcsDriver(cloud_ak.first().access_id, cloud_ak.first().access_key, data.get('region'),
                                        data.get('zone'), cloud_ak.first().resource_group_id)
-                image.extend(ecs_driver.get_images())
+                image.extend(ecs_driver.get_images(data.get('instance_type')))
             return list(sorted(image, key=lambda x: (x.get('id', '') or x.get('name', ''))))
         else:
             return None
