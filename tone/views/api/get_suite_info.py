@@ -1,6 +1,7 @@
-from tone.models import TestMetric, TestCase
+from tone.core.common.constant import FUNC_CASE_RESULT_TYPE_MAP
+from tone.models import TestMetric, TestCase, FuncResult, PerfResult
 from tone.services.sys.testcase_services import WorkspaceRetrieveService, WorkspaceCaseRelation, TestMetricService, \
-    TestCaseService
+    TestCaseService, TestCaseInfo
 from tone.core.utils.helper import CommResp
 from tone.core.common.verify_token import token_required
 from tone.core.common.expection_handler.error_catch import api_catch_error
@@ -53,4 +54,41 @@ def get_suite_increase(request):
                         'suite_name': case_info.suite_name, 'test_type': case_info.test_type}
                        for case_info in queryset]
     resp.data = suite_data_list
+    return resp.json_resp()
+
+
+@api_catch_error
+@token_required
+def get_case_info(request):
+    resp = CommResp()
+    err_msg = TestCaseInfo.check_parm(request.GET)
+    if err_msg:
+        resp.code = 201
+        resp.result = False
+        resp.msg = err_msg
+        return resp.json_resp()
+
+    if request.GET.get('test_type') == 'function':
+        queryset = TestCaseInfo.filter(FuncResult.objects.all(), request.GET)
+        case_data_list = [
+            {
+                'id': case_info.id,
+                'test_job_id': case_info.test_job_id,
+                'test_suite_id': case_info.test_suite_id,
+                'test_case_id':case_info.test_case_id,
+                'sub_case_name': case_info.sub_case_name,
+                'sub_case_result': FUNC_CASE_RESULT_TYPE_MAP.get(case_info.sub_case_result)
+            } for case_info in queryset]
+    else:
+        queryset = TestCaseInfo.filter(PerfResult.objects.all(), request.GET)
+        case_data_list = [
+            {
+                'id': case_info.id,
+                'test_job_id': case_info.test_job_id,
+                'test_suite_id': case_info.test_suite_id,
+                'test_case_id': case_info.test_case_id,
+                'metric': case_info.metric,
+                'test_value': case_info.test_value
+            } for case_info in queryset]
+    resp.data = case_data_list
     return resp.json_resp()

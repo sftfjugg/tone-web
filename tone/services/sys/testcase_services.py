@@ -15,6 +15,35 @@ from tone.serializers.sys.testcase_serializers import RetrieveCaseSerializer
 from tone.tasks import sync_suite_case_toneagent
 
 
+class TestCaseInfo(CommonService):
+    @staticmethod
+    def check_parm(data):
+        err_msg = ''
+        if not data.get('suite_name') or not data.get('job_id') or not data.get('test_type'):
+            err_msg = 'suite_name, job_id and test_type are required parameters.'
+        if data.get('test_type') not in ['function', 'performance']:
+            err_msg = 'test_type must be function or performance.'
+        if not TestSuite.objects.filter(name=data.get('suite_name')).first():
+            err_msg = f"suite_name:{data.get('suite_name')} does not exist."
+        if not TestJob.objects.filter(id=data.get('job_id')).first():
+            err_msg = f"job_id:{data.get('job_id')} does not exist."
+        return err_msg
+
+    @staticmethod
+    def filter(queryset, data):
+        q = Q()
+        test_suite = TestSuite.objects.filter(name=data.get('suite_name')).first()
+        if test_suite:
+            q &= Q(test_suite_id=test_suite.id)
+            if data.get('test_conf'):
+                test_case = TestCase.objects.filter(name=data.get('test_conf'), test_suite_id=test_suite.id).first()
+                if test_case:
+                    q &= Q(test_case_id=test_case.id)
+            if data.get('job_id'):
+                q &= Q(test_job_id=data.get('job_id'))
+        return queryset.filter(q)
+
+
 class TestCaseService(CommonService):
     @staticmethod
     def filter(queryset, data):
