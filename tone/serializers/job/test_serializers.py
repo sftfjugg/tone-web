@@ -558,6 +558,7 @@ class JobTestResultSerializer(CommonSerializer):
                     result, count_data = calc_job_suite(suite.id, obj.ws_id, suite_test_type)
                     suite_data['result'] = result
                 suite_data = {**suite_data, **count_data}
+                suite_data['baseline_job_id'] = obj.baseline_job_id
                 suite_list.append(suite_data)
             else:
                 # 当有任意case结束时返回running的suite
@@ -596,6 +597,7 @@ class JobTestResultSerializer(CommonSerializer):
                             'result': 'running'
                         }
                     suite_data = {**suite_data, **count_data}
+                    suite_data['baseline_job_id'] = obj.baseline_job_id
                     suite_list.append(suite_data)
         return suite_list
 
@@ -611,7 +613,7 @@ class JobTestConfResultSerializer(CommonSerializer):
     class Meta:
         model = TestJobCase
         fields = ['id', 'conf_name', 'test_case_id', 'server_ip', 'result_data', 'start_time', 'end_time', 'note',
-                  'baseline']
+                  'baseline', 'baseline_job_id']
 
     @staticmethod
     def get_start_time(obj):
@@ -635,6 +637,11 @@ class JobTestConfResultSerializer(CommonSerializer):
             if Baseline.objects.filter(id=baseline_id).exists():
                 baseline = Baseline.objects.get(id=baseline_id).name
         return baseline
+
+    @staticmethod
+    def get_baseline_job_id(obj):
+        test_job_obj = TestJob.objects.get(id=obj.job_id)
+        return test_job_obj.baseline_job_id
 
     @staticmethod
     def get_conf_name(obj):
