@@ -75,7 +75,7 @@ def get_case_info(request):
                 'id': case_info.id,
                 'test_job_id': case_info.test_job_id,
                 'test_suite_id': case_info.test_suite_id,
-                'test_case_id':case_info.test_case_id,
+                'test_case_id': case_info.test_case_id,
                 'sub_case_name': case_info.sub_case_name,
                 'sub_case_result': FUNC_CASE_RESULT_TYPE_MAP.get(case_info.sub_case_result)
             } for case_info in queryset]

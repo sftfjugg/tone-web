@@ -10,7 +10,7 @@ from tone.core.common.services import CommonService
 from tone.core.utils.config_parser import get_config_from_db
 from tone.models import TestCase, TestSuite, TestMetric, WorkspaceCaseRelation, PerfResult, TestDomain, \
     DomainRelation, datetime, SuiteData, CaseData, BaseConfig, RoleMember, Role, TestJobCase, TestJob, \
-    TestTmplCase, TestTemplate, TestBusiness, BusinessSuiteRelation, AccessCaseConf, User
+    TestTmplCase, TestTemplate, TestBusiness, BusinessSuiteRelation, AccessCaseConf, User, TestJobSuite
 from tone.serializers.sys.testcase_serializers import RetrieveCaseSerializer
 from tone.tasks import sync_suite_case_toneagent
 
@@ -23,10 +23,13 @@ class TestCaseInfo(CommonService):
             err_msg = 'suite_name, job_id and test_type are required parameters.'
         if data.get('test_type') not in ['function', 'performance']:
             err_msg = 'test_type must be function or performance.'
-        if not TestSuite.objects.filter(name=data.get('suite_name')).first():
+        test_suite = TestSuite.objects.filter(name=data.get('suite_name')).first()
+        if not test_suite:
             err_msg = f"suite_name:{data.get('suite_name')} does not exist."
         if not TestJob.objects.filter(id=data.get('job_id')).first():
             err_msg = f"job_id:{data.get('job_id')} does not exist."
+        if not TestJobSuite.objects.filter(job_id=data.get('job_id'), test_suite_id=test_suite.id).first():
+            err_msg = f"There is no suite_name:{data.get('suite_name')} in job_id:{data.get('job_id')}"
         return err_msg
 
     @staticmethod
