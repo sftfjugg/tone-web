@@ -609,6 +609,7 @@ class JobTestConfResultSerializer(CommonSerializer):
     baseline = serializers.SerializerMethodField()
     start_time = serializers.SerializerMethodField()
     end_time = serializers.SerializerMethodField()
+    baseline_job_id = serializers.SerializerMethodField()
 
     class Meta:
         model = TestJobCase
