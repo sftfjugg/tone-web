@@ -41,6 +41,8 @@ class TestServer(BaseModel):
                              help_text='状态')
     real_state = models.CharField(max_length=64, choices=TestServerEnums.SERVER_STATE_CHOICES, default='Available',
                                   help_text='真实状态')
+    history_state = models.CharField(max_length=64, choices=TestServerEnums.SERVER_STATE_CHOICES, default='Available',
+                                     help_text='历史状态')
     check_state_time = models.DateTimeField(null=True, help_text='最近一次检测机器真实状态的时间')
     # state=1 use_type:平台或者用户手动reserve
     use_type = models.CharField(max_length=64, choices=TestServerEnums.USE_TYPE_CHOICES, help_text='Reserve类型')
@@ -110,6 +112,8 @@ class CloudServer(BaseModel):
                              default='Available', help_text='状态')
     real_state = models.CharField(max_length=64, choices=TestServerEnums.SERVER_STATE_CHOICES, default='Available',
                                   help_text='真实状态')
+    history_state = models.CharField(max_length=64, choices=TestServerEnums.SERVER_STATE_CHOICES, default='Available',
+                                     help_text='历史状态')
     check_state_time = models.DateTimeField(null=True, help_text='最近一次检测机器真实状态的时间')
     channel_type = models.CharField(max_length=64, choices=TestServerEnums.SERVER_CHANNEL_TYPE_CHOICES,
                                     default='toneagent', help_text='通道类型')
@@ -190,6 +194,8 @@ class TestServerSnapshot(BaseModel):
                              help_text='状态')
     real_state = models.CharField(max_length=64, choices=TestServerEnums.SERVER_STATE_CHOICES, default='Available',
                                   help_text='真实状态')
+    history_state = models.CharField(max_length=64, choices=TestServerEnums.SERVER_STATE_CHOICES, default='Available',
+                                     help_text='历史状态')
     # state=1 use_type:平台或者用户手动reserve
     use_type = models.CharField(max_length=64, choices=TestServerEnums.USE_TYPE_CHOICES, help_text='Reserve类型',
                                 null=True, blank=True)
@@ -267,6 +273,8 @@ class CloudServerSnapshot(BaseModel):
                              default='Available', help_text='状态')
     real_state = models.CharField(max_length=64, choices=TestServerEnums.SERVER_STATE_CHOICES, default='Available',
                                   help_text='真实状态')
+    history_state = models.CharField(max_length=64, choices=TestServerEnums.SERVER_STATE_CHOICES, default='Available',
+                                     help_text='历史状态')
     check_state_time = models.DateTimeField(null=True, help_text='最近一次检测机器真实状态的时间')
     channel_type = models.CharField(max_length=64, choices=TestServerEnums.SERVER_CHANNEL_TYPE_CHOICES,
                                     help_text='通道类型', default='toneagent')
@@ -349,6 +357,7 @@ class CloudAk(BaseModel):
     access_id = models.CharField(max_length=128, help_text='')
     access_key = models.CharField(max_length=1024, help_text='')
     resource_group_id = models.CharField(max_length=32, null=True, blank=True, help_text='资源组ID')
+    vm_quota = models.CharField(max_length=8, help_text='创建VM限额', default='*')
     description = models.CharField(max_length=1024, null=True, blank=True, help_text='描述')
     ws_id = models.CharField(max_length=8, db_index=True, help_text='关联Workspace')
     enable = models.BooleanField(default=True, help_text='启用状态')
