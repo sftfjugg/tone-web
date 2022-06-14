@@ -5,6 +5,7 @@ from django.db import transaction
 from django.db.models import Q
 
 from tone.core.common.constant import TEST_SUITE_REDIS_KEY
+from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.redis_cache import redis_cache
 from tone.core.common.services import CommonService
 from tone.core.utils.config_parser import get_config_from_db
@@ -15,35 +16,34 @@ from tone.serializers.sys.testcase_serializers import RetrieveCaseSerializer
 from tone.tasks import sync_suite_case_toneagent
 
 
-class TestCaseInfo(CommonService):
+class TestCaseInfoService(CommonService):
     @staticmethod
     def check_parm(data):
-        err_msg = ''
-        if not data.get('suite_name') or not data.get('job_id') or not data.get('test_type'):
-            err_msg = 'suite_name, job_id and test_type are required parameters.'
-        if data.get('test_type') not in ['function', 'performance']:
-            err_msg = 'test_type must be function or performance.'
-        test_suite = TestSuite.objects.filter(name=data.get('suite_name')).first()
-        if not test_suite:
-            err_msg = f"suite_name:{data.get('suite_name')} does not exist."
+        if not data.get('test_suite'):
+            raise ValueError(ErrorCode.TEST_SUITE_NAME_NEED)
+        if not data.get('job_id'):
+            raise ValueError(ErrorCode.JOB_NEED)
         if not TestJob.objects.filter(id=data.get('job_id')).first():
-            err_msg = f"job_id:{data.get('job_id')} does not exist."
+            raise ValueError(ErrorCode.JOB_ID_NOT_EXISTS)
+        test_suite = TestSuite.objects.filter(name=data.get('test_suite')).first()
+        if not test_suite:
+            raise ValueError(ErrorCode.SUITE_NAME_NOT_EXISTS)
         if not TestJobSuite.objects.filter(job_id=data.get('job_id'), test_suite_id=test_suite.id).first():
-            err_msg = f"There is no suite_name:{data.get('suite_name')} in job_id:{data.get('job_id')}"
-        return err_msg
+            raise ValueError(ErrorCode.JOB_SUITE_NAME_NOT_EXISTS)
+        if data.get('test_conf'):
+            test_conf_id = TestCase.objects.filter(test_suite_id=test_suite.id, name=data.get('test_conf')).first().id
+            if not TestJobCase.objects.filter(job_id=data.get('job_id'), test_suite_id=test_suite.id,
+                                              test_case_id=test_conf_id).first():
+                raise ValueError(ErrorCode.JOB_CONF_NAME_NOT_EXISTS)
 
     @staticmethod
     def filter(queryset, data):
         q = Q()
-        test_suite = TestSuite.objects.filter(name=data.get('suite_name')).first()
+        test_suite = TestSuite.objects.filter(name=data.get('test_suite')).first()
         if test_suite:
             q &= Q(test_suite_id=test_suite.id)
-            if data.get('test_conf'):
-                test_case = TestCase.objects.filter(name=data.get('test_conf'), test_suite_id=test_suite.id).first()
-                if test_case:
-                    q &= Q(test_case_id=test_case.id)
-            if data.get('job_id'):
-                q &= Q(test_job_id=data.get('job_id'))
+        if data.get('job_id'):
+            q &= Q(test_job_id=data.get('job_id'))
         return queryset.filter(q)
 
 

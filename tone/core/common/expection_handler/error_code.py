@@ -247,3 +247,14 @@ class ErrorCode(object):
     SERVER_NOT_IN_THIS_WS = (1371, "该机器不在当前workspace机器池中")
 
     SERVER_USED_BY_OTHER_WS = (1372, "该机器已在其他workspace中使用")
+
+    CONF_NAME_NOT_EXISTS = (1374, "test_conf does not exist in the test_suite !")
+
+    SUITE_NAME_NOT_EXISTS = (1375, "test_suite not exists !")
+
+    JOB_ID_NOT_EXISTS = (1376, "job_id not exists !")
+
+    JOB_SUITE_NAME_NOT_EXISTS = (1377, "test_suite does not exist in the job_id !")
+
+    JOB_CONF_NAME_NOT_EXISTS = (1378, "test_conf does not exist in the job_id !")
+

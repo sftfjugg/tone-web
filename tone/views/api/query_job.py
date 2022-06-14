@@ -6,12 +6,14 @@ Author: Yfh
 """
 import json
 
+from tone.core.common.constant import FUNC_CASE_RESULT_TYPE_MAP
 from tone.models import TestJob, TestJobCase, TestSuite, TestCase, PerfResult, FuncResult
 from tone.core.utils.helper import CommResp
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.error_catch import api_catch_error
 from tone.core.common.verify_token import token_required
 from tone.core.common.job_result_helper import calc_job, get_job_case_server, get_job_case_run_server, calc_job_case
+from tone.services.sys.testcase_services import TestCaseInfoService
 
 
 def _replace_statics_key(case_statics):
@@ -111,4 +113,37 @@ def job_query(request):
     resp_data['job_result'] = result_data
     resp.data = resp_data
     resp.result = True
+    return resp.json_resp()
+
+
+@api_catch_error
+@token_required
+def get_job_case(request):
+    TestCaseInfoService.check_parm(request.GET)
+    resp = CommResp()
+    case_data_list = []
+    test_type = TestJob.objects.filter(id=request.GET.get('job_id')).first().test_type
+    if test_type == 'functional':
+        queryset = TestCaseInfoService.filter(FuncResult.objects.all(), request.GET)
+        case_data_list = [
+            {
+                'test_job_id': case_info.test_job_id,
+                'test_suite': request.GET.get('test_suite'),
+                'test_conf': TestCase.objects.filter(id=case_info.test_case_id).first().name,
+                'test_case': case_info.sub_case_name,
+                'test_result': FUNC_CASE_RESULT_TYPE_MAP.get(case_info.sub_case_result)
+            } for case_info in queryset]
+    elif test_type == 'performance':
+        queryset = TestCaseInfoService.filter(PerfResult.objects.all(), request.GET)
+        case_data_list = [
+            {
+                'test_job_id': case_info.test_job_id,
+                'test_suite': request.GET.get('test_suite'),
+                'test_conf': TestCase.objects.filter(id=case_info.test_case_id).first().name,
+                'test_metric': case_info.metric,
+                'test_value': round(float(case_info.test_value), 2)
+            } for case_info in queryset]
+    if request.GET.get('test_conf'):
+        case_data_list = list(filter(lambda x: x.get('test_conf') == request.GET.get('test_conf'), case_data_list))
+    resp.data = case_data_list
     return resp.json_resp()

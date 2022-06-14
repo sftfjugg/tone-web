@@ -8,6 +8,7 @@ urlpatterns = [
     path('job', TestAPIView.as_view()),
     path('job/create/', create_job.job_create, name='job_create'),
     path('job/query/', query_job.job_query, name='job_query'),
+    path('job/get_job_case/', query_job.get_job_case, name='get_job_case'),
     path('rerun/config/', rerun_config.config_query, name='config_query'),
     path('create/build/info/', create_build.create_build_info, name='create_build'),
     path('get/oss/url/', get_oss_url.get_path, name='get_oss_url'),
@@ -18,5 +19,4 @@ urlpatterns = [
     path('case/get_case_list/', get_suite_info.get_case_list, name='case_list'),
     path('case/get_metric_list/', get_suite_info.get_metric_list, name='metric_list'),
     path('case/get_suite_all/', get_suite_info.get_metric_list, name='suite_all'),
-    path('case/get_case_info/', get_suite_info.get_case_info, name='case_info'),
 ]
