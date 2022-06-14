@@ -30,6 +30,8 @@ class TestTemplateHandle(BaseHandle):
             self.data_dic['job_name'] = self.data.get('name')
         if 'baseline' in self.data or 'baseline_id' in self.data:
             self.data_dic['baseline_id'] = self.data.get('baseline') or self.data.get('baseline_id')
+        if 'baseline_job_id' in self.data:
+            self.data_dic['baseline_job_id'] = self.data.get('baseline_job_id')
         if 'cleanup_info' in self.data:
             self.data_dic['cleanup_info'] = self.data.get('cleanup_info')
         if 'tags' in self.data and isinstance(self.data.get('tags'), list):
