@@ -147,6 +147,7 @@ def get_job_case(request):
                 'test_metric': case_info.metric,
                 'test_value': round(float(case_info.test_value), 2)
             } for case_info in queryset]
+
     if request.GET.get('test_conf'):
         case_data_list = list(filter(lambda x: x.get('test_conf') == request.GET.get('test_conf'), case_data_list))
     resp.data = case_data_list
