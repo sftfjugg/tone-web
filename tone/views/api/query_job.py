@@ -1,9 +1,4 @@
 # _*_ coding:utf-8 _*_
-"""
-Module Description:
-Date:
-Author: Yfh
-"""
 import json
 
 from tone.core.common.constant import FUNC_CASE_RESULT_TYPE_MAP
