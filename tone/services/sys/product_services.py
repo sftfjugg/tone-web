@@ -80,8 +80,8 @@ class ProjectService(CommonService):
 
     def update(self, data):
         project_id = data.get('project_id')
-        is_show = data.get('is_show') if data.get('is_show') else 0
         assert project_id, ProductException(ErrorCode.PROJECT_ID_NEED)
+        is_show = data.get('is_show') if data.get('is_show') else Project.objects.filter(id=project_id).first().is_show
         obj = Project.objects.get(id=project_id)
         obj.drag_modified = obj.drag_modified
         obj.is_show = is_show
