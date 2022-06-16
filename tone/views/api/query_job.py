@@ -122,24 +122,28 @@ def get_job_case(request):
     TestCaseInfoService.check_parm(request.GET)
     resp = CommResp()
     case_data_list = []
-    test_type = TestJob.objects.filter(id=request.GET.get('job_id')).first().test_type
-    if test_type == 'functional':
+    test_job = TestJob.objects.filter(id=request.GET.get('job_id')).first()
+    if test_job and test_job.test_type == 'functional':
         queryset = TestCaseInfoService.filter(FuncResult.objects.all(), request.GET)
+        test_case_list = TestCase.objects.filter(id__in=[case_info.test_case_id for case_info in queryset]).values_list(
+            'id', 'name')
         case_data_list = [
             {
                 'test_job_id': case_info.test_job_id,
                 'test_suite': request.GET.get('test_suite'),
-                'test_conf': TestCase.objects.filter(id=case_info.test_case_id).first().name,
+                'test_conf': TestCaseInfoService.get_test_conf(test_case_list, case_info.test_case_id),
                 'test_case': case_info.sub_case_name,
                 'test_result': FUNC_CASE_RESULT_TYPE_MAP.get(case_info.sub_case_result)
             } for case_info in queryset]
-    elif test_type == 'performance':
+    elif test_job and test_job.test_type == 'performance':
         queryset = TestCaseInfoService.filter(PerfResult.objects.all(), request.GET)
+        test_case_list = TestCase.objects.filter(id__in=[case_info.test_case_id for case_info in queryset]).values_list(
+            'id', 'name')
         case_data_list = [
             {
                 'test_job_id': case_info.test_job_id,
                 'test_suite': request.GET.get('test_suite'),
-                'test_conf': TestCase.objects.filter(id=case_info.test_case_id).first().name,
+                'test_conf': TestCaseInfoService.get_test_conf(test_case_list, case_info.test_case_id),
                 'test_metric': case_info.metric,
                 'test_value': round(float(case_info.test_value), 2)
             } for case_info in queryset]

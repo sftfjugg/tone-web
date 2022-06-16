@@ -31,10 +31,13 @@ class TestCaseInfoService(CommonService):
         if not TestJobSuite.objects.filter(job_id=data.get('job_id'), test_suite_id=test_suite.id).first():
             raise ValueError(ErrorCode.JOB_SUITE_NAME_NOT_EXISTS)
         if data.get('test_conf'):
-            test_conf_id = TestCase.objects.filter(test_suite_id=test_suite.id, name=data.get('test_conf')).first().id
-            if not TestJobCase.objects.filter(job_id=data.get('job_id'), test_suite_id=test_suite.id,
-                                              test_case_id=test_conf_id).first():
-                raise ValueError(ErrorCode.JOB_CONF_NAME_NOT_EXISTS)
+            test_conf = TestCase.objects.filter(test_suite_id=test_suite.id, name=data.get('test_conf')).first()
+            if test_conf:
+                if not TestJobCase.objects.filter(job_id=data.get('job_id'), test_suite_id=test_suite.id,
+                                                  test_case_id=test_conf.id).first():
+                    raise ValueError(ErrorCode.JOB_CONF_NAME_NOT_EXISTS)
+            else:
+                raise ValueError(ErrorCode.CONF_NAME_NOT_EXISTS)
 
     @staticmethod
     def filter(queryset, data):
@@ -45,6 +48,14 @@ class TestCaseInfoService(CommonService):
         if data.get('job_id'):
             q &= Q(test_job_id=data.get('job_id'))
         return queryset.filter(q)
+
+    @staticmethod
+    def get_test_conf(test_case_list, test_case_id):
+        for case_id, case_name in test_case_list:
+            if test_case_id == case_id:
+                return case_name
+        else:
+            raise ValueError(ErrorCode.CONF_NAME_NOT_EXISTS)
 
 
 class TestCaseService(CommonService):
