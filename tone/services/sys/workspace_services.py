@@ -783,23 +783,25 @@ class AllWorkspaceService(CommonService):
         # 按照config_list_ws_id里面的顺序排列
         if config_list_ws_id:
             preserved = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(config_list_ws_id)])
-            queryset = Workspace.objects.filter(Q(Q(id__in=config_list_ws_id) | Q(is_common=True)) &
-                                                Q(is_approved=True)).order_by(preserved)
-            queryset_update = queryset
+            # 查找出id在config_list_ws_id或通用的ws，并且审核通过的ws,根据preserved排序,定义为queryset_update
+            queryset_update = Workspace.objects.filter(Q(Q(id__in=config_list_ws_id) | Q(is_common=True)) &
+                                                       Q(is_approved=True)).order_by(preserved)
+            # 查找出不属于queryset_update并且非通用的ws，定义为queryset_update_not
             queryset_update_not = Workspace.objects.filter(is_approved=True,
                                                            is_common=False).exclude(id__in=queryset_update)
-            querysets = []
-            querysets.extend(queryset_update)
-            querysets.extend(queryset_update_not)
-            id_list = []
-            for q in querysets:
-                id_list.append(q.id)
-            preserved = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(id_list)])
+            # 定义一个空的列表，按照queryset_update，queryset_update_not的顺序增加到列表中
+            queryset = []
+            queryset.extend(queryset_update)
+            queryset.extend(queryset_update_not)
+            queryset_id_list = []
+            for q in queryset:
+                queryset_id_list.append(q.id)
+            preserved = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(queryset_id_list)])
             if request.GET.get('keyword'):
                 keyword = request.GET.get('keyword')
-                querysets = Workspace.objects.filter(Q(name__contains=keyword) | Q(show_name__contains=keyword)) \
+                queryset = Workspace.objects.filter(Q(name__contains=keyword) | Q(show_name__contains=keyword)) \
                     .order_by(preserved)
-            return querysets
+            return queryset
         else:
             queryset = Workspace.objects.filter(is_approved=True).order_by('-is_common')
             return queryset
