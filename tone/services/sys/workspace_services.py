@@ -786,7 +786,8 @@ class AllWorkspaceService(CommonService):
             queryset = Workspace.objects.filter(Q(Q(id__in=config_list_ws_id) | Q(is_common=True)) &
                                                 Q(is_approved=True)).order_by(preserved)
             queryset_update = queryset
-            queryset_update_not = Workspace.objects.filter(Q(is_show=False) & Q(is_approved=True) & Q(is_common=False))
+            queryset_update_not = Workspace.objects.filter(is_approved=True,
+                                                           is_common=False).exclude(id__in=queryset_update)
             querysets = []
             querysets.extend(queryset_update)
             querysets.extend(queryset_update_not)
@@ -800,7 +801,7 @@ class AllWorkspaceService(CommonService):
                     .order_by(preserved)
             return querysets
         else:
-            queryset = Workspace.objects.filter(Q(is_approved=True)).order_by('-is_common')
+            queryset = Workspace.objects.filter(is_approved=True).order_by('-is_common')
             return queryset
 
 
