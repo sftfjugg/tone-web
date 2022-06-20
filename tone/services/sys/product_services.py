@@ -81,21 +81,24 @@ class ProjectService(CommonService):
     def update(self, data):
         project_id = data.get('project_id')
         assert project_id, ProductException(ErrorCode.PROJECT_ID_NEED)
-        is_show = data.get('is_show') if data.get('is_show') else Project.objects.filter(id=project_id).first().is_show
-        obj = Project.objects.get(id=project_id)
-        obj.drag_modified = obj.drag_modified
-        obj.is_show = is_show
-        for key, value in data.items():
-            if key == 'name':
-                if value != obj.name:
-                    self.check_name(value)
-            if key == 'is_default':
-                self.check_default(value, obj.ws_id, obj.product_id)
-            if hasattr(obj, key):
-                setattr(obj, key, value)
-            else:
-                pass
-        obj.save()
+        project = Project.objects.filter(id=project_id).first()
+        if project:
+            project_is_show = project.is_show
+            is_show = data.get('is_show', project_is_show)
+            obj = Project.objects.get(id=project_id)
+            obj.drag_modified = obj.drag_modified
+            obj.is_show = is_show
+            for key, value in data.items():
+                if key == 'name':
+                    if value != obj.name:
+                        self.check_name(value)
+                if key == 'is_default':
+                    self.check_default(value, obj.ws_id, obj.product_id)
+                if hasattr(obj, key):
+                    setattr(obj, key, value)
+                else:
+                    pass
+            obj.save()
 
     def create(self, data):
         name = data.get('name')
