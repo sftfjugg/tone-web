@@ -248,13 +248,13 @@ class ErrorCode(object):
 
     SERVER_USED_BY_OTHER_WS = (1372, "该机器已在其他workspace中使用")
 
-    CONF_NAME_NOT_EXISTS = (1374, "test_conf does not exist in the test_suite !")
+    CONF_NAME_NOT_EXISTS = (1374, "test_suite下没有该test_conf!")
 
-    SUITE_NAME_NOT_EXISTS = (1375, "test_suite not exists !")
+    SUITE_NAME_NOT_EXISTS = (1375, "该test_suite不存在!")
 
-    JOB_ID_NOT_EXISTS = (1376, "job_id not exists !")
+    JOB_ID_NOT_EXISTS = (1376, "该job_id不存在!")
 
-    JOB_SUITE_NAME_NOT_EXISTS = (1377, "test_suite does not exist in the job_id !")
+    JOB_SUITE_NAME_NOT_EXISTS = (1377, "job_id对应的任务中没有该test_suite!")
 
-    JOB_CONF_NAME_NOT_EXISTS = (1378, "test_conf does not exist in the job_id !")
+    JOB_CONF_NAME_NOT_EXISTS = (1378, "job_id对应的任务中没有该test_conf!")
 
