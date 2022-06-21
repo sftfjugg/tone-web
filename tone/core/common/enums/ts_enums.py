@@ -46,3 +46,10 @@ class TestServerEnums:
         ('cluster', 'cluster'),
         ('standalone', 'standalone')
     )
+
+
+class TestServerState:
+    AVAILABLE = 'Available'
+    OCCUPIED = 'Occupied'
+    BROKEN = 'Broken'
+    RESERVED = 'Reserved'
