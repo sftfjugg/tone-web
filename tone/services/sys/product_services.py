@@ -85,18 +85,17 @@ class ProjectService(CommonService):
         if project:
             project_is_show = project.is_show
             is_show = data.get('is_show', project_is_show)
-            obj = Project.objects.get(id=project_id)
-            obj.drag_modified = obj.drag_modified
-            obj.is_show = is_show
+            project.drag_modified = project.drag_modified
+            project.is_show = is_show
             for key, value in data.items():
                 if key == 'name':
-                    if value != obj.name:
+                    if value != project.name:
                         self.check_name(value)
                 if key == 'is_default':
-                    self.check_default(value, obj.ws_id, obj.product_id)
-                if hasattr(obj, key):
-                    setattr(obj, key, value)
-            obj.save()
+                    self.check_default(value, project.ws_id, project.product_id)
+                if hasattr(project, key):
+                    setattr(project, key, value)
+            project.save()
 
     def create(self, data):
         name = data.get('name')
