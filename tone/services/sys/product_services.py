@@ -84,9 +84,8 @@ class ProjectService(CommonService):
         project = Project.objects.filter(id=project_id).first()
         if project:
             project_is_show = project.is_show
-            is_show = data.get('is_show', project_is_show)
             project.drag_modified = project.drag_modified
-            project.is_show = is_show
+            project.is_show = data.get('is_show', project_is_show)
             for key, value in data.items():
                 if key == 'name':
                     if value != project.name:
