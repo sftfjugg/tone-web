@@ -96,8 +96,6 @@ class ProjectService(CommonService):
                     self.check_default(value, obj.ws_id, obj.product_id)
                 if hasattr(obj, key):
                     setattr(obj, key, value)
-                else:
-                    pass
             obj.save()
 
     def create(self, data):
