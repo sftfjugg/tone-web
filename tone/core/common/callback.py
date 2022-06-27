@@ -4,7 +4,7 @@ import traceback
 import requests
 
 from tone import settings
-from tone.core.common.job_result_helper import calc_job, joint_job_link
+from tone.core.common.job_result_helper import calc_job, splice_job_link
 from tone.models import TestJob, TestSuite
 
 
@@ -52,7 +52,7 @@ class JobCallBack(object):
     def _init_data(self):
         self.job = TestJob.objects.filter(id=self.job_id).first()
         self.api = self.job.callback_api
-        self.job_link = joint_job_link(self.job)
+        self.job_link = splice_job_link(self.job)
         self.data = self._construct_data()
 
     def _construct_data(self):
