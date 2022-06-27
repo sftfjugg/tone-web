@@ -1173,3 +1173,42 @@ class DataConversionService(CommonService):
                 raise ValueError(msg)
             json_data = convertor.name_conv_to_id()
         return json_data
+
+
+class MachineFaultService(CommonService):
+    @staticmethod
+    def get_machine_fault(data):
+        q = Q()
+        if data.get('job_id'):
+            if not str(data.get('job_id')).isdigit():
+                raise JobTestException(ErrorCode.TEST_JOB_NONEXISTENT)
+            job_id = data.get('job_id')
+            server_provider = TestJob.objects.filter(id=job_id).first().server_provider
+            if server_provider == 'aligroup':
+                test_server = TestJobCase.objects.filter(
+                 job_id=job_id, state__in=['pending', 'running']).values('server_object_id')
+                if test_server:
+                    queryset = TestServer.objects.all()
+                    q = Q(id__in=test_server) & Q(state='Broken')
+                    return queryset.filter(q)
+                else:
+                    test_server_snapshot = TestJobCase.objects.filter(
+                        job_id=job_id, state__in=['pending', 'running']).values('server_snapshot_id')
+                    queryset = TestServerSnapshot.objects.all()
+                    q = Q(id__in=test_server_snapshot) & Q(state='Broken')
+                    return queryset.filter(q)
+            else:
+                test_server = TestJobCase.objects.filter(
+                    job_id=job_id, state__in=['pending', 'running']).values('server_object_id')
+                if test_server:
+                    queryset = CloudServer.objects.all()
+                    q = Q(id__in=test_server) & Q(state='Broken')
+                    return queryset.filter(q)
+                else:
+                    cloud_server_snapshot = TestJobCase.objects.filter(
+                        job_id=job_id, state__in=['pending', 'running']).values('server_snapshot_id')
+                    queryset = CloudServerSnapshot.objects.all()
+                    q = Q(id__in=cloud_server_snapshot) & Q(state='Broken')
+                    return queryset.filter(q)
+        else:
+            raise JobTestException(ErrorCode.JOB_NEED)

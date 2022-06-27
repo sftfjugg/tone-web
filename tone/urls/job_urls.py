@@ -42,6 +42,7 @@ urlpatterns = [
     path('test/job-monitor-item/', test_view.JobMonitorItemView.as_view(), name='job_monitor_item'),
     path('yaml_data_verify/', test_view.YamlDataVerify.as_view(), name='yaml_data_verify'),
     path('data_conversion/', test_view.DataConversion.as_view(), name='data_conversion'),
+    path('test_server/machine_fault/', test_view.MachineFaultView.as_view(), name='check_machine_fault'),
 
     # Analysis
     path('result/perf/analysis/', result_analysis.PerfAnalysisView.as_view(), name='perf_analysis'),

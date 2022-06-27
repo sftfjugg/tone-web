@@ -17,12 +17,13 @@ from tone.serializers.job.test_serializers import JobTestSerializer, JobTestSumm
     JobTestConfigSerializer, JobTestResultSerializer, JobTestConfResultSerializer, \
     JobTestCaseResultSerializer, JobTestCaseVersionSerializer, JobTestCaseFileSerializer, \
     JobTestCasePerResultSerializer, JobTestPrepareSerializer, JobTestProcessSuiteSerializer, \
-    JobTestProcessCaseSerializer, JobTestProcessMonitorSerializer
+    JobTestProcessCaseSerializer, JobTestProcessMonitorSerializer, JobTestMachineFaultSerializer, \
+    CloudJobTestMachineFaultSerializer
 from tone.services.job.test_services import JobTestService, JobTestConfigService, JobTestSummaryService, \
     JobTestResultService, JobTestConfResultService, JobTestCaseResultService, \
     JobTestCaseVersionService, JobTestCaseFileService, EditorNoteService, JobCollectionService, UpdateStateService, \
     JobTestPrepareService, JobTestProcessSuiteService, JobTestProcessCaseService, JobTestCasePerResultService, \
-    JobTestProcessMonitorJobService, DataConversionService
+    JobTestProcessMonitorJobService, DataConversionService, MachineFaultService
 from tone.core.common.constant import JOB_MONITOR_ITEM
 from tone.core.common.expection_handler.custom_error import JobTestException
 from tone.core.common.expection_handler.error_catch import views_catch_error
@@ -474,4 +475,22 @@ class DataConversion(BaseView):
             return Response(response_data)
         except Exception as e:
             response_data = self.get_response_code(code=201, msg=str(e))
+            return Response(response_data)
+
+
+class MachineFaultView(CommonAPIView):
+    service_class = MachineFaultService
+
+    def get(self, request):
+        job_id = request.GET.get('job_id')
+        server_provider = list(TestJobCase.objects.filter(job_id=job_id)
+                               .values_list('server_provider', flat=True))[0]
+        queryset = self.service.get_machine_fault(request.GET)
+        if server_provider == 'aligroup':
+            self.serializer_class = JobTestMachineFaultSerializer
+            response_data = self.get_response_data(queryset)
+            return Response(response_data)
+        else:
+            self.serializer_class = CloudJobTestMachineFaultSerializer
+            response_data = self.get_response_data(queryset)
             return Response(response_data)

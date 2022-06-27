@@ -12,7 +12,7 @@ from tone.core.common.serializers import CommonSerializer
 from tone.models import TestJob, JobType, Project, Product, TestJobCase, TestJobSuite, TestCase, TestSuite, \
     JobTagRelation, JobTag, TestStep, FuncResult, PerfResult, ResultFile, User, TestMetric, FuncBaselineDetail, \
     TestServerSnapshot, CloudServerSnapshot, PlanInstanceTestRelation, PlanInstance, ReportObjectRelation, Report, \
-    BusinessSuiteRelation, TestBusiness, WorkspaceCaseRelation, JobMonitorItem, MonitorInfo, BaseConfig
+    BusinessSuiteRelation, TestBusiness, WorkspaceCaseRelation, JobMonitorItem, MonitorInfo, BaseConfig, CloudServer
 from tone.models.sys.baseline_models import Baseline, PerfBaselineDetail
 from tone.core.common.constant import CASE_STEP_STAGE_MAP, PREPARE_STEP_STAGE_MAP, \
     FUNC_CASE_RESULT_TYPE_MAP, PERF_CASE_RESULT_TYPE_MAP, SUITE_STEP_PREPARE_MAP
@@ -993,3 +993,15 @@ class JobSerializerForAPI(CommonSerializer):
             'stability': '稳定性测试'
         }
         return test_type_map.get(obj.test_type)
+
+
+class JobTestMachineFaultSerializer(CommonSerializer):
+    class Meta:
+        model = TestServerSnapshot
+        fields = ['ip', 'sn', 'device_type', 'channel_type', 'state', 'real_state']
+
+
+class CloudJobTestMachineFaultSerializer(CommonSerializer):
+    class Meta:
+        model = CloudServer
+        fields = ['pub_ip', 'sn', 'channel_type', 'state', 'real_state']
