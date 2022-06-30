@@ -11,7 +11,10 @@ from tone.services.sys.workspace_services import WorkspaceService
 
 
 def get_user_avatar(user_id):
-    return f'{settings.APP_DOMAIN}/static/img/default-avatar.jpeg'
+    user = User.objects.filter(id=user_id).first()
+    if not user:
+        return
+    return f'{settings.APP_DOMAIN}/static/img/{user.avatar}'
 
 
 class UserBriefSerializer(CommonSerializer):
