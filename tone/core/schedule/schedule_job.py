@@ -38,12 +38,12 @@ class TestPlanScheduleJob(ScheduleJob):
                     plan_instance = cls._create_instance_data(plan)
                     cls._create_relation_data(plan, plan_instance)
                 elif plan.blocking_strategy == BLOCKING_STATEGY_CHOICES[1][0]:
-                    PlanInstance.objects.filter(plan_id=plan.id, run_mode='auto', state__in=['pending', 'running']
+                    PlanInstance.objects.filter(plan_id=plan.id, state__in=['pending', 'running']
                                                 ).update(state='stop')
                     plan_instance = cls._create_instance_data(plan)
                     cls._create_relation_data(plan, plan_instance)
                 elif plan.blocking_strategy == BLOCKING_STATEGY_CHOICES[2][0]:
-                    if not PlanInstance.objects.filter(plan_id=plan.id, run_mode='auto',
+                    if not PlanInstance.objects.filter(plan_id=plan.id,
                                                        state__in=['pending', 'running']).exists():
                         plan_instance = cls._create_instance_data(plan)
                         cls._create_relation_data(plan, plan_instance)
