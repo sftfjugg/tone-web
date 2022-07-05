@@ -1188,27 +1188,23 @@ class MachineFaultService(CommonService):
                 test_server = TestJobCase.objects.filter(
                  job_id=job_id, state__in=['pending', 'running']).values('server_object_id')
                 if test_server:
-                    queryset = TestServer.objects.all()
                     q = Q(id__in=test_server) & Q(state='Broken')
-                    return queryset.filter(q)
+                    return TestServer.objects.filter(q)
                 else:
                     test_server_snapshot = TestJobCase.objects.filter(
                         job_id=job_id, state__in=['pending', 'running']).values('server_snapshot_id')
-                    queryset = TestServerSnapshot.objects.all()
                     q = Q(id__in=test_server_snapshot) & Q(state='Broken')
-                    return queryset.filter(q)
+                    return TestServerSnapshot.objects.filter(q)
             else:
                 test_server = TestJobCase.objects.filter(
                     job_id=job_id, state__in=['pending', 'running']).values('server_object_id')
                 if test_server:
-                    queryset = CloudServer.objects.all()
                     q = Q(id__in=test_server) & Q(state='Broken')
-                    return queryset.filter(q)
+                    return CloudServer.objects.filter(q)
                 else:
                     cloud_server_snapshot = TestJobCase.objects.filter(
                         job_id=job_id, state__in=['pending', 'running']).values('server_snapshot_id')
-                    queryset = CloudServerSnapshot.objects.all()
                     q = Q(id__in=cloud_server_snapshot) & Q(state='Broken')
-                    return queryset.filter(q)
+                    return CloudServerSnapshot.objects.filter(q)
         else:
             raise JobTestException(ErrorCode.JOB_NEED)

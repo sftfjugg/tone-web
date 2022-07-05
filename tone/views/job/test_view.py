@@ -483,8 +483,7 @@ class MachineFaultView(CommonAPIView):
 
     def get(self, request):
         job_id = request.GET.get('job_id')
-        server_provider = list(TestJobCase.objects.filter(job_id=job_id)
-                               .values_list('server_provider', flat=True))[0]
+        server_provider = TestJobCase.objects.filter(job_id=job_id).values_list('server_provider', flat=True)[0]
         queryset = self.service.get_machine_fault(request.GET)
         if server_provider == 'aligroup':
             self.serializer_class = JobTestMachineFaultSerializer
