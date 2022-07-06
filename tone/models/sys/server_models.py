@@ -88,6 +88,7 @@ class CloudServer(BaseModel):
     system_disk_size = models.CharField(max_length=64, help_text='系统盘大小', default=50)
     extra_param = json.JSONField(default=dict(), help_text='扩展信息')
     sn = models.CharField(max_length=64, null=True, help_text='SN')
+    tsn = models.CharField(max_length=64, null=True, help_text='TSN')
     release_rule = models.BooleanField(default=1, help_text='用完释放')
     # 模板
     template_name = models.CharField(max_length=64, help_text='模板名称')
@@ -249,6 +250,7 @@ class CloudServerSnapshot(BaseModel):
     system_disk_size = models.CharField(max_length=64, help_text='系统盘大小', default=50)
     extra_param = json.JSONField(default=dict(), help_text='扩展信息')
     sn = models.CharField(max_length=64, null=True, help_text='SN', blank=True)
+    tsn = models.CharField(max_length=64, null=True, help_text='TSN')
     release_rule = models.BooleanField(default=1, help_text='用完释放', null=True, blank=True)
     # 模板
     template_name = models.CharField(max_length=64, help_text='模板名称', null=True, blank=True)
