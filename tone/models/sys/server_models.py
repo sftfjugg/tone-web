@@ -59,7 +59,9 @@ class TestServer(BaseModel):
 
     console_type = models.CharField(max_length=64, help_text='console类型')
     console_conf = models.CharField(max_length=64, help_text='console配置')
-    spec_use = models.SmallIntegerField(default=0, help_text="是否被job或集群指定使用, 1被集群使用，2被job使用")
+    spec_use = models.SmallIntegerField(default=0,
+                                        help_text="是否被job或集群指定使用, "
+                                                  "1被集群使用，2被job使用")
     occupied_job_id = models.IntegerField(null=True, blank=True, help_text='被哪个任务所占用')
     broken_job_id = models.IntegerField(null=True, blank=True, help_text='关联机器故障job')
     broken_at = models.DateTimeField(null=True, help_text='故障时间')
@@ -122,7 +124,9 @@ class CloudServer(BaseModel):
 
     console_type = models.CharField(max_length=64, help_text='console类型')
     console_conf = models.CharField(max_length=64, help_text='console配置')
-    spec_use = models.SmallIntegerField(default=0, help_text="是否被job或集群指定使用, 1被集群使用，2被job使用")
+    spec_use = models.SmallIntegerField(default=0,
+                                        help_text="是否被job或集群指定使用, "
+                                                  "1被集群使用，2被job使用")
     occupied_job_id = models.IntegerField(null=True, blank=True, help_text='被哪个任务所占用')
     in_pool = models.BooleanField(default=True, help_text='是否在单机池中')
     broken_job_id = models.IntegerField(null=True, blank=True, help_text='关联机器故障job')
@@ -214,7 +218,9 @@ class TestServerSnapshot(BaseModel):
 
     console_type = models.CharField(max_length=64, help_text='console类型', null=True, blank=True)
     console_conf = models.CharField(max_length=64, help_text='console配置', null=True, blank=True)
-    spec_use = models.SmallIntegerField(default=0, help_text="是否被job或集群指定使用, 1被集群使用，2被job使用")
+    spec_use = models.SmallIntegerField(default=0,
+                                        help_text="是否被job或集群指定使用, "
+                                                  "1被集群使用，2被job使用")
     occupied_job_id = models.IntegerField(null=True, blank=True, help_text='被哪个任务所占用')
     source_server_id = models.IntegerField(db_index=True, null=True, help_text='来源机器id')
     job_id = models.IntegerField(null=True, blank=True, default=0, db_index=True)
@@ -284,7 +290,9 @@ class CloudServerSnapshot(BaseModel):
 
     console_type = models.CharField(max_length=64, help_text='console类型', null=True, blank=True)
     console_conf = models.CharField(max_length=64, help_text='console配置', null=True, blank=True)
-    spec_use = models.SmallIntegerField(default=0, help_text="是否被job或集群指定使用, 1被集群使用，2被job使用")
+    spec_use = models.SmallIntegerField(default=0,
+                                        help_text="是否被job或集群指定使用, "
+                                                  "1被集群使用，2被job使用")
     occupied_job_id = models.IntegerField(null=True, blank=True, help_text='被哪个任务所占用')
     in_pool = models.BooleanField(default=True, help_text='是否在单机池中')
     source_server_id = models.IntegerField(db_index=True, null=True, help_text='来源机器id')
@@ -303,7 +311,9 @@ class CloudServerSnapshot(BaseModel):
 
 class TestClusterSnapshot(BaseModel):
     name = models.CharField(max_length=64, help_text='名称')
-    cluster_type = models.CharField(max_length=64, choices=TestServerEnums.RUN_ENV_CHOICES, help_text='集群类型')
+    cluster_type = models.CharField(max_length=64,
+                                    choices=TestServerEnums.RUN_ENV_CHOICES,
+                                    help_text='集群类型')
     is_occpuied = models.BooleanField(help_text='是否被占用', default=False)
     ws_id = models.CharField(max_length=64, help_text='ws_id')
     owner = models.IntegerField(null=True, help_text='Owner')
@@ -343,9 +353,13 @@ class ServerTag(BaseModel):
 
 
 class ServerTagRelation(BaseModel):
-    run_environment = models.CharField(max_length=64, choices=TestServerEnums.RUN_ENV_CHOICES, default='cluster',
+    run_environment = models.CharField(max_length=64,
+                                       choices=TestServerEnums.RUN_ENV_CHOICES,
+                                       default='cluster',
                                        help_text='运行环境')
-    object_type = models.CharField(max_length=64, choices=TestServerEnums.OBJECT_TYPE_CHOICES, help_text='关联对象类型')
+    object_type = models.CharField(max_length=64,
+                                   choices=TestServerEnums.OBJECT_TYPE_CHOICES,
+                                   help_text='关联对象类型')
     object_id = models.IntegerField(db_index=True, help_text='关联对象ID')
     server_tag_id = models.IntegerField(db_index=True, help_text='关联server_tagID')
 
@@ -355,7 +369,9 @@ class ServerTagRelation(BaseModel):
 
 class CloudAk(BaseModel):
     name = models.CharField(max_length=64, help_text='ak name')
-    provider = models.CharField(max_length=64, choices=TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES, help_text='')
+    provider = models.CharField(max_length=64,
+                                choices=TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES,
+                                help_text='')
     access_id = models.CharField(max_length=128, help_text='')
     access_key = models.CharField(max_length=1024, help_text='')
     resource_group_id = models.CharField(max_length=32, null=True, blank=True, help_text='资源组ID')
@@ -375,8 +391,10 @@ class CloudImage(BaseModel):
     provider = models.CharField(max_length=32, help_text='provider name')
     region = models.CharField(max_length=64, help_text='region/location id')
 
-    public_type = models.SmallIntegerField(default=1, null=True, help_text='公开类型，公共镜像0，自定义镜像1')
-    usage_type = models.CharField(max_length=32, null=True, default='instance', help_text='instance or container')
+    public_type = models.SmallIntegerField(default=1, null=True,
+                                           help_text='公开类型，公共镜像0，自定义镜像1')
+    usage_type = models.CharField(max_length=32, null=True, default='instance',
+                                  help_text='instance or container')
     login_user = models.CharField(max_length=32, null=True, default='root', help_text='登陆用户名')
 
     image_id = models.CharField(max_length=128, db_index=True, help_text='image_id')
