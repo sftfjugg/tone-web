@@ -8,6 +8,7 @@
 
 SUCCESS_200 = {'code': 200, 'msg': 'success'}
 PAGE_LIMIT_201 = {'code': 201, 'msg': 'Page Numbers exceed maximum limits'}
+DELETE_WS_EXISTS_201 = {'code': 201, 'msg': '注销申请正在审批中，请等待'}
 FIELD_REQUIRED_202 = {'code': 202, 'msg': 'The field is required. Please check the parameters'}
 DATA_EXISTS_203 = {'code': 203, 'msg': 'The data already exists in the database. Please reenter and submit'}
 PARAM_ERROR_204 = {'code': 204, 'msg': 'Parameter error. Please reenter and submit'}
