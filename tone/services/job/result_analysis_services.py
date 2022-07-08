@@ -164,6 +164,9 @@ class PerfAnalysisService(CommonService):
                         'cv_value': row[9],
                         'note': row[10],
                         'result_obj_id': row[11],
+                        # test_job_case.id未使用，所以跳过[12]
+                        # test_job_case.run_mode未使用，所以跳过[13]
+                        'creator_id': row[14]
                     }
                 )
         else:
@@ -186,6 +189,8 @@ class PerfAnalysisService(CommonService):
                         'image': row[13],
                         'bandwidth': row[14],
                         'run_mode': row[15],
+                        # test_job_case.id未使用，所以跳过[16]
+                        'creator_id': row[17],
                     }
                 )
         return metric_data
@@ -222,6 +227,7 @@ class PerfAnalysisService(CommonService):
                             'cv_value': _value.get('cv_value'),
                             'note': _value.get('note'),
                             'result_obj_id': _value.get('result_obj_id'),
+                            'creator_id': _value.get('creator_id')
                         })
                         job_id_list.append(_value.get('job_id'))
         else:
@@ -239,6 +245,7 @@ class PerfAnalysisService(CommonService):
                         'cv_value': value.get('cv_value'),
                         'note': value.get('note'),
                         'result_obj_id': value.get('result_obj_id'),
+                        'creator_id': value.get('creator_id')
                     })
                     job_id_list.append(value.get('job_id'))
         return list(sorted(job_list, key=lambda x: x.get('job_id'), reverse=True))

@@ -118,6 +118,7 @@ class WorkspaceDetailSerializer(CommonSerializer):
     member_count = serializers.SerializerMethodField()
     is_member = serializers.SerializerMethodField()
     logo = serializers.SerializerMethodField()
+    owner_avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = Workspace
@@ -190,6 +191,12 @@ class WorkspaceDetailSerializer(CommonSerializer):
     @staticmethod
     def get_logo(obj):
         return WorkspaceService.get_ws_logo(obj.logo)
+
+    def get_owner_avatar(self, obj):
+        user_list = self.context['request'].user_list
+        for user in user_list:
+            if user.id == obj.owner:
+                return user.avatar
 
 
 class WorkspaceMenuHistorySerializer(CommonSerializer):
