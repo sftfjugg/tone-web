@@ -18,9 +18,9 @@ RUN mkdir -p ${APP_HOME}/logs/app && mkdir -p ${APP_HOME}/logs/supervisord
 ADD . ${APP_HOME}
 
 # 更新apt-get、 pip、安装pip包
-${PIP_INSTALL} supervisor && \
-${PIP_INSTALL} django-apscheduler==0.5.2 && \
-${PIP_INSTALL} -r ${APP_HOME}/docker/requirements.txt
+RUN ${PIP_INSTALL} supervisor && \
+    ${PIP_INSTALL} django-apscheduler==0.5.2 && \
+    ${PIP_INSTALL} -r ${APP_HOME}/docker/requirements.txt
 
 #设置时区
 RUN /bin/cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo 'Asia/Shanghai' >/etc/timezone
