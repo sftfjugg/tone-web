@@ -116,10 +116,6 @@ WS_PERMISSION_CONFIG = {
         'PUT': {'ws_owner', 'ws_admin'},
         'DELETE': {'ws_owner', 'ws_admin'},
     },
-    '/api/auth/role/': {
-        'GET': {'ws_owner', 'ws_admin', 'ws_test_admin', 'ws_member'},
-    },
-
     # 创建job
     '/api/job/test/': {
         'POST': {'ws_owner', 'ws_admin', 'ws_test_admin', 'ws_member'},
@@ -165,7 +161,6 @@ WS_PERMISSION_CONFIG = {
     # 机器管理：内网、云上、调度标签、云上测试配置
     # 内网单机
     '/api/server/test_server/': {
-        'GET': {'ws_owner', 'ws_admin', 'ws_test_admin', 'ws_member'},
         'POST': {'ws_owner', 'ws_admin', 'ws_test_admin', 'ws_member'},
     },
     # 内网集群 / 云上集群
