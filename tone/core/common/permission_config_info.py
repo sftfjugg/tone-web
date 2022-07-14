@@ -28,7 +28,7 @@ WS_ROLE_MAP = {
 # 白名单
 VALID_URL_LIST = [
     "^/$", "/api/job/create/",
-    "/favicon.ico", "/admin/.*", "/api/job/query/", "/api/role/add_role/"
+    "/favicon.ico", "/admin/.*", "/api/job/query/"
 ]
 SYS_PERMISSION_CONFIG = {
     # 用户管理
@@ -89,9 +89,6 @@ SYS_PERMISSION_CONFIG = {
     },
     '/api/server/get_ssh_link/': {
         'GET': {'sys_admin'},
-    },
-    '/api/job/collection/': {
-        'POST': {'ws_member', 'ws_owner', 'ws_admin', 'ws_test_admin'},
     },
 }
 
@@ -268,6 +265,9 @@ WS_PERMISSION_CONFIG = {
 
     '/api/job/test/upload/offline/': {
         'POST': {'ws_owner', 'ws_admin', 'ws_test_admin', 'ws_member'},
+    },
+    '/api/job/collection/': {
+        'POST': {'ws_member', 'ws_owner', 'ws_admin', 'ws_test_admin'},
     },
 }
 
