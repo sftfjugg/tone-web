@@ -9,10 +9,12 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
 from tone.core.common.serializers import CommonSerializer
+from tone.core.common.enums.job_enums import JobState
 from tone.models import TestJob, JobType, Project, Product, TestJobCase, TestJobSuite, TestCase, TestSuite, \
     JobTagRelation, JobTag, TestStep, FuncResult, PerfResult, ResultFile, User, TestMetric, FuncBaselineDetail, \
     TestServerSnapshot, CloudServerSnapshot, PlanInstanceTestRelation, PlanInstance, ReportObjectRelation, Report, \
-    BusinessSuiteRelation, TestBusiness, WorkspaceCaseRelation, JobMonitorItem, MonitorInfo, BaseConfig
+    BusinessSuiteRelation, TestBusiness, WorkspaceCaseRelation, JobMonitorItem, MonitorInfo, BaseConfig, \
+    TestClusterSnapshot, TestCluster
 from tone.models.sys.baseline_models import Baseline, PerfBaselineDetail
 from tone.core.common.constant import CASE_STEP_STAGE_MAP, PREPARE_STEP_STAGE_MAP, \
     FUNC_CASE_RESULT_TYPE_MAP, PERF_CASE_RESULT_TYPE_MAP, SUITE_STEP_PREPARE_MAP
@@ -489,11 +491,12 @@ class JobTestPrepareSerializer(CommonSerializer):
     @staticmethod
     def get_test_prepare(obj):
         server_step = {'standalone': dict(), 'cluster': dict()}
+        data_list = []
         steps = TestStep.objects.filter(job_id=obj.id, stage__in=PREPARE_STEP_STAGE_MAP.keys())
         provider = obj.server_provider
         for step in steps:
             if step.cluster_id:
-                insert_cluster(server_step, provider, step)
+                insert_cluster(server_step, provider, step, data_list)
             else:
                 insert_standalone(step, server_step, provider)
         return server_step
@@ -914,30 +917,41 @@ def get_check_server_ip(server_id, provider):
     return server
 
 
-def insert_cluster(server_step, provider, step):
+def insert_cluster(server_step, provider, step, data_list):
     if provider == 'aligroup':
         server = TestServerSnapshot.objects.get(id=step.server).ip
     else:
         server = CloudServerSnapshot.objects.get(id=step.server).private_ip
-    suite_id = step.job_suite_id
-    data = {
-        'stage': PREPARE_STEP_STAGE_MAP.get(step.stage),
-        'state': step.state,
-        'result': step.result,
-        'tid': step.tid,
-        'gmt_created': datetime.strftime(step.gmt_created, "%Y-%m-%d %H:%M:%S"),
-        'gmt_modified': datetime.strftime(step.gmt_modified, "%Y-%m-%d %H:%M:%S")
-        if step.state != 'running' else None,
-    }
-    if suite_id in server_step['cluster']:
-        if server in server_step['cluster'][suite_id]:
-            if data not in server_step['cluster'][suite_id][server]:
-                server_step['cluster'][suite_id][server].append(data)
-        else:
-            server_step['cluster'][suite_id][server] = [data]
-    else:
-        server_step['cluster'][suite_id] = dict()
-        server_step['cluster'][suite_id][server] = [data]
+    test_step_cluster_id = step.cluster_id
+    test_cluster_snapshot = TestClusterSnapshot.objects.filter(id=test_step_cluster_id).first()
+    if test_cluster_snapshot:
+        source_cluster_id = test_cluster_snapshot.source_cluster_id
+        test_cluster = TestCluster.objects.filter(id=source_cluster_id).first()
+        if test_cluster:
+            cluster_name = test_cluster.name
+            if not cluster_name:
+                cluster_name = TestCluster.objects.filter(id=test_cluster_snapshot, query_scope='deleted').first().name
+            data = {
+                'stage': PREPARE_STEP_STAGE_MAP.get(step.stage),
+                'state': step.state,
+                'result': step.result,
+                'tid': step.tid,
+                'gmt_created': datetime.strftime(step.gmt_created, "%Y-%m-%d %H:%M:%S"),
+                'gmt_modified': datetime.strftime(step.gmt_modified, "%Y-%m-%d %H:%M:%S")
+                if step.state != JobState.RUNNING else None,
+            }
+            if cluster_name in server_step['cluster']:
+                if server in server_step['cluster'][cluster_name]:
+                    if data not in server_step['cluster'][cluster_name][server]:
+                        server_step['cluster'][cluster_name][server].append(data)
+                else:
+                    server_step['cluster'][cluster_name][server] = [data]
+            else:
+                server_step['cluster'][cluster_name] = dict()
+                server_step['cluster'][cluster_name][server] = [data]
+            data_list.append(data)
+            data_list_new = sorted(data_list, key=lambda x: x['gmt_created'], reverse=True)
+            server_step['data'] = data_list_new[0]
 
 
 def get_test_type(obj):
