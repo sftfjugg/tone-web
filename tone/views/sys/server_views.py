@@ -1,6 +1,7 @@
 import re
 from rest_framework.response import Response
 
+from tone.core.common.info_map import add_link_msg
 from tone.core.common.views import CommonAPIView, BaseView
 from tone.models import TestServer, CloudServer, ServerTag, TestCluster, TestClusterServer, CloudAk, CloudImage
 from tone.serializers.sys.server_serializers import TestServerSerializer, CloudServerSerializer, ServerTagSerializer, \
@@ -48,6 +49,9 @@ class TestServerView(CommonAPIView):
             response_data = self.get_response_data(None, many=False)
             response_data['code'] = 201
             response_data['msg'] = instance
+            link_msg = add_link_msg(instance)
+            if link_msg:
+                response_data['link_msg'] = link_msg
             return Response(response_data)
 
 
