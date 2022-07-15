@@ -21,7 +21,8 @@ class FieldRequiredException(BaseAPIException):
 
 
 class DataExistsException(BaseAPIException):
-    def __init__(self, code=exception_code.DATA_EXISTS_203['code'], msg=exception_code.DATA_EXISTS_203['msg']):
+    def __init__(self, code=exception_code.DELETE_WS_EXISTS_201['code'],
+                 msg=exception_code.DELETE_WS_EXISTS_201['msg']):
         super().__init__(code, msg)
 
 
