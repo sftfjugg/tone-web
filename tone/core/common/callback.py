@@ -68,9 +68,9 @@ class JobCallBack(object):
 
     def _callback(self):
         if self.method.lower() == 'post':
-            res = requests.post(self.api, json=self.data)
+            res = requests.post(self.api, json=self.data, verify=False)
         else:
-            res = requests.get(self.api, params=self.data)
+            res = requests.get(self.api, params=self.data, verify=False)
         return True, res.text
     
     def __construct_data_when_job_start_running(self):
