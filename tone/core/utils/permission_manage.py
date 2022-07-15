@@ -22,7 +22,7 @@ def check_operator_permission(operator_id, check_obj):
     if sys_role not in ['super_admin', 'sys_admin']:
         operator_role_id = WorkspaceMember.objects.get(ws_id=check_obj.ws_id, user_id=operator_id).role_id
         operator_role = Role.objects.get(id=operator_role_id).title
-        allow_list = ['ws_owner', 'ws_tester_admin', 'ws_tester']
+        allow_list = ['ws_owner', 'ws_admin', 'ws_test_admin']
         if operator_role not in allow_list and operator_id != check_obj.creator:
             return False
     return True
@@ -88,7 +88,7 @@ class ValidPermission(MiddlewareMixin):
             url_permission = WS_PERMISSION_CONFIG[current_path]
             # 验证请求方式
             if current_method in url_permission:
-                method_permission = url_permission[current_method]
+                method_permission = url_permission.get(current_method)
                 if ws_role_name in method_permission:
                     return 'success'
                 else:
@@ -210,7 +210,7 @@ class ValidPermission(MiddlewareMixin):
             else:
                 # 成员系统权限校验
                 if current_role_name != 'sys_admin':
-                    sys_result = self.check_sys_permission(current_path, current_method, 'user', None)
+                    sys_result = self.check_sys_permission(current_path, current_method, current_role_name, None)
                     if sys_result == 'fail':
                         return response_401
         return None

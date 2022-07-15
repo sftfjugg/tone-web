@@ -138,7 +138,8 @@ ANALYSIS_SQL_MAP = {
         B.note,
         B.id,
         C.id,
-        C.run_mode
+        C.run_mode,
+        E.id
     FROM
         test_job AS A,
         perf_result AS B,
@@ -190,7 +191,8 @@ ANALYSIS_SQL_MAP = {
         B.note,
         B.id,
         C.id,
-        C.run_mode
+        C.run_mode,
+        E.id
     FROM
         test_job AS A,
         perf_result AS B,
@@ -249,7 +251,8 @@ ANALYSIS_SQL_MAP = {
         D.image,
         D.bandwidth,
         C.run_mode,
-        C.id
+        C.id,
+        E.id
     FROM
         test_job AS A,
         perf_result AS B,
@@ -304,7 +307,8 @@ ANALYSIS_SQL_MAP = {
         D.image,
         D.bandwidth,
         C.run_mode,
-        C.id
+        C.id,
+        E.id
     FROM
         test_job AS A,
         perf_result AS B,
