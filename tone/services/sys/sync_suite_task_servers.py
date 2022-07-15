@@ -244,7 +244,7 @@ def sync_suite_tone_task():
 def sync_suite_desc_tone_task():
     for tmp_suite_obj in SuiteData.objects.all():
         tmp_suite_name = tmp_suite_obj.name
-        command = 'cat /tmp/tone_work_dir/tone/tests/{}/Readme.md'.format(tmp_suite_name)
+        command = 'cat /tmp/tone_work_dir/tone/tests/{}/readme.md'.format(tmp_suite_name)
         request = SendTaskRequest(settings.TONEAGENT_ACCESS_KEY, settings.TONEAGENT_SECRET_KEY)
         if not get_config_from_db('SUITE_SYNC_SERVER'):
             logger.warning('sync_suite_desc_tone_task: no sync case server config!')
