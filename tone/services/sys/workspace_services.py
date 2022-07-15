@@ -22,7 +22,7 @@ from tone.core.utils.sftp_client import sftp_client
 from tone.core.utils.short_uuid import short_uuid
 from tone.models import WorkspaceMember, Workspace, ApproveInfo, WorkspaceAccessHistory, User, TestCase, \
     WorkspaceCaseRelation, TestSuite, Product, Project, TestJob, Role, RoleMember, JobTag, TestServer, CloudServer, \
-    InSiteWorkProcessMsg, InSiteWorkProcessUserMsg, InSiteSimpleMsg, BaseConfig, FuncResult
+    InSiteWorkProcessMsg, InSiteWorkProcessUserMsg, InSiteSimpleMsg, BaseConfig, FuncResult, TestJobCase
 from tone.services.report.report_services import ReportTemplateService
 from tone.settings import MEDIA_ROOT
 
@@ -950,18 +950,19 @@ def get_job_state(test_job_id, test_type, state, func_view_config):
         state = 'pending'
     if test_type == 'functional' and (state == 'fail' or state == 'success'):
         if func_view_config and func_view_config.config_value == '2':
-            func_result = FuncResult.objects.filter(test_job_id=test_job_id)
-            if func_result.count() == 0:
+            if not FuncResult.objects.filter(test_job_id=test_job_id).exists():
                 state = 'fail'
                 return state
-            func_result_list = FuncResult.objects.filter(test_job_id=test_job_id, sub_case_result=2)
-            if func_result_list.count() == 0:
-                state = 'pass'
+            if TestJobCase.objects.filter(job_id=test_job_id, state='fail').exists():
+                state = 'fail'
             else:
-                if func_result_list.filter(match_baseline=0).count() > 0:
-                    state = 'fail'
-                else:
+                if not FuncResult.objects.filter(test_job_id=test_job_id, sub_case_result=2).exists():
                     state = 'pass'
+                else:
+                    if FuncResult.objects.filter(test_job_id=test_job_id, sub_case_result=2, match_baseline=0).exists():
+                        state = 'fail'
+                    else:
+                        state = 'pass'
     return state
 
 
