@@ -425,6 +425,18 @@ class TestRetrieveCaseSerializer(CommonSerializer):
         fields = ['id', 'name', 'certificated']
 
 
+class RetrieveStatisticsSerializer(CommonSerializer):
+    case_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TestSuite
+        fields = ['id', 'name', 'certificated', 'case_count']
+
+    @staticmethod
+    def get_case_count(obj):
+        TestCase.objects.filter(test_suite_id=obj.id).count()
+
+
 class RetrieveSuiteSerializer(CommonSerializer):
     owner_name = serializers.SerializerMethodField()
     domain_name_list = serializers.SerializerMethodField()
