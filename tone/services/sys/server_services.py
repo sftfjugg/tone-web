@@ -791,15 +791,17 @@ class CloudServerService(CommonService):
                 image_list.extend(ecs_driver.get_images(data.get('instance_type')))
             return list(sorted(image_list, key=lambda x: (x.get('id', '') or x.get('name', ''))))
 
-    def get_ali_driver(self, ak_id, region='cn-hangzhou', zone=''):
+    @staticmethod
+    def get_ali_driver(ak_id, region='cn-hangzhou', zone=''):
         cloud_ak = CloudAk.objects.filter(id=ak_id)
-        if cloud_ak:
-            if cloud_ak.first().provider == TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES[1][0]:
-                driver = EciDriver(cloud_ak.first().access_id, cloud_ak.first().access_key, region, zone)
+        if cloud_ak.exists():
+            ak_obj = cloud_ak.first()
+            if ak_obj.provider == TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES[1][0]:
+                driver = EciDriver(ak_obj.access_id, ak_obj.access_key, region, zone)
             else:
-                driver = EcsDriver(cloud_ak.first().access_id, cloud_ak.first().access_key, region, zone,
-                                   resource_group_id=cloud_ak.first().resource_group_id)
-            return driver, cloud_ak.first().provider
+                driver = EcsDriver(ak_obj.access_id, ak_obj.access_key, region, zone,
+                                   resource_group_id=ak_obj.resource_group_id)
+            return driver, ak_obj.provider
         else:
             return None, None
 
