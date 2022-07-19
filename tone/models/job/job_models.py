@@ -163,7 +163,7 @@ class TestJobCase(BaseModel):
         ('aligroup', '集团内部'),
         ('aliyun', '阿里云')
     )
-    job_id = models.IntegerField(help_text='关联JOB ID')
+    job_id = models.IntegerField(help_text='关联JOB ID', db_index=True)
     state = models.CharField(max_length=64, db_index=True, default='pending',
                              choices=JOB_TEST_CASE_CHOICES, help_text='状态')
     test_case_id = models.IntegerField(db_index=True, help_text='关联CASE ID')
