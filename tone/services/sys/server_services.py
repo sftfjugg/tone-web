@@ -765,24 +765,31 @@ class CloudServerService(CommonService):
 
     @staticmethod
     def get_image_list(data):
-        image = []
+        image_list = []
         cloud_ak = CloudAk.objects.filter(id=data.get('ak_id'), query_scope='all')
-        if cloud_ak:
+        if cloud_ak.exists():
+            ak_obj = cloud_ak.first()
             images = CloudImage.objects.filter(ak_id=data.get('ak_id'), region=data.get('region'))
             if images:
-                image = [{'id': tmp_img.image_id,
-                          'name': tmp_img.image_name,
-                          'owner_alias': 'self',
-                          'platform': tmp_img.platform} for tmp_img in images]
-            if cloud_ak.first().provider == TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES[1][0]:
-                pass
-            else:
-                ecs_driver = EcsDriver(cloud_ak.first().access_id, cloud_ak.first().access_key, data.get('region'),
-                                       data.get('zone'), cloud_ak.first().resource_group_id)
-                image.extend(ecs_driver.get_images(data.get('instance_type')))
-            return list(sorted(image, key=lambda x: (x.get('id', '') or x.get('name', ''))))
-        else:
-            return None
+                image_list = [
+                    {
+                        'id': tmp_img.image_id,
+                        'name': tmp_img.image_name,
+                        'owner_alias': 'self',
+                        'os_name': tmp_img.os_name,
+                        'platform': tmp_img.platform
+                    }
+                    for tmp_img in images
+                ]
+            if ak_obj.provider != TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES[1][0]:
+                ecs_driver = EcsDriver(
+                    ak_obj.access_id,
+                    ak_obj.access_key,
+                    data.get('region'),
+                    data.get('zone')
+                )
+                image_list.extend(ecs_driver.get_images(data.get('instance_type')))
+            return list(sorted(image_list, key=lambda x: (x.get('id', '') or x.get('name', ''))))
 
     def get_ali_driver(self, ak_id, region='cn-hangzhou', zone=''):
         cloud_ak = CloudAk.objects.filter(id=ak_id)
