@@ -584,6 +584,8 @@ class JobTestResultService(CommonService):
         test_suites = response['data'][0]['test_suite']
         resp = []
         for test_suite in test_suites:
+            if not test_suite:
+                continue
             if test_suite['test_type'] == '功能测试':
                 if not data.get('state'):
                     resp.append(test_suite)

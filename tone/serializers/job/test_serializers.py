@@ -9,6 +9,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
 from tone.core.common.serializers import CommonSerializer
+from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestJob, JobType, Project, Product, TestJobCase, TestJobSuite, TestCase, TestSuite, \
     JobTagRelation, JobTag, TestStep, FuncResult, PerfResult, ResultFile, User, TestMetric, FuncBaselineDetail, \
     TestServerSnapshot, CloudServerSnapshot, PlanInstanceTestRelation, PlanInstance, ReportObjectRelation, Report, \
@@ -506,8 +507,7 @@ class JobTestResultSerializer(CommonSerializer):
         model = TestJob
         fields = ['test_suite', 'creator']
 
-    @staticmethod
-    def get_test_suite(obj):
+    def get_test_suite(self, obj):
         suite_list = list()
         suites = TestJobSuite.objects.filter(job_id=obj.id, state__in=['success', 'fail', 'skip', 'stop', 'running'])
         test_type = get_test_type(obj)
@@ -517,13 +517,25 @@ class JobTestResultSerializer(CommonSerializer):
             'business': '业务测试',
             'stability': '稳定性测试'
         }
-        suite_test_type = obj.test_type
+        thread_tasks = []
         for suite in suites:
+            thread_tasks.append(
+                ToneThread(self._get_test_suite_result, (suite, obj, test_type, test_type_map))
+            )
+            thread_tasks[-1].start()
+        for thread_task in thread_tasks:
+            thread_task.join()
+            suite_item_data = thread_task.get_result()
+            suite_list.append(suite_item_data)
+        return suite_list
+
+    @staticmethod
+    def _get_test_suite_result(suite, test_job, test_type, test_type_map):
+            test_suite = TestSuite.objects.get(id=suite.test_suite_id)
             business_name = None
             if suite.state != 'running':
-                if obj.test_type == 'business':
+                if test_job.test_type == 'business':
                     tmp_test_suite = TestSuite.objects.filter(id=suite.test_suite_id, query_scope='all').first()
-                    suite_test_type = tmp_test_suite.test_type
                     test_type = test_type_map.get(tmp_test_suite.test_type)
                     business = BusinessSuiteRelation.objects.filter(test_suite_id=suite.test_suite_id,
                                                                     query_scope='all').first()
@@ -531,52 +543,49 @@ class JobTestResultSerializer(CommonSerializer):
                 suite_data = {
                     'job_suite_id': suite.id,
                     'suite_id': suite.test_suite_id,
-                    'suite_name': TestSuite.objects.get_value(id=suite.test_suite_id) and TestSuite.objects.get_value(
-                        id=suite.test_suite_id).name,
+                    'suite_name': test_suite.name,
                     'test_type': test_type,
                     'note': suite.note,
                     'start_time': datetime.strftime(suite.start_time,
                                                     "%Y-%m-%d %H:%M:%S") if suite.start_time else None,
                     'end_time': datetime.strftime(suite.end_time, "%Y-%m-%d %H:%M:%S") if suite.end_time else None,
-                    'creator': obj.creator,
+                    'creator': test_job.creator,
                     'business_name': business_name,
                 }
                 if test_type == '性能测试':
-                    per_result = PerfResult.objects.filter(test_job_id=obj.id, test_suite_id=suite.test_suite_id)
-                    baseline_id = obj.baseline_id
+                    per_result = PerfResult.objects.filter(test_job_id=test_job.id, test_suite_id=suite.test_suite_id)
+                    baseline_id = test_job.baseline_id
                     baseline = None
                     if per_result.exists() and per_result.first().compare_baseline:
                         baseline_id = per_result.first().compare_baseline
                     if Baseline.objects.filter(id=baseline_id).exists():
                         baseline = Baseline.objects.get(id=baseline_id).name
                     suite_data['baseline'] = baseline
-                    _, count_data = calc_job_suite(suite.id, obj.ws_id, suite_test_type)
+                    _, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
                 elif test_type == '业务测试':
-                    result, count_data = calc_job_suite(suite.id, obj.ws_id, suite_test_type)
+                    result, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
                     suite_data['result'] = result
                 else:
-                    result, count_data = calc_job_suite(suite.id, obj.ws_id, suite_test_type)
+                    result, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
                     suite_data['result'] = result
                 suite_data = {**suite_data, **count_data}
-                suite_data['baseline_job_id'] = obj.baseline_job_id
-                suite_list.append(suite_data)
+                suite_data['baseline_job_id'] = test_job.baseline_job_id
+                return suite_data
             else:
                 # 当有任意case结束时返回running的suite
-                check_cases = TestJobCase.objects.filter(job_id=obj.id, test_suite_id=suite.test_suite_id,
+                check_cases = TestJobCase.objects.filter(job_id=test_job.id, test_suite_id=suite.test_suite_id,
                                                          state__in=['success', 'fail', 'skip', 'stop']).count()
                 if check_cases > 0:
                     suite_data = {
                         'job_suite_id': suite.id,
                         'suite_id': suite.test_suite_id,
-                        'suite_name': TestSuite.objects.get_value(
-                            id=suite.test_suite_id) and TestSuite.objects.get_value(
-                            id=suite.test_suite_id).name,
+                        'suite_name': test_suite.name,
                         'test_type': test_type,
                         'note': suite.note,
                         'start_time': datetime.strftime(suite.start_time,
                                                         "%Y-%m-%d %H:%M:%S") if suite.start_time else None,
                         'end_time': datetime.strftime(suite.end_time, "%Y-%m-%d %H:%M:%S") if suite.end_time else None,
-                        'creator': obj.creator,
+                        'creator': test_job.creator,
                         'business_name': business_name
                     }
                     if test_type == '性能测试':
@@ -597,9 +606,8 @@ class JobTestResultSerializer(CommonSerializer):
                             'result': 'running'
                         }
                     suite_data = {**suite_data, **count_data}
-                    suite_data['baseline_job_id'] = obj.baseline_job_id
-                    suite_list.append(suite_data)
-        return suite_list
+                    suite_data['baseline_job_id'] = test_job.baseline_job_id
+                    return suite_data
 
 
 class JobTestConfResultSerializer(CommonSerializer):
