@@ -20,6 +20,7 @@ from tone.core.common.permission_config_info import WS_ROLE_MAP, WS_SHOW_MEMBER_
 from tone.core.common.services import CommonService
 from tone.core.utils.sftp_client import sftp_client
 from tone.core.utils.short_uuid import short_uuid
+from tone.core.utils.tone_thread import ToneThread
 from tone.models import WorkspaceMember, Workspace, ApproveInfo, WorkspaceAccessHistory, User, TestCase, \
     WorkspaceCaseRelation, TestSuite, Product, Project, TestJob, Role, RoleMember, JobTag, TestServer, CloudServer, \
     InSiteWorkProcessMsg, InSiteWorkProcessUserMsg, InSiteSimpleMsg, BaseConfig, FuncResult
@@ -182,27 +183,26 @@ class WorkspaceService(CommonService):
             )
         WorkspaceCaseRelation.objects.bulk_create(case_relations_obj_list)
 
-    def add_workspace_relation_data(self, ws_id, operator, is_sys_user=False):
+    def add_workspace_relation_data(self, ws_id, operator):
         with transaction.atomic():
             # 1.add member
-            if not is_sys_user:
-                WorkspaceMember.objects.get_or_create(
-                    user_id=operator,
-                    ws_id=ws_id,
-                    role_id=Role.objects.filter(title='ws_owner').first().id
-                )
+            WorkspaceMember.objects.get_or_create(
+                user_id=operator,
+                ws_id=ws_id,
+                role_id=Role.objects.filter(title='ws_owner').first().id
+            )
             # 2.add history
             # WorkspaceHistoryService().add_entry_history(data={'ws_id': ws_id}, operator=operator)
             # 3.add job type
-            JobTypeDataInitialize().initialize_ws_job_type(ws_id)
+            ToneThread(JobTypeDataInitialize().initialize_ws_job_type, (ws_id,)).start()
             # 4.add default case
-            self.add_default_case_to_ws(ws_id)
+            ToneThread(self.add_default_case_to_ws, (ws_id,)).start()
             # 5.add default product/project
-            self.add_default_product_and_project(ws_id)
+            ToneThread(self.add_default_product_and_project, (ws_id,)).start()
             # 6.add default sys_tag
-            self.add_default_job_sys_tag(ws_id)
+            ToneThread(self.add_default_job_sys_tag, (ws_id,)).start()
             # 7. add default report template
-            self.add_default_report_tmpl_ws(ws_id)
+            ToneThread(self.add_default_report_tmpl_ws, (ws_id,)).start()
 
     @staticmethod
     def add_default_report_tmpl_ws(ws_id):
