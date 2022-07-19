@@ -12,6 +12,9 @@ import yaml
 from django.db.models import Q
 from django.db import transaction, connection
 
+from tone.core.common.callback import CallBackType, JobCallBack
+from tone.core.common.enums.job_enums import JobCaseState, JobState
+from tone.core.common.enums.ts_enums import TestServerState
 from tone.core.common.services import CommonService
 from tone.core.common.constant import MonitorType
 from tone.core.utils.permission_manage import check_operator_permission
@@ -773,18 +776,57 @@ class UpdateStateService(CommonService):
         operation_note = f'{state} by {user_name}'
         return operation_note
 
-    @staticmethod
-    def _update_job_state(data, state, operation_note):
+    def _update_job_state(self, data, state, operation_note):
         job_id = data.get('job_id')
         assert job_id, JobTestException(ErrorCode.ID_NEED)
-        if state not in ['stop']:
-            raise JobTestException(ErrorCode.EDITOR_OBJ_ERROR)
+        job_obj = TestJob.objects.filter(id=job_id).first()
+        if job_obj.state not in [JobState.PENDING, JobState.PENDING_Q, JobState.RUNNING]:
+            raise JobTestException(ErrorCode.STOP_JOB_ERROR[1])
         with transaction.atomic():
             TestJob.objects.filter(
                 id=job_id,
                 state__in=['running', 'pending', 'pending_q']
             ).update(state=state)
-            TestJobCase.objects.filter(job_id=job_id).update(note=operation_note)
+            self._operation_after_stop_job(job_obj, operation_note)
+
+    @staticmethod
+    def _operation_after_stop_job(job_obj, operation_note):
+        # 1.将未运行suite/case状态改为skip
+        TestJobSuite.objects.filter(
+            job_id=job_obj.id,
+            state=JobCaseState.PENDING
+        ).update(state=JobCaseState.SKIP)
+        TestJobCase.objects.filter(
+            job_id=job_obj.id,
+            state=JobCaseState.PENDING
+        ).update(state=JobCaseState.SKIP)
+        # 2.将正在运行的suite/case状态改为stop
+        TestJobSuite.objects.filter(
+            job_id=job_obj.id,
+            state=JobCaseState.RUNNING
+        ).update(state=JobCaseState.STOP)
+        TestJobCase.objects.filter(
+            job_id=job_obj.id,
+            state=JobCaseState.RUNNING
+        ).update(state=JobCaseState.STOP)
+        # 3.写操作记录
+        TestJobCase.objects.filter(
+            job_id=job_obj.id
+        ).update(note=operation_note)
+        # 4.释放机器
+        for server_model in [TestServer, CloudServer]:
+            server_model.objects.filter(
+                occupied_job_id=job_obj.id
+            ).update(
+                state=TestServerState.AVAILABLE,
+                occupied_job_id=None
+            )
+        # 5.回调接口
+        if job_obj.callback_api:
+            JobCallBack(
+                job_id=job_obj.id,
+                callback_type=CallBackType.JOB_STOPPED
+            ).callback()
 
     @staticmethod
     def _update_suite_state(data, state, operation_note):
@@ -884,18 +926,6 @@ class JobTestProcessMonitorJobService(CommonService):
                 monitor_info_data.update(monitor_info_temp.get(MonitorType.CASE_MACHINE))
             data['result_list'].append(monitor_info_data)
         data['monitor_control'] = True
-        # monitor_info_temp = {}
-        # for monitor_info in queryset:
-        #     monitor_info_temp[monitor_info.server] = monitor_serializer(monitor_info).data
-        # for job_monitor_info in job_model.monitor_info:
-        #     job_monitor_info_server = job_monitor_info.get('ip')
-        #     # test_job.monitor_info.ip/sn在monitor_info表中有无结果
-        #     if job_monitor_info_server in monitor_info_temp:
-        #         job_monitor_info.update(monitor_info_temp[job_monitor_info_server])
-        #         job_monitor_info.update({'state': 1})
-        #     else:
-        #         job_monitor_info.update({'state': 0})
-        #     data.append(job_monitor_info)
         return data
 
 
@@ -1143,3 +1173,38 @@ class DataConversionService(CommonService):
                 raise ValueError(msg)
             json_data = convertor.name_conv_to_id()
         return json_data
+
+
+class MachineFaultService(CommonService):
+    @staticmethod
+    def get_machine_fault(data):
+        q = Q()
+        if data.get('job_id'):
+            if not str(data.get('job_id')).isdigit():
+                raise JobTestException(ErrorCode.TEST_JOB_NONEXISTENT)
+            job_id = data.get('job_id')
+            server_provider = TestJob.objects.filter(id=job_id).first().server_provider
+            if server_provider == 'aligroup':
+                test_server = TestJobCase.objects.filter(
+                 job_id=job_id, state__in=['pending', 'running']).values('server_object_id')
+                if test_server:
+                    q = Q(id__in=test_server) & Q(state='Broken')
+                    return TestServer.objects.filter(q)
+                else:
+                    test_server_snapshot = TestJobCase.objects.filter(
+                        job_id=job_id, state__in=['pending', 'running']).values('server_snapshot_id')
+                    q = Q(id__in=test_server_snapshot) & Q(state='Broken')
+                    return TestServerSnapshot.objects.filter(q)
+            else:
+                test_server = TestJobCase.objects.filter(
+                    job_id=job_id, state__in=['pending', 'running']).values('server_object_id')
+                if test_server:
+                    q = Q(id__in=test_server) & Q(state='Broken')
+                    return CloudServer.objects.filter(q)
+                else:
+                    cloud_server_snapshot = TestJobCase.objects.filter(
+                        job_id=job_id, state__in=['pending', 'running']).values('server_snapshot_id')
+                    q = Q(id__in=cloud_server_snapshot) & Q(state='Broken')
+                    return CloudServerSnapshot.objects.filter(q)
+        else:
+            raise JobTestException(ErrorCode.JOB_NEED)

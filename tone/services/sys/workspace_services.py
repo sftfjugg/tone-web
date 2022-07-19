@@ -16,7 +16,7 @@ from initial.job_type.initialize import JobTypeDataInitialize
 from tone.core.common.constant import RANDOM_THEME_COLOR_LIST, WS_LOGO_DIR, DOC_IMG_DIR
 from tone.core.common.exceptions.exception_class import DataExistsException
 from tone.core.common.msg_notice import InSiteMsgHandle
-from tone.core.common.permission_config_info import WS_ROLE_MAP
+from tone.core.common.permission_config_info import WS_ROLE_MAP, WS_SHOW_MEMBER_CONFIG
 from tone.core.common.services import CommonService
 from tone.core.utils.sftp_client import sftp_client
 from tone.core.utils.short_uuid import short_uuid
@@ -91,6 +91,16 @@ class WorkspaceService(CommonService):
             compare_workspace = Workspace.objects.filter(show_name=data.get('show_name')).first()
             if compare_workspace is not None and compare_workspace.id != ws_id:
                 return False, '显示名称已存在'
+
+        if data.get('owner'):
+            # 所有权转交：替换 ws_owner为 ws_admin
+            ws_owner = Role.objects.filter(title='ws_owner').first()
+            ws_admin = Role.objects.filter(title='ws_admin').first()
+            origin_owner = WorkspaceMember.objects.filter(ws_id=ws_id, role_id=ws_owner.id).first()
+            WorkspaceMember.objects.filter(ws_id=ws_id, user_id=origin_owner.user_id).update(role_id=ws_admin.id)
+            WorkspaceMember.objects.filter(ws_id=ws_id, user_id=data.get('owner')).update(role_id=ws_owner.id)
+            # 所有权转交, 发送消息到被操作人
+            InSiteMsgHandle().by_transfer_owner(operator, data.get('owner'), ws_id)
 
         for field in allow_modify_fields:
             if data.get(field) is not None:
@@ -179,7 +189,7 @@ class WorkspaceService(CommonService):
                 WorkspaceMember.objects.get_or_create(
                     user_id=operator,
                     ws_id=ws_id,
-                    role_id=Role.objects.filter(title='ws_tester_admin').first().id
+                    role_id=Role.objects.filter(title='ws_owner').first().id
                 )
             # 2.add history
             # WorkspaceHistoryService().add_entry_history(data={'ws_id': ws_id}, operator=operator)
@@ -380,7 +390,7 @@ class WorkspaceMemberService(CommonService):
                 proposer=operator.id,
                 relation_data=dict(user_id=operator.id, role_id=Role.objects.get(title='ws_member').id)
         ).exists():
-            msg = 'The approval record already exists, please wait for approval'
+            msg = '审批已经存在，请等待审批结果'
         else:
             approve_obj = ApproveInfo.objects.create(
                 object_type='workspace',
@@ -390,7 +400,7 @@ class WorkspaceMemberService(CommonService):
                 proposer=operator.id,
                 relation_data=dict(user_id=operator.id, role_id=Role.objects.get(title='ws_member').id)
             )
-            msg = 'please wait for approval'
+            msg = '申请成功，请等待审批结果'
             # 申请加入ws, 发送消息到管理员
             InSiteMsgHandle().apply_join(approve_obj.id)
         return True, msg
@@ -569,7 +579,7 @@ class ApproveService(CommonService):
                         ws_id=instance.object_id,
                         user_id=instance.relation_data.get('user_id'),
                 ).exists():
-                    WorkspaceMember.objects.get_or_create(
+                    WorkspaceMember.objects.create(
                         ws_id=instance.object_id,
                         user_id=instance.relation_data.get('user_id'),
                         role_id=instance.relation_data.get('role_id', Role.objects.get(title='ws_member').id)
@@ -615,22 +625,14 @@ class MemberQuantityService(CommonService):
         # 当ws下成员无，角色信息时，默认设置为成员
         WorkspaceMember.objects.filter(ws_id=ws_id, role_id=None).update(role_id=Role.objects.get(title='ws_member').id)
         if scope == 'ws':
-            return {
-                'all_count': WorkspaceMember.objects.filter(ws_id=ws_id).count(),
-                # 'ws_owner': 1,
-                'ws_tester_admin': WorkspaceMember.objects.filter(
-                    ws_id=ws_id,
-                    role_id=Role.objects.get(title='ws_tester_admin').id
-                ).count(),
-                'ws_tester': WorkspaceMember.objects.filter(
-                    ws_id=ws_id,
-                    role_id=Role.objects.get(title='ws_tester').id
-                ).count(),
-                'ws_member': WorkspaceMember.objects.filter(
-                    ws_id=ws_id,
-                    role_id=Role.objects.get(title='ws_member').id
-                ).count(),
-            }
+            result = {
+                'all_count': WorkspaceMember.objects.filter(ws_id=ws_id).count()}
+            for user_title in WS_SHOW_MEMBER_CONFIG:
+                result.setdefault(user_title, WorkspaceMember.objects.filter(
+                    ws_id = ws_id,
+                    role_id=Role.objects.get(title=user_title).id
+                ).count())
+            return result
 
 
 class UploadService(object):
@@ -783,24 +785,27 @@ class AllWorkspaceService(CommonService):
         # 按照config_list_ws_id里面的顺序排列
         if config_list_ws_id:
             preserved = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(config_list_ws_id)])
-            queryset = Workspace.objects.filter(Q(Q(id__in=config_list_ws_id) | Q(is_common=True)) &
-                                                Q(is_approved=True)).order_by(preserved)
-            queryset_update = queryset
-            queryset_update_not = Workspace.objects.filter(Q(is_show=False) & Q(is_approved=True) & Q(is_common=False))
-            querysets = []
-            querysets.extend(queryset_update)
-            querysets.extend(queryset_update_not)
-            id_list = []
-            for q in querysets:
-                id_list.append(q.id)
-            preserved = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(id_list)])
+            # 查找出id在config_list_ws_id或通用的ws，并且审核通过的ws,根据preserved排序,定义为queryset_need_update
+            queryset_need_update = Workspace.objects.filter(Q(Q(id__in=config_list_ws_id) | Q(is_common=True)) &
+                                                            Q(is_approved=True)).order_by(preserved)
+            # 查找出不属于queryset_update并且非通用的ws，定义为queryset_no_need_update
+            queryset_dont_need_update = Workspace.objects.filter(is_approved=True,
+                                                                 is_common=False).exclude(id__in=queryset_need_update)
+            # 定义一个空的列表，按照queryset_update，queryset_update_not的顺序增加到列表中
+            queryset = []
+            queryset.extend(queryset_need_update)
+            queryset.extend(queryset_dont_need_update)
+            queryset_id_list = []
+            for q in queryset:
+                queryset_id_list.append(q.id)
+            preserved = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(queryset_id_list)])
             if request.GET.get('keyword'):
                 keyword = request.GET.get('keyword')
-                querysets = Workspace.objects.filter(Q(name__contains=keyword) | Q(show_name__contains=keyword)) \
+                queryset = Workspace.objects.filter(Q(name__contains=keyword) | Q(show_name__contains=keyword)) \
                     .order_by(preserved)
-            return querysets
+            return queryset
         else:
-            queryset = Workspace.objects.filter(Q(is_approved=True)).order_by('-is_common')
+            queryset = Workspace.objects.filter(is_approved=True).order_by('-is_common')
             return queryset
 
 

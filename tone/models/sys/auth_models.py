@@ -8,6 +8,7 @@ class User(AbstractUser):
     emp_id = models.CharField(max_length=64, null=True)
     job_desc = models.CharField(max_length=128)
     dep_desc = models.CharField(max_length=255)
+    avatar = models.CharField(max_length=500, null=True)
     token = models.CharField(max_length=500, null=True, help_text='随机token')
 
     class Meta:

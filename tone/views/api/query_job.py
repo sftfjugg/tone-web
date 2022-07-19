@@ -7,7 +7,8 @@ from tone.core.utils.helper import CommResp
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.error_catch import api_catch_error
 from tone.core.common.verify_token import token_required
-from tone.core.common.job_result_helper import calc_job, get_job_case_server, get_job_case_run_server, calc_job_case
+from tone.core.common.job_result_helper import calc_job, get_job_case_server, get_job_case_run_server, calc_job_case, \
+    splice_job_link
 from tone.services.sys.testcase_services import TestCaseInfoService
 
 
@@ -40,6 +41,7 @@ def job_query(request):
     assert job, ValueError(ErrorCode.TEST_JOB_NONEXISTENT)
     resp_data = {
         'job_id': job_id,
+        'job_link': splice_job_link(job),
         'job_state': 'pending' if job.state == 'pending_q' else job.state,
         'test_type': job.test_type
     }

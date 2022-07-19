@@ -42,7 +42,7 @@ class JobTagService(CommonService):
         if sys_role not in ['super_admin', 'sys_admin']:
             operator_role_id = WorkspaceMember.objects.get(ws_id=obj.ws_id, user_id=operator.id).role_id
             operator_role = Role.objects.get(id=operator_role_id).title
-            allow_list = ['ws_owner', 'ws_tester_admin', 'ws_tester']
+            allow_list = ['ws_owner', 'ws_admin', 'ws_test_admin']
             if operator_role not in allow_list and operator.id != obj.creator:
                 return False
         for key, value in data.items():
@@ -87,7 +87,7 @@ class JobTagService(CommonService):
         if sys_role not in ['super_admin', 'sys_admin']:
             operator_role_id = WorkspaceMember.objects.get(ws_id=obj.ws_id, user_id=operator.id).role_id
             operator_role = Role.objects.get(id=operator_role_id).title
-            allow_list = ['ws_owner', 'ws_tester_admin', 'ws_tester']
+            allow_list = ['ws_owner', 'ws_admin', 'ws_test_admin']
             if operator_role not in allow_list and operator.id != obj.creator:
                 return False
         JobTag.objects.filter(id=tag_id).delete()
@@ -124,7 +124,7 @@ class JobTagRelationService(CommonService):
             obj = TestJob.objects.get(id=job_id)
             operator_role_id = WorkspaceMember.objects.get(ws_id=obj.ws_id, user_id=operator.id).role_id
             operator_role = Role.objects.get(id=operator_role_id).title
-            allow_list = ['ws_owner', 'ws_tester_admin', 'ws_tester']
+            allow_list = ['ws_owner', 'ws_admin', 'ws_test_admin']
             if operator_role not in allow_list and operator.id != obj.creator:
                 return False
         with transaction.atomic():

@@ -4,7 +4,7 @@ import traceback
 import requests
 
 from tone import settings
-from tone.core.common.job_result_helper import calc_job
+from tone.core.common.job_result_helper import calc_job, splice_job_link
 from tone.models import TestJob, TestSuite
 
 
@@ -14,6 +14,7 @@ logger = logging.getLogger('callback')
 class CallBackType(object):
     JOB_RUNNING = 'job_running'
     JOB_COMPLETED = 'job_completed'
+    JOB_STOPPED = 'job_stopped'
     SERVER_BROKEN = 'server_broken'
 
 
@@ -51,17 +52,16 @@ class JobCallBack(object):
     def _init_data(self):
         self.job = TestJob.objects.filter(id=self.job_id).first()
         self.api = self.job.callback_api
-        self.job_link = self._joint_job_link()
+        self.job_link = splice_job_link(self.job)
         self.data = self._construct_data()
-
-    def _joint_job_link(self):
-        return f'{settings.APP_DOMAIN}/ws/{self.job.ws_id}/test_result/{self.job_id}'
 
     def _construct_data(self):
         if self.callback_type == CallBackType.JOB_RUNNING:
             return self.__construct_data_when_job_start_running()
         elif self.callback_type == CallBackType.JOB_COMPLETED:
             return self.__construct_data_when_job_completed()
+        elif self.callback_type == CallBackType.JOB_STOPPED:
+            return self.__construct_data_when_job_stopped()
         elif self.callback_type == CallBackType.SERVER_BROKEN:
             return self.__construct_data_when_server_broken()
         return dict()
@@ -82,6 +82,20 @@ class JobCallBack(object):
                 'job_status': 'running',
                 'ws_id': self.job.ws_id,
                 'job_link': self.job_link,
+            }
+        }
+
+    def __construct_data_when_job_stopped(self):
+        return {
+            'callback_type': self.callback_type,
+            'callback_desc': 'Job已被中止',
+            'callback_data': {
+                'job_id': self.job_id,
+                'job_status': 'stop',
+                'ws_id': self.job.ws_id,
+                'job_link': self.job_link,
+                'test_type': self.job.test_type,
+                'job_statics': calc_job(self.job_id)
             }
         }
 

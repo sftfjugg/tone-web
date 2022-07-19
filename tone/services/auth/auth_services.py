@@ -206,13 +206,13 @@ class RoleService(CommonService):
         sys_role_map = {
             'super_admin': ['super_admin', 'sys_admin', 'sys_test_admin', 'user'],
             'sys_admin': ['sys_admin', 'sys_test_admin', 'user'],
-            'sys_test_admin': ['user'],
+            'sys_test_admin': ['sys_test_admin'],
             'user': ['user']
         }
         ws_role_map = {
-            'ws_owner': ['ws_tester_admin', 'ws_tester', 'ws_member'],
-            'ws_tester_admin': ['ws_tester_admin', 'ws_tester', 'ws_member'],
-            'ws_tester': ['ws_member'],
+            'ws_owner': ['ws_admin', 'ws_test_admin', 'ws_member'],
+            'ws_admin': ['ws_test_admin', 'ws_member'],
+            'ws_test_admin': ['ws_test_admin'],
             'ws_member': ['ws_member'],
             # 'ws_tourist': ['ws_tourist'],
         }
@@ -233,7 +233,7 @@ class RoleService(CommonService):
                     role = Role.objects.filter(id=workspace_member.role_id).first()
                     q &= Q(title__in=ws_role_map.get(role.title))
                 else:
-                    q &= Q(title__in=['ws_tester_admin', 'ws_tester', 'ws_member'])
+                    q &= Q(title__in=['ws_admin', 'ws_test_admin', 'ws_member'])
         if ws_id:
             role_type = 'workspace'
         if title:
@@ -385,7 +385,7 @@ class FilterWsAdminService(CommonService):
                 'name': ws_obj.name,
                 'show_name': ws_obj.show_name,
             }
-        role_id_list = Role.objects.filter(title__in=['ws_owner', 'ws_tester_admin']).values_list('id', flat=True)
+        role_id_list = Role.objects.filter(title__in=['ws_owner', 'ws_test_admin']).values_list('id', flat=True)
         q &= Q(role_id__in=role_id_list)
         return queryset.filter(q), ws_info
 

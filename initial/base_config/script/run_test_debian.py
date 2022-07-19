@@ -17,14 +17,14 @@ TEST_CONF=$3
 REPEAT=$4
 OSS_RESULT_FOLDER=$5
 CONF_SHORT_NAME=$6
-OSS_PARENT_FOLDER=${7:-tone/results}
+OSS_PARENT_FOLDER=${{7:-tone/results}}
 
 TONE_RESULT_PATH=$TONE_PATH/result/$TEST_SUITE/$CONF_SHORT_NAME
-TONE_RESULT_PATH_LEN=$((${#TONE_RESULT_PATH}+1))
+TONE_RESULT_PATH_LEN=$((${{#TONE_RESULT_PATH}}+1))
 
-LOG=/tmp/tone_${TEST_SUITE}_${CONF_SHORT_NAME}.log
+LOG=/tmp/tone_${{TEST_SUITE}}_${{CONF_SHORT_NAME}}.log
 ALL_LOG=/tmp/tone.log
-SERVICE_HOSTS=${SERVICE_HOSTS:-""}
+SERVICE_HOSTS=${{SERVICE_HOSTS:-""}}
 rm -Rf $LOG > /dev/null 2>&1
 rm -Rf $ALL_LOG > /dev/null 2>&1
 date > $LOG
@@ -41,12 +41,12 @@ fi
 
 
 install_utils()
-{
+{{
  apt-get install -y lftp >> $ALL_LOG 2>&1
-}
+}}
 
 
-prepare_suite(){
+prepare_suite(){{
   #install suite
   echo -e "
 ##CMD: tone fetch $TEST_SUITE && tone install $TEST_SUITE && tone list $TEST_SUITE" >> $LOG
@@ -59,10 +59,10 @@ prepare_suite(){
     upload_file $LOG tone.log $OSS_RESULT_FOLDER no_echo
     exit 1
   fi
-}
+}}
 
 
-upload_file(){
+upload_file(){{
     file=$1
     new_file=$2
     folder=$3
@@ -78,61 +78,61 @@ upload_file(){
 
 
     if [ "$folder" = "" ];then
-      file_path=${TONE_JOB_ID}
+      file_path=${{TONE_JOB_ID}}
     else
-      file_path=${TONE_JOB_ID}/$folder
+      file_path=${{TONE_JOB_ID}}/$folder
     fi
 
     if [ $? != "0" ];then
         return
     fi
 
-    lftp -u ${TONE_STORAGE_USER},${TONE_STORAGE_PASSWORD} -e "set ftp:ssl-allow no" sftp://${TONE_STORAGE_HOST}:${TONE_STORAGE_SFTP_PORT} >> $ALL_LOG 2>&1 <<EOF
-    cd ${TONE_STORAGE_BUCKET}
+    lftp -u $TONE_STORAGE_USER,$TONE_STORAGE_PASSWORD -e "set ftp:ssl-allow no" sftp://$TONE_STORAGE_HOST:$TONE_STORAGE_SFTP_PORT >> $ALL_LOG 2>&1 <<EOF
+    cd $TONE_STORAGE_BUCKET
     mkdir -p $file_path
     cd $file_path
     mput $file
     by
 EOF
-}
+}}
 
 
-upload_dir(){
+upload_dir(){{
     dir=$1
     if [ -z $dir ];then
         echo "upload dir not exists"
         exit 2
     fi
 
-    lftp -u ${TONE_STORAGE_USER},${TONE_STORAGE_PASSWORD} -e "set ftp:ssl-allow no" sftp://${TONE_STORAGE_HOST}:${TONE_STORAGE_SFTP_PORT} >> $ALL_LOG 2>&1 <<EOF
-    cd ${TONE_STORAGE_BUCKET}
-    mkdir -p ${TONE_JOB_ID}/$OSS_RESULT_FOLDER 
-    mirror -R $dir ${TONE_JOB_ID}/$OSS_RESULT_FOLDER
+    lftp -u $TONE_STORAGE_USER,$TONE_STORAGE_PASSWORD -e "set ftp:ssl-allow no" sftp://$TONE_STORAGE_HOST:$TONE_STORAGE_SFTP_PORT >> $ALL_LOG 2>&1 <<EOF
+    cd $TONE_STORAGE_BUCKET
+    mkdir -p $TONE_JOB_ID/$OSS_RESULT_FOLDER 
+    mirror -R $dir $TONE_JOB_ID/$OSS_RESULT_FOLDER
     by
 EOF
 
-    file_result_path="http://${TONE_STORAGE_HOST}:${TONE_STORAGE_PROXY_PORT}/${TONE_STORAGE_BUCKET}/${TONE_JOB_ID}/$OSS_RESULT_FOLDER/"
+    file_result_path="http://$TONE_STORAGE_HOST:$TONE_STORAGE_PROXY_PORT/$TONE_STORAGE_BUCKET/$TONE_JOB_ID/$OSS_RESULT_FOLDER/"
     echo $file_result_path >> $LOG
     echo $file_result_path
-}
+}}
 
 
-list_file(){
+list_file(){{
     for i in `ls $1`
     do
       son="$1/$i"
       if [ -d $son ] && [ $son != "." ] && [ $son != ".." ];then
         list_file $son
       else
-        echo ${son:$TONE_RESULT_PATH_LEN} >> $LOG
-        echo ${son:$TONE_RESULT_PATH_LEN}
+        echo ${{son:$TONE_RESULT_PATH_LEN}} >> $LOG
+        echo ${{son:$TONE_RESULT_PATH_LEN}}
       fi
     done
-}
+}}
 
 install_utils
 
-if [ -z ${CLUSTER_SERVERS+x} ];then
+if [ -z ${{CLUSTER_SERVERS+x}} ];then
     echo "##standalone test .." >> $LOG
     prepare_suite $TONE_PATH $TEST_SUITE
 else

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 
+from tone import settings
 from tone.core.common.toneagent import tone_agent_info
 from tone.core.common.log_manager import get_logger
 from tone.core.utils.tone_thread import ToneThread
@@ -557,3 +558,7 @@ def get_conf_compare_data(compare_objs, suite_id, conf_id, compare_count):
         group_data['fail_case'] = func_results.filter(sub_case_result=2).count()
         compare_data.append(group_data)
     return compare_data
+
+
+def splice_job_link(job):
+    return f'{settings.APP_DOMAIN}/ws/{job.ws_id}/test_result/{job.id}'

@@ -37,14 +37,14 @@ def get_admin_user(ws_id='', test_admin=False):
     # 系统级：super_admin + sys_admin , WS级： ws_owner + ws_admin + ws_test_admin
     role_map = {
         'sys_admin': ['super_admin', 'sys_admin'],
-        'ws_tester_admin': ['ws_owner', 'ws_tester_admin'],
-        'ws_tester': ['ws_owner', 'ws_tester_admin', 'ws_tester'],
+        'ws_admin': ['ws_owner', 'ws_admin'],
+        'ws_test_admin': ['ws_owner', 'ws_admin', 'ws_test_admin']
     }
     if not ws_id:
         sys_role = Role.objects.filter(title__in=role_map.get('sys_admin')).values_list('id', flat=True)
         admin_id_list = RoleMember.objects.filter(role_id__in=sys_role).values_list('user_id', flat=True)
     else:
-        admin_choice = 'ws_tester' if test_admin else 'ws_tester_admin'
+        admin_choice = 'ws_test_admin' if test_admin else 'ws_admin'
         ws_role = Role.objects.filter(title__in=role_map.get(admin_choice)).values_list('id', flat=True)
         admin_id_list = WorkspaceMember.objects.filter(
             ws_id=ws_id, role_id__in=ws_role).values_list('user_id', flat=True)

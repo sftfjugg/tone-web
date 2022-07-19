@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from tone import settings
 from tone.core.common.msg_notice import get_admin_user, get_user_info
+from tone.core.common.permission_config_info import WS_SHOW_MEMBER_CONFIG
 from tone.core.common.serializers import CommonSerializer
 from tone.models import User, WorkspaceMember, Workspace, RoleMember, Role, ApproveInfo, InSiteSimpleMsg, \
     InSiteWorkProcessMsg, InSiteWorkProcessUserMsg
@@ -11,7 +12,12 @@ from tone.services.sys.workspace_services import WorkspaceService
 
 
 def get_user_avatar(user_id):
-    return f'{settings.APP_DOMAIN}/static/img/default-avatar.jpeg'
+    user = User.objects.filter(id=user_id).first()
+    if not user or not user.avatar:
+        avatar = 'default-avatar.jpeg'
+    else:
+        avatar = user.avatar
+    return f'{settings.APP_DOMAIN}/static/img/{avatar}'
 
 
 class UserBriefSerializer(CommonSerializer):
@@ -133,7 +139,7 @@ class RoleSerializer(CommonSerializer):
 
     @staticmethod
     def get_name(obj):
-        return obj.title
+        return obj.titleF
 
     @staticmethod
     def get_count(obj):
@@ -170,9 +176,9 @@ class UserWorkspaceSerializer(CommonSerializer):
         ws_list = WorkspaceMember.objects.filter(user_id=obj.id).values_list('ws_id', flat=True)
         ws_data_list = PersonalWorkspaceSerializer(Workspace.objects.filter(id__in=ws_list), many=True).data
         ws_role_map = {
-            Role.objects.get(title='ws_tester_admin').id: 'ws_tester_admin',
-            Role.objects.get(title='ws_tester').id: 'ws_tester',
-            Role.objects.get(title='ws_member').id: 'ws_member',
+            Role.objects.get(title='ws_owner').id: 'ws_owner',
+            Role.objects.get(title='ws_admin').id: 'ws_admin',
+            Role.objects.get(title='ws_test_admin').id: 'ws_test_admin',
         }
         [ws_data.update({'ws_role': ws_role_map.get(WorkspaceMember.objects.get(user_id=obj.id,
                                                                                 ws_id=ws_data.get('id')).role_id)})
@@ -248,12 +254,9 @@ class PersonalUserSerializer(CommonSerializer):
     def get_ws_role_list(obj):
         ws_list = WorkspaceMember.objects.filter(user_id=obj.id).values('ws_id', 'role_id')
         # 查询各个ws角色
-        ws_role_map = {
-            Role.objects.get(title='ws_owner').id: 'ws_owner',
-            Role.objects.get(title='ws_tester_admin').id: 'ws_tester_admin',
-            Role.objects.get(title='ws_tester').id: 'ws_tester',
-            Role.objects.get(title='ws_member').id: 'ws_member',
-        }
+        ws_role_map = {}
+        for user in WS_SHOW_MEMBER_CONFIG:
+            ws_role_map.setdefault(Role.objects.get(title=user).id, user)
         [ws.update({'title': ws_role_map.get(ws['role_id'])}) for ws in ws_list]
         return ws_list
 

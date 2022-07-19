@@ -1007,3 +1007,15 @@ class JobSerializerForAPI(CommonSerializer):
             'stability': '稳定性测试'
         }
         return test_type_map.get(obj.test_type)
+
+
+class JobTestMachineFaultSerializer(CommonSerializer):
+    class Meta:
+        model = TestServerSnapshot
+        fields = ['ip', 'sn', 'device_type', 'channel_type', 'state', 'real_state']
+
+
+class CloudJobTestMachineFaultSerializer(CommonSerializer):
+    class Meta:
+        model = CloudServer
+        fields = ['pub_ip', 'sn', 'channel_type', 'state', 'real_state']
