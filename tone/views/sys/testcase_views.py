@@ -353,7 +353,13 @@ class WorkspaceCaseView(CommonAPIView):
             self.serializer_class = BriefSuiteSerializer
             page = False
         else:
-            self.serializer_class = TestSuiteWsCaseSerializer
+            if request.GET.get('scope') == 'all' or int(request.GET.get('page_size', 10)) >= 100:
+                data = self.service.get_ws_all_cases(self.get_queryset(), request)
+                response_data = self.get_response_code()
+                response_data['data'] = data
+                return Response(response_data)
+            else:
+                self.serializer_class = TestSuiteWsCaseSerializer
         queryset = self.service.filter(self.get_queryset(), request.GET)
         response_data = self.get_response_data(queryset, page=page)
         return Response(response_data)

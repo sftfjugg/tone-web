@@ -267,18 +267,20 @@ class JobTestService(CommonService):
             state = 'pending'
         if test_type == 'functional' and (state == 'fail' or state == 'success'):
             if func_view_config and func_view_config.config_value == '2':
-                func_result = FuncResult.objects.filter(test_job_id=test_job_id)
-                if func_result.count() == 0:
+                if not FuncResult.objects.filter(test_job_id=test_job_id).exists():
                     state = 'fail'
                     return state
-                func_result_list = FuncResult.objects.filter(test_job_id=test_job_id, sub_case_result=2)
-                if func_result_list.count() == 0:
-                    state = 'success'
+                if TestJobCase.objects.filter(job_id=test_job_id, state='fail').exists():
+                    state = 'fail'
                 else:
-                    if baseline_id and func_result_list.filter(match_baseline=0).count() > 0:
-                        state = 'fail'
+                    if not FuncResult.objects.filter(test_job_id=test_job_id, sub_case_result=2).exists():
+                        state = 'pass'
                     else:
-                        state = 'success'
+                        if FuncResult.objects.filter(test_job_id=test_job_id, sub_case_result=2,
+                                                     match_baseline=0).exists():
+                            state = 'fail'
+                        else:
+                            state = 'pass'
         return state
 
     @staticmethod

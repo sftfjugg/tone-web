@@ -163,7 +163,7 @@ class TestJobCase(BaseModel):
         ('aligroup', '集团内部'),
         ('aliyun', '阿里云')
     )
-    job_id = models.IntegerField(help_text='关联JOB ID')
+    job_id = models.IntegerField(help_text='关联JOB ID', db_index=True)
     state = models.CharField(max_length=64, db_index=True, default='pending',
                              choices=JOB_TEST_CASE_CHOICES, help_text='状态')
     test_case_id = models.IntegerField(db_index=True, help_text='关联CASE ID')
@@ -285,7 +285,8 @@ class TestTmplCase(BaseModel):
     repeat = models.IntegerField(default=1, help_text='重复次数')
     custom_ip = models.CharField(max_length=64, null=True, blank=True, help_text='自定义机器IP')
     custom_sn = models.CharField(max_length=64, null=True, blank=True, help_text='自定义机器SN')
-    custom_channel = models.CharField(max_length=64, null=True, blank=True, default='tone-agent', help_text='agent类型')
+    custom_channel = models.CharField(max_length=64, null=True, blank=True,
+                                      default='tone-agent', help_text='agent类型')
     server_object_id = models.IntegerField(null=True, blank=True, help_text='机器id')
     server_tag_id = models.CharField(null=True, blank=True, max_length=256, help_text='机器标签id字符串')
     env_info = json.JSONField(default=dict(), help_text='变量信息')
@@ -381,7 +382,8 @@ class JobType(BaseModel):
     enable = models.BooleanField(default=True, help_text='JobType使用状态')
     is_default = models.BooleanField(default=False, help_text='是否是系统默认')
     test_type = models.CharField(max_length=64, choices=TEST_TYPE_CHOICES, db_index=True, help_text='测试类型')
-    business_type = models.CharField(max_length=64, null=True, choices=BUSINESS_TYPE_CHOICES, help_text='业务测试类型')
+    business_type = models.CharField(max_length=64, null=True,
+                                     choices=BUSINESS_TYPE_CHOICES, help_text='业务测试类型')
     server_type = models.CharField(max_length=64, choices=SERVER_TYPE_CHOICES, db_index=True, help_text='机器类型')
     description = models.CharField(max_length=512, null=True, blank=True, help_text='描述')
     creator = models.IntegerField(help_text='创建者')
