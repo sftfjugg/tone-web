@@ -15,3 +15,8 @@ SECURITY_GROUP_DROP_CIDR_BLOCK_LIST = []
 class CloudServerStatus(object):
     NORMAL = 0
     RELEASE = 1
+
+
+class TestType(object):
+    FUNCTIONAL = 'functional'
+    PERFORMANCE = 'performance'
