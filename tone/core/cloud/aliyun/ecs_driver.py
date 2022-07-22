@@ -76,6 +76,7 @@ class EcsDriver(BaseDriver):
                     'id': item['ImageId'],
                     'name': item['ImageName'],
                     'platform': item['Platform'],
+                    'os_name': item['OSName'],
                     'owner_alias': item['ImageOwnerAlias']
                 } for item in images
             ]
