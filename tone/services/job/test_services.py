@@ -220,40 +220,16 @@ class JobTestService(CommonService):
 
             cursor.execute(search_sql)
             rows = cursor.fetchall()
+            job_id_list = [row_data[0] for row_data in rows]
+            test_server_shot = TestServerSnapshot.objects.filter(job_id__in=job_id_list)
+            clould_server_shot = CloudServerSnapshot.objects.filter(job_id__in=job_id_list)
+            fun_result = FuncResult.objects.filter(test_job_id__in=job_id_list)
+            test_job_case = TestJobCase.objects.filter(job_id__in=job_id_list)
+            report_obj = ReportObjectRelation.objects.filter(object_id__in=job_id_list)
             for row_data in rows:
-                job_id = row_data[0]
-                creator = row_data[9]
-                project_id = row_data[7]
-                product_id = row_data[8]
-                server_provider = row_data[16]
-                creator_name = self.get_expect_name(User, create_name_map, creator)
-                res.append({
-                    'id': job_id,
-                    'name': row_data[1],
-                    'ws_id': row_data[2],
-                    'state': self.get_job_state(job_id, row_data[5], row_data[19], row_data[3], func_view_config),
-                    'state_desc': row_data[4],
-                    'test_type': test_type_map.get(row_data[5]),
-                    'test_result': row_data[6],
-                    'project_id': project_id,
-                    'product_id': product_id,
-                    'creator': creator,
-                    'callback_api': row_data[10],
-                    'start_time': get_time(row_data[11]),
-                    'end_time': get_time(row_data[12]),
-                    'gmt_created': get_time(row_data[13]),
-                    'report_name': row_data[14],
-                    'report_template_id': row_data[15],
-                    'server_provider': server_provider,
-                    'product_version': row_data[17],
-                    'created_from': row_data[18],
-                    'creator_name': creator_name,
-                    'project_name': self.get_expect_name(Project, project_name_map, project_id),
-                    'product_name': self.get_expect_name(Product, product_name_map, product_id),
-                    'server': self.get_job_server(server_provider, job_id),
-                    'collection': True if job_id in collect_job_set else False,
-                    'report_li': self.get_report_li(job_id, create_name_map),
-                })
+                self._get_test_res(clould_server_shot, collect_job_set, create_name_map, fun_result, func_view_config,
+                                   product_name_map, project_name_map, report_obj, res, row_data, test_job_case,
+                                   test_server_shot, test_type_map)
             total = 0
             query_total = """
             SELECT COUNT(id) FROM test_job WHERE is_deleted=0 {} ORDER BY id DESC""".format(extend_sql)
@@ -263,44 +239,83 @@ class JobTestService(CommonService):
                 total = rows[0][0]
         return res, total
 
-    def get_job_state(self, test_job_id, test_type, baseline_id, state, func_view_config):
+    def _get_test_res(self, clould_server_shot, collect_job_set, create_name_map, fun_result, func_view_config,
+                      product_name_map, project_name_map, report_obj, res, row_data, test_job_case, test_server_shot,
+                      test_type_map):
+        job_id = row_data[0]
+        creator = row_data[9]
+        project_id = row_data[7]
+        product_id = row_data[8]
+        server_provider = row_data[16]
+        creator_name = self.get_expect_name(User, create_name_map, creator)
+        res.append({
+            'id': job_id,
+            'name': row_data[1],
+            'ws_id': row_data[2],
+            'state': self.get_job_state(fun_result, test_job_case, job_id, row_data[5], row_data[3], func_view_config),
+            'state_desc': row_data[4],
+            'test_type': test_type_map.get(row_data[5]),
+            'test_result': row_data[6],
+            'project_id': project_id,
+            'product_id': product_id,
+            'creator': creator,
+            'callback_api': row_data[10],
+            'start_time': get_time(row_data[11]),
+            'end_time': get_time(row_data[12]),
+            'gmt_created': get_time(row_data[13]),
+            'report_name': row_data[14],
+            'report_template_id': row_data[15],
+            'server_provider': server_provider,
+            'product_version': row_data[17],
+            'created_from': row_data[18],
+            'creator_name': creator_name,
+            'project_name': self.get_expect_name(Project, project_name_map, project_id),
+            'product_name': self.get_expect_name(Product, product_name_map, product_id),
+            'server': self.get_job_server(test_server_shot, clould_server_shot, server_provider, job_id),
+            'collection': True if job_id in collect_job_set else False,
+            'report_li': self.get_report_li(report_obj, job_id, create_name_map)
+        })
+
+    def get_job_state(self, fun_result, test_job_case, test_job_id, test_type, state, func_view_config):
         if state == 'pending_q':
             state = 'pending'
         if test_type == 'functional' and (state == 'fail' or state == 'success'):
             if func_view_config and func_view_config.config_value == '2':
-                if not FuncResult.objects.filter(test_job_id=test_job_id).exists():
+                if not list(filter(lambda x: x.test_job_id == test_job_id, fun_result)):
                     state = 'fail'
                     return state
-                if TestJobCase.objects.filter(job_id=test_job_id, state='fail').exists():
+                if list(filter(lambda x: x.job_id == test_job_id and x.state == 'fail', test_job_case)):
                     state = 'fail'
                 else:
-                    if not FuncResult.objects.filter(test_job_id=test_job_id, sub_case_result=2).exists():
+                    if not list(
+                            filter(lambda x: x.test_job_id == test_job_id and x.sub_case_result == 2, fun_result)):
                         state = 'pass'
                     else:
-                        if FuncResult.objects.filter(test_job_id=test_job_id, sub_case_result=2,
-                                                     match_baseline=0).exists():
+                        if list(filter(lambda x: x.test_job_id == test_job_id and x.sub_case_result == 2
+                                                 and x.match_baseline == 0, fun_result)):
                             state = 'fail'
                         else:
                             state = 'pass'
         return state
 
     @staticmethod
-    def get_job_server(server_provider, job_id):
+    def get_job_server(test_server_shot, clould_server_shot, server_provider, job_id):
         server = None
         if server_provider == 'aligroup':
-            if TestServerSnapshot.objects.filter(job_id=job_id).count() == 1:
-                server = TestServerSnapshot.objects.get(job_id=job_id).ip
+            server_list = list(filter(lambda x: x.job_id == job_id, test_server_shot))
+            if len(server_list) == 1:
+                server = server_list[0].ip
         else:
-            if CloudServerSnapshot.objects.filter(job_id=job_id).count() == 1:
-                server = CloudServerSnapshot.objects.get(job_id=job_id).private_ip
+            server_list = list(filter(lambda x: x.job_id == job_id, clould_server_shot))
+            if len(server_list) == 1:
+                server = server_list[0].pub_ip
         return server
 
-    def get_report_li(self, job_id, create_name_map):
+    def get_report_li(self, report_obj, job_id, create_name_map):
         report_li = []
-        report_relation_queryset = ReportObjectRelation.objects.filter(object_type='job', object_id=job_id)
-        if report_relation_queryset.exists():
-            report_id_list = report_relation_queryset.values_list('report_id')
-            report_queryset = Report.objects.filter(id__in=report_id_list)
+        report_relation_list = list(filter(lambda x: x.object_id == job_id and x.object_type == 'job', report_obj))
+        if report_relation_list:
+            report_queryset = Report.objects.filter(id__in=[report.report_id for report in report_relation_list])
             report_li = [{
                 'id': report.id,
                 'name': report.name,
