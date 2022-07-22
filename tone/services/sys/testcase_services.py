@@ -12,7 +12,7 @@ from tone.core.utils.config_parser import get_config_from_db
 from tone.models import TestCase, TestSuite, TestMetric, WorkspaceCaseRelation, PerfResult, TestDomain, \
     DomainRelation, datetime, SuiteData, CaseData, BaseConfig, RoleMember, Role, TestJobCase, TestJob, \
     TestTmplCase, TestTemplate, TestBusiness, BusinessSuiteRelation, AccessCaseConf, User, TestJobSuite
-from tone.serializers.sys.testcase_serializers import RetrieveCaseSerializer
+from tone.serializers.sys.testcase_serializers import RetrieveCaseSerializer, SimpleCaseSerializer
 from tone.tasks import sync_suite_case_toneagent
 
 
@@ -166,6 +166,53 @@ class TestCaseService(CommonService):
         # 删除Domain关联
         DomainRelation.objects.filter(object_type='case', object_id__in=id_list).delete()
 
+    def get_ws_all_cases(self, queryset, request):
+        ws_suite_data = []
+        ws_id = request.GET.get('ws_id')
+        test_type = request.GET.get('test_type')
+        test_suite_queryset = queryset.filter(ws_id=ws_id, test_type=test_type). \
+            values_list('test_suite_id', flat=True).distinct()
+        thread_tasks = []
+        for test_suite_id in test_suite_queryset:
+            if not TestSuite.objects.filter(id=test_suite_id).exists():
+                continue
+            thread_tasks.append(
+                ToneThread(self._get_ws_suite_case, (ws_id, test_suite_id))
+            )
+            thread_tasks[-1].start()
+        for thread_task in thread_tasks:
+            thread_task.join()
+            item_data = thread_task.get_result()
+            ws_suite_data.append(item_data)
+        ws_suite_data.reverse()
+        return ws_suite_data
+
+    def _get_ws_suite_case(self, ws_id, test_suite_id):
+        suite = TestSuite.objects.get(id=test_suite_id)
+        return {
+            'id': test_suite_id,
+            'name': suite.name,
+            'is_default': True,
+            'owner': 2,
+            'run_mode': suite.run_mode,
+            'test_type': suite.test_type,
+            'view_type': suite.view_type,
+            'domain_name_list': self.__get_domain_name_list(test_suite_id),
+            'test_case_list': self.__get_test_case_list(ws_id, test_suite_id)
+        }
+
+    @staticmethod
+    def __get_domain_name_list(test_suite_id):
+        domain_id_list = DomainRelation.objects.filter(object_type='suite', object_id=test_suite_id) \
+            .values_list('domain_id', flat=True)
+        domain_name_list = TestDomain.objects.filter(id__in=domain_id_list).values_list('name', flat=True)
+        return ','.join(domain_name_list)
+
+    @staticmethod
+    def __get_test_case_list(ws_id, test_suite_id):
+        case_id_list = WorkspaceCaseRelation.objects.filter(
+            ws_id=ws_id, test_suite_id=test_suite_id).values_list('test_case_id', flat=True)
+        return SimpleCaseSerializer(TestCase.objects.filter(id__in=case_id_list), many=True).data
 
 class TestSuiteService(CommonService):
     def filter(self, queryset, data):
