@@ -539,10 +539,22 @@ class CloudServerService(CommonService):
                         CloudServer.objects.filter(
                             ws_id=ws_id, is_instance=0,
                             template_name=post_data.get('name')).first().id != int(server_id):
-                    return False, '配置名称已存在'
+                    cloud_server_id = CloudServer.objects.filter(
+                        ws_id=ws_id, is_instance=0, template_name=post_data.get('name')).first().id
+                    if TestClusterServer.objects.filter(server_id=cloud_server_id):
+                        cluster_id = TestClusterServer.objects.filter(
+                            server_id=cloud_server_id).first().cluster_id
+                        cluster_name = TestCluster.objects.filter(id=cluster_id).first().name
+                        return False, '配置名称已存在于{}集群中'.format(cluster_name)
             else:
                 if CloudServer.objects.filter(ws_id=ws_id, is_instance=0, template_name=post_data.get('name')).exists():
-                    return False, '配置名称已存在'
+                    cloud_server_id = CloudServer.objects.filter(
+                        ws_id=ws_id, is_instance=0, template_name=post_data.get('name')).first().id
+                    if TestClusterServer.objects.filter(server_id=cloud_server_id):
+                        cluster_id = TestClusterServer.objects.filter(
+                            server_id=cloud_server_id).first().cluster_id
+                        cluster_name = TestCluster.objects.filter(id=cluster_id).first().name
+                        return False, '配置名称已存在于{}集群中'.format(cluster_name)
         return True, 'success'
 
     def create(self, post_data, user_id):
