@@ -556,16 +556,15 @@ class OutSiteMsgHandle(object):
         test_value = "%.2f" % (float(case_result.test_value)) if case_result.test_value else case_result.test_value
         result['test_value'] = '{}{}'.format(test_value, case_result.cv_value)
         result['cmp_note'] = case_result.track_result
-        result['changeRate'] = case_result.cv_value
         result['change_rate'] = ''
+        result['changeRate'] = 0
         if case_result.compare_baseline:
             baseline_value = "%.2f" % (float(case_result.baseline_value)) if case_result.baseline_value \
                 else case_result.baseline_value
             result['baseline_value'] = '{}{}'.format(baseline_value, case_result.baseline_cv_value)
             if case_result.compare_result:
                 result['change_rate'] = "%.2f%%" % (float(case_result.compare_result) * 100)
-        if not result['changeRate']:
-            result['changeRate'] = 0
+                result['changeRate'] = float(case_result.compare_result)
         return result
 
     @staticmethod
@@ -632,7 +631,7 @@ class OutSiteMsgHandle(object):
             analytics_tag = JobTag.objects.filter(name='analytics', ws_id=job_obj.ws_id).values_list('id')
             tag_id_list = JobTag.objects.filter(name=nightly_tag).values_list('id')
             analytics_task = JobTagRelation.objects.filter(tag_id__in=analytics_tag).values_list('job_id')
-            nightly_task_list = JobTagRelation.objects.filter(tag__in=tag_id_list, job_id__in=analytics_task
+            nightly_task_list = JobTagRelation.objects.filter(tag_id__in=tag_id_list, job_id__in=analytics_task
                                                               ).exclude(job_id=job_obj.id).values_list('job_id')
             last_task_id = PerfResult.objects.values('test_job_id').filter(test_job_id__in=nightly_task_list
                                                                            ).order_by('-gmt_created').first()
@@ -658,6 +657,7 @@ class OutSiteMsgHandle(object):
                 presult_e = self._extract_perf_result(case_result)
                 case_name = suite_name + ': ' + conf_name
                 presult_e['case_name'] = case_name
+                presult_e['suite_name'] = suite_name
                 if nightly_tag:
                     job_tag = JobTag.objects.filter(name=nightly_tag).first()
                     tag_id = job_tag.id if job_tag else ''
@@ -666,7 +666,7 @@ class OutSiteMsgHandle(object):
                     presult_e['link'] = '{}/ws/{}/test_analysis/time?' \
                                         'test_type={}&show_type=0&provider_env={}&start_time={}&end_time={}&' \
                                         'tag={}&project_id={}&test_suite_id={}&test_case_id={}&' \
-                                        'metric={}&title={}%2F{}'. \
+                                        'metric={}&title={}%2F{}'.\
                         format(get_skip_url(), job_obj.ws_id, job_obj.test_type, job_obj.server_provider, start_date,
                                end_date, tag_id, job_obj.project_id, case_result.test_suite_id, case_id,
                                case_result.metric, suite_name, conf_name)
@@ -699,27 +699,47 @@ class OutSiteMsgHandle(object):
                     case_results_increase.append(presult_e)
                 else:
                     case_results_other.append(presult_e)
-        perf_result_decline = OrderedDict()
+        suite_order = list()
         for case_res in sorted(case_results_decline, key=lambda x: x['changeRate'], reverse=True):
-            case_name = case_res['case_name']
-            if case_name in perf_result_decline:
-                perf_result_decline[case_name].append(case_res)
-            else:
-                perf_result_decline[case_name] = [case_res]
-        perf_result_increase = OrderedDict()
+            suite_name = case_res['suite_name']
+            if suite_name not in suite_order:
+                suite_order.append(suite_name)
         for case_res in sorted(case_results_increase, key=lambda x: x['changeRate'], reverse=True):
-            case_name = case_res['case_name']
-            if case_name in perf_result_increase:
-                perf_result_increase[case_name].append(case_res)
-            else:
-                perf_result_increase[case_name] = [case_res]
-        perf_result_other = OrderedDict()
+            suite_name = case_res['suite_name']
+            if suite_name not in suite_order:
+                suite_order.append(suite_name)
         for case_res in sorted(case_results_other, key=lambda x: x['changeRate'], reverse=True):
-            case_name = case_res['case_name']
-            if case_name in perf_result_other:
-                perf_result_other[case_name].append(case_res)
-            else:
-                perf_result_other[case_name] = [case_res]
+            suite_name = case_res['suite_name']
+            if suite_name not in suite_order:
+                suite_order.append(suite_name)
+        perf_result_decline = OrderedDict()
+        perf_result_increase = OrderedDict()
+        perf_result_other = OrderedDict()
+        for suite_name in suite_order:
+            suite_case_decline = [case_result for case_result in case_results_decline
+                                  if case_result['suite_name'] == suite_name]
+            for case_res in sorted(suite_case_decline, key=lambda x: x['changeRate'], reverse=True):
+                case_name = case_res['case_name']
+                if case_name in perf_result_decline:
+                    perf_result_decline[case_name].append(case_res)
+                else:
+                    perf_result_decline[case_name] = [case_res]
+            suite_case_increase = [case_result for case_result in case_results_increase
+                                   if case_result['suite_name'] == suite_name]
+            for case_res in sorted(suite_case_increase, key=lambda x: x['changeRate'], reverse=True):
+                case_name = case_res['case_name']
+                if case_name in perf_result_increase:
+                    perf_result_increase[case_name].append(case_res)
+                else:
+                    perf_result_increase[case_name] = [case_res]
+            suite_case_other = [case_result for case_result in case_results_other
+                                if case_result['suite_name'] == suite_name]
+            for case_res in sorted(suite_case_other, key=lambda x: x['changeRate'], reverse=True):
+                case_name = case_res['case_name']
+                if case_name in perf_result_other:
+                    perf_result_other[case_name].append(case_res)
+                else:
+                    perf_result_other[case_name] = [case_res]
 
         if len(perf_result_decline) == 0 and len(perf_result_increase) == 0:
             nightly_flag = 2
