@@ -6,6 +6,7 @@ import re
 import requests
 from django.db.models import Q
 
+from tone.core.common.info_map import get_result_map
 from tone.core.common.services import CommonService
 from tone.core.common.toneagent import server_check, remove_server_from_toneagent, deploy_agent_by_ecs_assistant
 from django.db import transaction
@@ -125,7 +126,9 @@ class TestServerService(CommonService):
         if 'description' not in post_data:
             post_data['description'] = ''
         ips = post_data['ips']
-        return self.add_server(ips, post_data, 1, operator)
+        success, msg = self.add_server(ips, post_data, 1, operator)
+        instance = get_result_map("add_machine", msg)
+        return success, instance
 
     def _mul_add_server(self, server_ips, post_data, in_pool, msg):
         """多机器分线程添加"""
