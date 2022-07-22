@@ -6,6 +6,7 @@ import re
 import requests
 from django.db.models import Q
 
+from tone.core.common.info_map import get_result_map
 from tone.core.common.services import CommonService
 from tone.core.common.toneagent import server_check, remove_server_from_toneagent, deploy_agent_by_ecs_assistant
 from django.db import transaction
@@ -125,7 +126,9 @@ class TestServerService(CommonService):
         if 'description' not in post_data:
             post_data['description'] = ''
         ips = post_data['ips']
-        return self.add_server(ips, post_data, 1, operator)
+        success, msg = self.add_server(ips, post_data, 1, operator)
+        instance = get_result_map("add_machine", msg)
+        return success, instance
 
     def _mul_add_server(self, server_ips, post_data, in_pool, msg):
         """多机器分线程添加"""
@@ -536,10 +539,22 @@ class CloudServerService(CommonService):
                         CloudServer.objects.filter(
                             ws_id=ws_id, is_instance=0,
                             template_name=post_data.get('name')).first().id != int(server_id):
-                    return False, '配置名称已存在'
+                    cloud_server_id = CloudServer.objects.filter(
+                        ws_id=ws_id, is_instance=0, template_name=post_data.get('name')).first().id
+                    if TestClusterServer.objects.filter(server_id=cloud_server_id):
+                        cluster_id = TestClusterServer.objects.filter(
+                            server_id=cloud_server_id).first().cluster_id
+                        cluster_name = TestCluster.objects.filter(id=cluster_id).first().name
+                        return False, '配置名称已存在于{}集群中'.format(cluster_name)
             else:
                 if CloudServer.objects.filter(ws_id=ws_id, is_instance=0, template_name=post_data.get('name')).exists():
-                    return False, '配置名称已存在'
+                    cloud_server_id = CloudServer.objects.filter(
+                        ws_id=ws_id, is_instance=0, template_name=post_data.get('name')).first().id
+                    if TestClusterServer.objects.filter(server_id=cloud_server_id):
+                        cluster_id = TestClusterServer.objects.filter(
+                            server_id=cloud_server_id).first().cluster_id
+                        cluster_name = TestCluster.objects.filter(id=cluster_id).first().name
+                        return False, '配置名称已存在于{}集群中'.format(cluster_name)
         return True, 'success'
 
     def create(self, post_data, user_id):
@@ -765,34 +780,43 @@ class CloudServerService(CommonService):
 
     @staticmethod
     def get_image_list(data):
-        image = []
+        image_list = []
         cloud_ak = CloudAk.objects.filter(id=data.get('ak_id'), query_scope='all')
-        if cloud_ak:
+        if cloud_ak.exists():
+            ak_obj = cloud_ak.first()
             images = CloudImage.objects.filter(ak_id=data.get('ak_id'), region=data.get('region'))
             if images:
-                image = [{'id': tmp_img.image_id,
-                          'name': tmp_img.image_name,
-                          'owner_alias': 'self',
-                          'platform': tmp_img.platform} for tmp_img in images]
-            if cloud_ak.first().provider == TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES[1][0]:
-                pass
-            else:
-                ecs_driver = EcsDriver(cloud_ak.first().access_id, cloud_ak.first().access_key, data.get('region'),
-                                       data.get('zone'), cloud_ak.first().resource_group_id)
-                image.extend(ecs_driver.get_images(data.get('instance_type')))
-            return list(sorted(image, key=lambda x: (x.get('id', '') or x.get('name', ''))))
-        else:
-            return None
+                image_list = [
+                    {
+                        'id': tmp_img.image_id,
+                        'name': tmp_img.image_name,
+                        'owner_alias': 'self',
+                        'os_name': tmp_img.os_name,
+                        'platform': tmp_img.platform
+                    }
+                    for tmp_img in images
+                ]
+            if ak_obj.provider != TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES[1][0]:
+                ecs_driver = EcsDriver(
+                    ak_obj.access_id,
+                    ak_obj.access_key,
+                    data.get('region'),
+                    data.get('zone')
+                )
+                image_list.extend(ecs_driver.get_images(data.get('instance_type')))
+            return list(sorted(image_list, key=lambda x: (x.get('id', '') or x.get('name', ''))))
 
-    def get_ali_driver(self, ak_id, region='cn-hangzhou', zone=''):
+    @staticmethod
+    def get_ali_driver(ak_id, region='cn-hangzhou', zone=''):
         cloud_ak = CloudAk.objects.filter(id=ak_id)
-        if cloud_ak:
-            if cloud_ak.first().provider == TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES[1][0]:
-                driver = EciDriver(cloud_ak.first().access_id, cloud_ak.first().access_key, region, zone)
+        if cloud_ak.exists():
+            ak_obj = cloud_ak.first()
+            if ak_obj.provider == TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES[1][0]:
+                driver = EciDriver(ak_obj.access_id, ak_obj.access_key, region, zone)
             else:
-                driver = EcsDriver(cloud_ak.first().access_id, cloud_ak.first().access_key, region, zone,
-                                   resource_group_id=cloud_ak.first().resource_group_id)
-            return driver, cloud_ak.first().provider
+                driver = EcsDriver(ak_obj.access_id, ak_obj.access_key, region, zone,
+                                   resource_group_id=ak_obj.resource_group_id)
+            return driver, ak_obj.provider
         else:
             return None, None
 

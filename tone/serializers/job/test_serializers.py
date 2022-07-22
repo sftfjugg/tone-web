@@ -10,6 +10,7 @@ from rest_framework.validators import UniqueValidator
 
 from tone.core.common.serializers import CommonSerializer
 from tone.core.common.enums.job_enums import JobState
+from tone.core.common.info_map import get_result_map
 from tone.models import TestJob, JobType, Project, Product, TestJobCase, TestJobSuite, TestCase, TestSuite, \
     JobTagRelation, JobTag, TestStep, FuncResult, PerfResult, ResultFile, User, TestMetric, FuncBaselineDetail, \
     TestServerSnapshot, CloudServerSnapshot, PlanInstanceTestRelation, PlanInstance, ReportObjectRelation, Report, \
@@ -455,14 +456,21 @@ class JobTestProcessCaseSerializer(CommonSerializer):
 
     @staticmethod
     def get_result(obj):
+        result = ""
         if TestStep.objects.filter(job_case_id=obj.id, stage='run_case', state__in=['success', 'fail']).exists():
-            return TestStep.objects.get(job_case_id=obj.id, stage='run_case').result
+            result = TestStep.objects.filter(job_case_id=obj.id, stage='run_case').last().result
         else:
             if obj.state == 'fail' and not obj.start_time:
-                return 'machine prepare failed'
+                result = 'machine prepare failed'
             elif obj.state == 'stop' or obj.state == 'skip':
-                return TestJobCase.objects.get(job_id=obj.job_id, test_case_id=obj.test_case_id,
-                                               test_suite_id=obj.test_suite_id).note
+                result = TestJobCase.objects.get(job_id=obj.job_id, test_case_id=obj.test_case_id,
+                                                 test_suite_id=obj.test_suite_id).note
+            elif obj.state == 'pending':
+                result = "Waiting to run"
+            elif obj.state == 'running':
+                result = "Running"
+        if result:
+            return get_result_map("output_result", result)
 
     @staticmethod
     def get_step(obj):
@@ -886,7 +894,7 @@ def insert_standalone(step, server_step, provider):
         server_step['standalone'][job_suite].append({
             'stage': PREPARE_STEP_STAGE_MAP.get(step.stage),
             'state': step.state,
-            'result': step.result,
+            'result': get_result_map("test_prepare", step.result),
             'tid': step.tid,
             'server': server,
             'gmt_created': datetime.strftime(step.gmt_created, "%Y-%m-%d %H:%M:%S"),
@@ -897,7 +905,7 @@ def insert_standalone(step, server_step, provider):
         server_step['standalone'][job_suite] = [{
             'stage': PREPARE_STEP_STAGE_MAP.get(step.stage),
             'state': step.state,
-            'result': step.result,
+            'result': get_result_map("test_prepare", step.result),
             'server': server,
             'tid': step.tid,
             'gmt_created': datetime.strftime(step.gmt_created, "%Y-%m-%d %H:%M:%S"),
