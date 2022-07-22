@@ -77,7 +77,12 @@ PREPARE_STEP_STAGE_MAP = {
 }
 
 FUNC_CASE_RESULT_TYPE_MAP = {
-    1: 'Pass', 2: 'Fail', 3: 'Conf', 4: 'Block', 5: 'Skip',
+    1: 'Pass',
+    2: 'Fail',
+    3: 'Conf',
+    4: 'Block',
+    5: 'Skip',
+    6: 'Warning'
 }
 
 PERF_CASE_RESULT_TYPE_MAP = {
