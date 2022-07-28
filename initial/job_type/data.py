@@ -25,7 +25,7 @@ JOB_TYPE_ITEM_DATA = [
 
 JOB_TYPE_TMPL_DATA = [
     {
-        'name': '内网功能测试',
+        'name': '功能测试',
         'test_type': 'functional',
         'server_type': 'aligroup',
         'enable': True,
@@ -54,7 +54,7 @@ JOB_TYPE_TMPL_DATA = [
         ]
     },
     {
-        'name': '内网性能测试',
+        'name': '性能测试',
         'test_type': 'performance',
         'server_type': 'aligroup',
         'enable': True,
