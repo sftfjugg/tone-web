@@ -416,9 +416,15 @@ class WorkspaceMemberService(CommonService):
                 user_list.append(user.id)
         ws_id = data.get('ws_id')
         user_object_list = []
+        user_exist_dict = {}
         for user_id in user_list:
-            if WorkspaceMember.objects.filter(ws_id=ws_id, user_id=user_id).exists():
-                continue
+            work_member = WorkspaceMember.objects.filter(ws_id=ws_id, user_id=user_id).first()
+            if work_member and work_member.role_id:
+                role = Role.objects.filter(id=work_member.role_id).first()
+                role_name = role.description if role else ""
+                users = User.objects.filter(id=user_id).first()
+                if users and users.last_name:
+                    user_exist_dict[users.last_name] = role_name
             else:
                 user_object_list.append(
                     WorkspaceMember(
@@ -427,11 +433,16 @@ class WorkspaceMemberService(CommonService):
                         role_id=role_id if role_id else Role.objects.get(title='ws_member').id
                     )
                 )
-            # 添加用户并设置ws角色，发送消息到被操作人
-            InSiteMsgHandle().by_update_ws_role(operator, user_id, ws_id, role_id)
-        if not user_object_list:
-            return False, '用户已添加'
+        if user_exist_dict:
+            warn_info = ""
+            for name, role in user_exist_dict.items():
+                warn_info += f"用户{name}已经存在，角色是{role}；"
+            warn_info = warn_info.strip("；") + "。"
+            return False, warn_info.strip("；")
         else:
+            for workspace_member in user_object_list:
+                # 添加用户并设置ws角色，发送消息到被操作人
+                InSiteMsgHandle().by_update_ws_role(operator, workspace_member.user_id, ws_id, role_id)
             return True, WorkspaceMember.objects.bulk_create(user_object_list)
 
     @staticmethod
