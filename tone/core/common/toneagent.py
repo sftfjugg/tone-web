@@ -120,6 +120,9 @@ class RemoveAgentRequest(ToneAgentRequest):
     def set_ip(self, ip):
         self._request_data['ip'] = ip
 
+    def set_tsn(self, tsn):
+        self._request_data['tsn'] = tsn
+
     def send_request(self, method='post'):
         return self.request(self._api, self._request_data, method=method)
 
@@ -207,24 +210,34 @@ def server_check(ip):
     return err_code, None, error_msg
 
 
-def remove_server_from_toneagent(ip_list):
+def remove_server_from_toneagent(ip_list, tsn_list=None):
     request = RemoveAgentRequest(settings.TONEAGENT_ACCESS_KEY, settings.TONEAGENT_SECRET_KEY)
     request.set_ip(ip_list)
+    request.set_tsn(tsn_list)
     res = request.send_request()
     return res
 
 
-def deploy_agent_by_ecs_assistant(cloud_server, arch, version, mode='active'):
-    # 1.请求agent proxy api添加机器、获取tsn
-    # arch = 'aarch64' if 'arm' in version else 'x86_64'
+def add_server_to_toneagent(server_ip, pub_ip=None, arch=None, version=None, mode='active'):
     request = AddAgentRequest(settings.TONEAGENT_ACCESS_KEY, settings.TONEAGENT_SECRET_KEY)
-    request.set_ip(cloud_server.private_ip)
-    request.set_public_ip(cloud_server.pub_ip)
+    request.set_ip(server_ip)
+    request.set_public_ip(pub_ip)
     request.set_arch(arch)
     request.set_version(version)
     request.set_mode(mode)
+    request.set_description('created by tone system')
     add_agent_result = request.send_request()
     logger.info(f'add agent request result: {add_agent_result}')
+    return add_agent_result
+
+
+def deploy_agent_by_ecs_assistant(cloud_server, arch, version, mode='active'):
+    # 1.请求agent proxy api添加机器、获取tsn
+    add_agent_result = add_server_to_toneagent(
+        server_ip=cloud_server.private_ip,
+        pub_ip=cloud_server.pub_ip,
+        arch=arch, version=version, mode=mode
+    )
     if not add_agent_result.get("SUCCESS"):
         return False, add_agent_result.get('RESULT') or add_agent_result.get('msg')
 

@@ -40,7 +40,7 @@ class TestServerView(CommonAPIView):
         """
         添加集团单机
         """
-        success, instance = self.service.add_group_server(request.data, operator=request.user.id)
+        success, instance = self.service.add_group_server(request.data)
         if success:
             response_data = self.get_response_data(None, many=False)
             response_data['msg'] = instance

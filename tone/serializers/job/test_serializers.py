@@ -15,7 +15,7 @@ from tone.models import TestJob, JobType, Project, Product, TestJobCase, TestJob
     JobTagRelation, JobTag, TestStep, FuncResult, PerfResult, ResultFile, User, TestMetric, FuncBaselineDetail, \
     TestServerSnapshot, CloudServerSnapshot, PlanInstanceTestRelation, PlanInstance, ReportObjectRelation, Report, \
     BusinessSuiteRelation, TestBusiness, WorkspaceCaseRelation, JobMonitorItem, MonitorInfo, BaseConfig, \
-    TestClusterSnapshot, TestCluster
+    TestClusterSnapshot, TestCluster, CloudServer
 from tone.models.sys.baseline_models import Baseline, PerfBaselineDetail
 from tone.core.common.constant import CASE_STEP_STAGE_MAP, PREPARE_STEP_STAGE_MAP, \
     FUNC_CASE_RESULT_TYPE_MAP, PERF_CASE_RESULT_TYPE_MAP, SUITE_STEP_PREPARE_MAP

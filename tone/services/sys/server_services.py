@@ -8,7 +8,8 @@ from django.db.models import Q
 
 from tone.core.common.info_map import get_result_map
 from tone.core.common.services import CommonService
-from tone.core.common.toneagent import server_check, remove_server_from_toneagent, deploy_agent_by_ecs_assistant
+from tone.core.common.toneagent import server_check, remove_server_from_toneagent, deploy_agent_by_ecs_assistant, \
+    add_server_to_toneagent
 from django.db import transaction
 from tone.core.common.operation_log import operation
 from tone.core.common.enums.ts_enums import TestServerEnums
@@ -86,7 +87,7 @@ class TestServerService(CommonService):
                 q &= Q(**{'{}__in'.format(item): data.getlist(item)})
         return q
 
-    def add_group_server(self, post_data, operator):
+    def add_group_server(self, post_data):
         if 'ips' not in post_data:
             return False, 'ip is required'
         if 'owner' not in post_data:
@@ -95,8 +96,14 @@ class TestServerService(CommonService):
             return False, 'ws_id is required'
         update_owner(post_data)
         for ip in post_data.get('ips'):
+            # 向tone-agent平台注册机器
+            add_agent_result = add_server_to_toneagent(ip)
+            if not add_agent_result.get("SUCCESS"):
+                return False, add_agent_result.get('RESULT') or add_agent_result.get('msg')
+            tsn = add_agent_result['RESULT']['TSN']
             test_server = TestServer.objects.create(
                 ip=ip,
+                tsn=tsn,
                 state=post_data.get('state', 'Available'),
                 owner=post_data.get('owner'),
                 ws_id=post_data.get('ws_id'),
@@ -597,6 +604,7 @@ class CloudServerService(CommonService):
                 bandwidth = driver.get_bandwidth(post_data['instance_id'], post_data['region'])
                 pub_ip = instance['public_ips'][0] if instance['public_ips'] \
                     else instance['extra']['eip_address']['ip_address']
+                private_ip = instance.get('private_ips')[0]
                 create_data.update(
                     image=instance.get('image'),
                     bandwidth=bandwidth,
@@ -605,7 +613,7 @@ class CloudServerService(CommonService):
                     storage_size=disk_info.get('data_disk_size'),
                     storage_number=disk_info.get('data_disk_count'),
                     sn=instance.get('serial_number'),
-                    private_ip=instance.get('private_ips')[0],
+                    private_ip=private_ip,
                     pub_ip=pub_ip
                 )
             else:
@@ -628,6 +636,11 @@ class CloudServerService(CommonService):
                     private_ip=private_ip,
                     pub_ip=pub_ip
                 )
+            add_agent_result = add_server_to_toneagent(private_ip, pub_ip)
+            if not add_agent_result.get("SUCCESS"):
+                return False, add_agent_result.get('RESULT') or add_agent_result.get('msg')
+            tsn = add_agent_result['RESULT']['TSN']
+            create_data.update({'tsn': tsn})
         else:
             temp_data = dict(
                 template_name=post_data['name'],
@@ -746,7 +759,7 @@ class CloudServerService(CommonService):
                     self.delete_cloud_server(pk, user_id)
                     # 调用接口，将机器从toneagent系统移除
                     try:
-                        remove_server_from_toneagent(cloud_server.private_ip)
+                        remove_server_from_toneagent(cloud_server.private_ip, cloud_server.tsn)
                     except Exception as e:
                         error_logger.error(f'remove server from toneagent failed!server:'
                                            f'{cloud_server.private_ip}, error:{str(e)}')
