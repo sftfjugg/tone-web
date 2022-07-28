@@ -153,7 +153,8 @@ class JobTestConfigSerializer(CommonSerializer):
                         obj_dict.update({'business_name': test_business.name})
             cases = list()
             for case in job_cases.filter(test_suite_id=job_suite.test_suite_id):
-                ip, is_instance = get_job_case_server(case.id, is_config=True)
+                ip = get_job_case_server(case.id, is_config=True)[0]
+                is_instance = get_job_case_server(case.id, is_config=True)[1]
                 cases.append({
                     'test_case_id': case.test_case_id,
                     'test_case_name': TestCase.objects.get_value(id=case.test_case_id) and TestCase.objects.get_value(

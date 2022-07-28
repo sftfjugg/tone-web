@@ -176,26 +176,33 @@ def calc_job_case(job_case_id, is_api=False):
     return result, count_data
 
 
-def get_job_case_server(job_case_id, template=None, is_config=False):
+def get_job_case_server(job_case_id, template=None, is_config=False, data=None):
     job_case = TestJobCase.objects.get(id=job_case_id) if not template else TestTmplCase.objects.get(id=job_case_id)
     run_mode = job_case.run_mode
     server_provider = job_case.server_provider
     is_instance = 0
-    if job_case.server_object_id and run_mode == 'standalone' and server_provider == 'aligroup':
-        server = TestServerSnapshot.objects.get(id=job_case.server_snapshot_id).ip if TestServerSnapshot.objects.filter(
-            id=job_case.server_snapshot_id).exists() else None
-        if not server:
-            server = TestServer.objects.get_value(id=job_case.server_object_id).ip
-            if not server:
-                server = TestServer.objects.get_value(id=job_case.server_object_id).sn
+    server = None
+    server_is_deleted = False
+    server_deleted = []
+    if data and data.get('inheriting_machine'):
+        is_instance, server, server_deleted, server_is_deleted = _get_server_for_inheriting_machine(is_config,
+                                                                                                    is_instance,
+                                                                                                    job_case_id,
+                                                                                                    server,
+                                                                                                    server_deleted,
+                                                                                                    server_is_deleted)
+    elif job_case.server_object_id and run_mode == 'standalone' and server_provider == 'aligroup':
+        server, server_deleted, server_is_deleted = _get_server_for_aligroup_standalone(job_case, server,
+                                                                                        server_deleted,
+                                                                                        server_is_deleted)
     elif job_case.server_object_id and run_mode == 'standalone' and server_provider == 'aliyun':
-        server_obj = CloudServer.objects.get_value(id=job_case.server_object_id)
-        is_instance = 1 if server_obj.is_instance else 0
-        server = server_obj.private_ip if is_instance else server_obj.template_name
-        if not server:
-            server = server_obj.sn
+        is_instance, server, server_deleted, server_is_deleted = _get_server_for_aliyun_standalone(is_instance,
+                                                                                                   job_case, server,
+                                                                                                   server_deleted,
+                                                                                                   server_is_deleted)
     elif job_case.server_object_id and run_mode == 'cluster':
-        server = TestCluster.objects.get_value(id=job_case.server_object_id).name
+        server, server_deleted, server_is_deleted = _get_server_for_cluster(job_case, server, server_deleted,
+                                                                            server_is_deleted)
     elif job_case.server_tag_id:
         is_instance = None
         server_tag_id_list = str(job_case.server_tag_id).split(',')
@@ -208,12 +215,99 @@ def get_job_case_server(job_case_id, template=None, is_config=False):
             TestServerSnapshot.objects.get(id=job_case.server_snapshot_id).sn
     elif not is_config and job_case.server_snapshot_id and server_provider == 'aliyun' and \
             CloudServerSnapshot.objects.filter(id=job_case.server_snapshot_id).exists():
-        server = CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id).private_ip if \
-            CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id).private_ip else \
-            CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id).sn
+        server = _get_server_for_aliyun_not_config(job_case, server)
     else:
         is_instance = None
         server = '随机'
+    return server, is_instance, server_is_deleted, server_deleted
+
+
+def _get_server_for_inheriting_machine(is_config, is_instance, job_case_id, server, server_deleted, server_is_deleted):
+    job_case = TestJobCase.objects.get(id=job_case_id)
+    run_mode = job_case.run_mode
+    server_provider = job_case.server_provider
+    if job_case.server_object_id and run_mode == 'standalone' and server_provider == 'aligroup':
+        server, server_deleted, server_is_deleted = _get_server_for_aligroup_standalone(job_case, server,
+                                                                                        server_deleted,
+                                                                                        server_is_deleted)
+    elif job_case.server_object_id and run_mode == 'standalone' and server_provider == 'aliyun':
+        is_instance, server, server_deleted, server_is_deleted = _get_server_for_aliyun_standalone(is_instance,
+                                                                                                   job_case, server,
+                                                                                                   server_deleted,
+                                                                                                   server_is_deleted)
+    elif job_case.server_object_id and run_mode == 'cluster':
+        server, server_deleted, server_is_deleted = _get_server_for_cluster(job_case, server, server_deleted,
+                                                                            server_is_deleted)
+    elif job_case.server_tag_id:
+        server, is_instance = get_tag_server(job_case)
+    elif job_case.server_snapshot_id and server_provider == 'aligroup' and \
+            TestServerSnapshot.objects.get(id=job_case.server_snapshot_id).in_pool:
+        server = TestServerSnapshot.objects.get(
+            id=job_case.server_snapshot_id).ip if TestServerSnapshot. \
+            objects.filter(id=job_case.server_snapshot_id).exists() else None
+    elif not is_config and job_case.server_snapshot_id and server_provider == 'aliyun' and \
+            CloudServerSnapshot.objects.filter(id=job_case.server_snapshot_id).exists():
+        server = _get_server_for_aliyun_not_config(job_case, server)
+    return is_instance, server, server_deleted, server_is_deleted
+
+
+def _get_server_for_aliyun_not_config(job_case, server):
+    server = CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id).pub_ip if \
+        CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id).pub_ip else \
+        CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id).sn
+    return server
+
+
+def _get_server_for_cluster(job_case, server, server_deleted, server_is_deleted):
+    test_cluster = TestCluster.objects.filter(id=job_case.server_object_id)
+    if test_cluster:
+        server = test_cluster.first().name
+    else:
+        server_list = TestCluster.objects.filter(id=job_case.server_object_id, query_scope='deleted')
+        server_is_deleted = True
+        server_deleted = [{'test_cluster': server_list.first().name}]
+    return server, server_deleted, server_is_deleted
+
+
+def _get_server_for_aliyun_standalone(is_instance, job_case, server, server_deleted, server_is_deleted):
+    server_obj = CloudServer.objects.filter(id=job_case.server_object_id).first()
+    if server_obj:
+        is_instance = 1 if server_obj.is_instance else 0
+        server = (server_obj.pub_ip if is_instance else server_obj.template_name) if \
+            (server_obj.pub_ip if is_instance else server_obj.template_name) else server_obj.sn
+    else:
+        server_obj = CloudServer.objects.filter(id=job_case.server_object_id, query_scope='deleted').first()
+        if server_obj.is_instance:
+            server_is_deleted = True
+            server_deleted = [{'ip': server_obj.pub_ip,
+                               'sn': server_obj.sn}]
+    return is_instance, server, server_deleted, server_is_deleted
+
+
+def _get_server_for_aligroup_standalone(job_case, server, server_deleted, server_is_deleted):
+    test_server = TestServer.objects.filter(id=job_case.server_object_id).first()
+    if not test_server:
+        server_list = list(TestServer.objects.filter(id=job_case.server_object_id,
+                                                     query_scope='deleted').values_list('ip', 'sn'))
+        server_is_deleted = True
+        server_deleted = [{'ip': server_list[0][0],
+                           'sn': server_list[0][1]}]
+    else:
+        server = test_server.ip if test_server.ip else test_server.sn
+    return server, server_deleted, server_is_deleted
+
+
+def get_tag_server(job_case, server=None):
+    server_provider = job_case.server_provider
+    is_instance = None
+    if server_provider == 'aliyun' and not job_case.server_object_id and job_case.server_snapshot_id:
+        cloud_server = CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id)
+        server = cloud_server.pub_ip if cloud_server.pub_ip else \
+            TestServerSnapshot.objects.get(id=job_case.server_snapshot_id).sn
+    if server_provider == 'aligroup' and not job_case.server_object_id and job_case.server_snapshot_id:
+        server = TestServerSnapshot.objects.get(
+            id=job_case.server_snapshot_id).ip if TestServerSnapshot. \
+            objects.filter(id=job_case.server_snapshot_id).exists() else None
     return server, is_instance
 
 

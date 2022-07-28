@@ -52,7 +52,7 @@ def job_query(request):
     for job_case in job_cases:
         test_suite = TestSuite.objects.get(id=job_case.test_suite_id)
         test_case = TestCase.objects.get(id=job_case.test_case_id)
-        ip, is_instance = get_job_case_server(job_case.id)
+        ip, is_instance, _, _ = get_job_case_server(job_case.id)
         case_state, case_statics = calc_job_case(job_case.id, is_api=True)
         case_statics = _replace_statics_key(case_statics)
         start_time, end_time = '', ''
