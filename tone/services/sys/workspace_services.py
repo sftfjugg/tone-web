@@ -910,8 +910,9 @@ def product_project(product_id, data, product_name, product_description, product
                 else:
                     state = None
                 today_job_all = day_querys.count()
-                today_job_fail = day_querys.filter(state='fail').count()
-                today_job_success = day_querys.filter(state='success').count()
+                today_job_fail = len(list(filter(lambda x: x.get('today_query_state') in ['fail'], today_query_list)))
+                today_job_success = len(list(
+                    filter(lambda x: x.get('today_query_state') in ['success', 'pass'], today_query_list)))
                 project_list.append({
                     'project_id': project_id,
                     'project_name': project_name,
