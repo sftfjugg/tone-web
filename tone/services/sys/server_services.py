@@ -523,7 +523,10 @@ class CloudServerService(CommonService):
             instance_server = CloudServer.objects.filter(instance_id=post_data.get('instance_id')).first()
             if instance_server:
                 workspace = Workspace.objects.filter(id=instance_server.ws_id).first()
-                return False, '该机器实例已存在{}'.format('' if workspace is None else f'于 {workspace.show_name} !')
+                if workspace:
+                    return False, f'该机器实例已经存在于【{workspace.show_name}】Workspace下！'
+                else:
+                    return False, '该机器实例已存在'
         else:
             if post_data.get('cluster_server_id') or post_data.get('cloud_server_id'):
                 if post_data.get('cluster_server_id'):
