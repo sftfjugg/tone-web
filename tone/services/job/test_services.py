@@ -29,6 +29,7 @@ from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.custom_error import JobTestException
 from tone.serializers.job.test_serializers import get_time
 from tone.settings import cp
+from tone.core.common.redis_cache import redis_cache_33
 
 
 class JobTestService(CommonService):
@@ -815,7 +816,7 @@ class UpdateStateService(CommonService):
         TestJobCase.objects.filter(
             job_id=job_obj.id
         ).update(note=operation_note)
-        # 4.释放机器
+        # 4.释放单机机器
         for server_model in [TestServer, CloudServer]:
             server_model.objects.filter(
                 occupied_job_id=job_obj.id
@@ -823,7 +824,16 @@ class UpdateStateService(CommonService):
                 state=TestServerState.AVAILABLE,
                 occupied_job_id=None
             )
-        # 5.回调接口
+        # 5.释放集群机器
+        if TestJobCase.objects.filter(job_id=job_obj.id, run_mode='cluster').exists():
+            q = Q(occupied_job_id=job_obj.id) | Q(occupied_job_id__isnull=True)
+            TestCluster.objects.filter(q).update(is_occpuied=0, occupied_job_id=None)
+        # 6.清除redis数据
+        using_server = redis_cache_33.hgetall('tone-runner-using_server')
+        for key in using_server:
+            if using_server[key] == str(job_obj.id):
+                redis_cache_33.hdel('tone-runner-using_server', key)
+        # 7.回调接口
         if job_obj.callback_api:
             JobCallBack(
                 job_id=job_obj.id,

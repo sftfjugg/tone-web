@@ -119,7 +119,7 @@ class RedisCache(RedisControl):
     def __init__(self, cache_db=None, key_perfix="tone-"):
         self.key_perfix = key_perfix
         if settings.REDIS_CACHE_SWITCH:
-            if not cache_db:
+            if cache_db is None:
                 cache_db = settings.REDIS_CACHE_DB
             self.pool = redis.ConnectionPool(host=settings.REDIS_HOST, port=int(settings.REDIS_PORT),
                                              password=settings.REDIS_PASSWORD, decode_responses=True,
@@ -182,3 +182,5 @@ class RedisCache(RedisControl):
 
 
 redis_cache = RedisCache()
+
+redis_cache_33 = RedisCache(cache_db=33, key_perfix="")
