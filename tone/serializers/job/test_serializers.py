@@ -324,11 +324,7 @@ class JobTestSummarySerializer(CommonSerializer):
 
     @staticmethod
     def get_provider_name(obj):
-        test_type_map = {
-            'aligroup': '内网机器',
-            'aliyun': '云上机器',
-        }
-        return test_type_map.get(obj.server_provider)
+        return obj.server_provider
 
     @staticmethod
     def get_tags(obj):
