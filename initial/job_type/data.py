@@ -1,9 +1,11 @@
 JOB_TYPE_ITEM_DATA = [
     {'name': 'job_name', 'show_name': 'Job名称', 'description': '自定义Job名称', 'config_index': 1},
-    {'name': 'project', 'show_name': 'Project选择', 'description': '选择Job所属project', 'config_index': 1},
+    {'name': 'project', 'show_name': 'Project选择',
+     'description': '选择Job所属project', 'config_index': 1},
     {'name': 'baseline', 'show_name': '测试基线', 'description': '选择与Job对比的基线', 'config_index': 1},
 
-    {'name': 'kernel_install', 'show_name': '重装内核', 'description': '安装发布、未发布、build内核等信息', 'config_index': 2},
+    {'name': 'kernel_install', 'show_name': '重装内核',
+     'description': '安装发布、未发布、build内核等信息', 'config_index': 2},
     {'name': 'reboot', 'show_name': '重启机器', 'description': '针对机器是否重启的操作', 'config_index': 2},
     {'name': 'global_variable', 'show_name': '全局变量', 'description': 'Job的全局变量配置', 'config_index': 2},
     {'name': 'rpm', 'show_name': '安装RPM', 'description': '安装rpm和选择安装时间配置', 'config_index': 2},
@@ -18,7 +20,8 @@ JOB_TYPE_ITEM_DATA = [
     {'name': 'notice_subject', 'show_name': '通知主题', 'description': '订阅通知主题', 'config_index': 4},
     {'name': 'ding_notice', 'show_name': '钉钉通知', 'description': '订阅钉钉通知消息', 'config_index': 4},
     {'name': 'email_notice', 'show_name': '邮件通知', 'description': '订阅邮件通知消息', 'config_index': 4},
-    {'name': 'job_tag', 'show_name': 'Job标签', 'description': '自定义Job标签，可按标签分类选择', 'config_index': 4},
+    {'name': 'job_tag', 'show_name': 'Job标签',
+     'description': '自定义Job标签，可按标签分类选择', 'config_index': 4},
     {'name': 'report', 'show_name': '自动生成报告', 'description': '自动生成Job测试报告', 'config_index': 4},
     {'name': 'callback_api', 'show_name': '回调接口', 'description': '配置回调接口', 'config_index': 4},
 ]
