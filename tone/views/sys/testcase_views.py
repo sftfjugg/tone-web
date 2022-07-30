@@ -354,7 +354,7 @@ class WorkspaceCaseView(CommonAPIView):
             page = False
         else:
             if request.GET.get('scope') == 'all' or int(request.GET.get('page_size', 10)) >= 100:
-                data = self.service.get_ws_all_cases(self.get_queryset(), request)
+                data = TestCaseService().get_ws_all_cases(self.get_queryset(), request)
                 response_data = self.get_response_code()
                 response_data['data'] = data
                 return Response(response_data)
