@@ -139,7 +139,7 @@ class RoleSerializer(CommonSerializer):
 
     @staticmethod
     def get_name(obj):
-        return obj.titleF
+        return obj.title
 
     @staticmethod
     def get_count(obj):
