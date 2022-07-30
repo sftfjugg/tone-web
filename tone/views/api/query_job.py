@@ -1,8 +1,8 @@
 # _*_ coding:utf-8 _*_
 import json
-
+from datetime import datetime
 from tone.core.common.constant import FUNC_CASE_RESULT_TYPE_MAP
-from tone.models import TestJob, TestJobCase, TestSuite, TestCase, PerfResult, FuncResult
+from tone.models import TestJob, TestJobCase, TestSuite, TestCase, PerfResult, FuncResult, JobType, Project, Workspace
 from tone.core.utils.helper import CommResp
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.error_catch import api_catch_error
@@ -52,14 +52,21 @@ def job_query(request):
     for job_case in job_cases:
         test_suite = TestSuite.objects.get(id=job_case.test_suite_id)
         test_case = TestCase.objects.get(id=job_case.test_case_id)
-        ip, is_instance = get_job_case_server(job_case.id)
+        ip, is_instance, _, _ = get_job_case_server(job_case.id)
         case_state, case_statics = calc_job_case(job_case.id, is_api=True)
         case_statics = _replace_statics_key(case_statics)
+        start_time, end_time = '', ''
+        if job_case.start_time:
+            start_time = datetime.strftime(job_case.start_time, "%Y-%m-%d %H:%M:%S")
+        if job_case.end_time:
+            end_time = datetime.strftime(job_case.end_time, "%Y-%m-%d %H:%M:%S")
         result_item = {
             'test_suite_id': test_suite.id,
             'test_suite': test_suite.name,
             'test_case_id': test_case.id,
             'test_case': test_case.name,
+            'start_time': start_time,
+            'end_time': end_time,
             'result_statistics': case_statics,
             'case_server': {
                 'config_server': ip,
@@ -148,4 +155,35 @@ def get_job_case(request):
     if request.GET.get('test_conf'):
         case_data_list = list(filter(lambda x: x.get('test_conf') == request.GET.get('test_conf'), case_data_list))
     resp.data = case_data_list
+    return resp.json_resp()
+
+
+@api_catch_error
+@token_required
+def get_job_type(request):
+    resp = CommResp()
+    queryset = JobType.objects.filter(ws_id=request.GET.get('ws_id'), test_type=request.GET.get('test_type'),
+                                      enable=True)
+    job_type_list = [{'id': job_type.id, 'name': job_type.name} for job_type in queryset]
+    resp.data = job_type_list
+    return resp.json_resp()
+
+
+@api_catch_error
+@token_required
+def get_project(request):
+    resp = CommResp()
+    queryset = Project.objects.filter(ws_id=request.GET.get('ws_id'))
+    project_list = [{'id': project.id, 'name': project.name, 'is_default': project.is_default} for project in queryset]
+    resp.data = project_list
+    return resp.json_resp()
+
+
+@api_catch_error
+@token_required
+def get_workspace(request):
+    resp = CommResp()
+    queryset = Workspace.objects.all()
+    ws_list = [{'id': ws.id, 'name': ws.name} for ws in queryset]
+    resp.data = ws_list
     return resp.json_resp()

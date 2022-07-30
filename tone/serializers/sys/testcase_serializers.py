@@ -255,25 +255,8 @@ class SimpleSuiteSerializer(CommonSerializer):
 
 class TestSuiteWsCaseSerializer(CommonSerializer):
     owner_name = serializers.SerializerMethodField()
-    business_name = serializers.SerializerMethodField()
     test_case_list = serializers.SerializerMethodField()
     domain_name_list = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_business_name(obj):
-        if WorkspaceCaseRelation.objects.filter(test_type='business', test_suite_id=obj.id).exists():
-            business_relation = BusinessSuiteRelation.objects.filter(test_suite_id=obj.id).first()
-            if business_relation:
-                test_business = TestBusiness.objects.filter(id=business_relation.business_id).first()
-                if test_business:
-                    return test_business.name
-
-    @staticmethod
-    def get_domain_name(obj):
-        domain = TestDomain.objects.filter(id=obj.domain).first()
-        if domain is None:
-            return None
-        return domain.name
 
     class Meta:
         model = TestSuite
@@ -301,8 +284,7 @@ class TestSuiteWsCaseSerializer(CommonSerializer):
     def get_domain_name_list(obj):
         domain_id_list = DomainRelation.objects.filter(object_type='suite', object_id=obj.id).values_list(
             'domain_id', flat=True)
-        domain_name_list = [TestDomain.objects.filter(id=domain_id).first().name for domain_id in domain_id_list]
-        return ','.join(domain_name_list)
+        return TestDomain.objects.filter(id__in=domain_id_list).values_list('name', flat=True)
 
 
 class TestMetricSerializer(CommonSerializer):
@@ -423,6 +405,18 @@ class TestRetrieveCaseSerializer(CommonSerializer):
     class Meta:
         model = TestCase
         fields = ['id', 'name', 'certificated']
+
+
+class RetrieveStatisticsSerializer(CommonSerializer):
+    case_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TestSuite
+        fields = ['id', 'name', 'certificated', 'case_count']
+
+    @staticmethod
+    def get_case_count(obj):
+        TestCase.objects.filter(test_suite_id=obj.id).count()
 
 
 class RetrieveSuiteSerializer(CommonSerializer):

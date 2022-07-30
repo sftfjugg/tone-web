@@ -20,9 +20,10 @@ from tone.core.common.permission_config_info import WS_ROLE_MAP, WS_SHOW_MEMBER_
 from tone.core.common.services import CommonService
 from tone.core.utils.sftp_client import sftp_client
 from tone.core.utils.short_uuid import short_uuid
+from tone.core.utils.tone_thread import ToneThread
 from tone.models import WorkspaceMember, Workspace, ApproveInfo, WorkspaceAccessHistory, User, TestCase, \
     WorkspaceCaseRelation, TestSuite, Product, Project, TestJob, Role, RoleMember, JobTag, TestServer, CloudServer, \
-    InSiteWorkProcessMsg, InSiteWorkProcessUserMsg, InSiteSimpleMsg, BaseConfig, FuncResult
+    InSiteWorkProcessMsg, InSiteWorkProcessUserMsg, InSiteSimpleMsg, BaseConfig, FuncResult, TestJobCase
 from tone.services.report.report_services import ReportTemplateService
 from tone.settings import MEDIA_ROOT
 
@@ -182,27 +183,26 @@ class WorkspaceService(CommonService):
             )
         WorkspaceCaseRelation.objects.bulk_create(case_relations_obj_list)
 
-    def add_workspace_relation_data(self, ws_id, operator, is_sys_user=False):
+    def add_workspace_relation_data(self, ws_id, operator):
         with transaction.atomic():
             # 1.add member
-            if not is_sys_user:
-                WorkspaceMember.objects.get_or_create(
-                    user_id=operator,
-                    ws_id=ws_id,
-                    role_id=Role.objects.filter(title='ws_owner').first().id
-                )
+            WorkspaceMember.objects.get_or_create(
+                user_id=operator,
+                ws_id=ws_id,
+                role_id=Role.objects.filter(title='ws_owner').first().id
+            )
             # 2.add history
             # WorkspaceHistoryService().add_entry_history(data={'ws_id': ws_id}, operator=operator)
             # 3.add job type
-            JobTypeDataInitialize().initialize_ws_job_type(ws_id)
+            ToneThread(JobTypeDataInitialize().initialize_ws_job_type, (ws_id,)).start()
             # 4.add default case
-            self.add_default_case_to_ws(ws_id)
+            ToneThread(self.add_default_case_to_ws, (ws_id,)).start()
             # 5.add default product/project
-            self.add_default_product_and_project(ws_id)
+            ToneThread(self.add_default_product_and_project, (ws_id,)).start()
             # 6.add default sys_tag
-            self.add_default_job_sys_tag(ws_id)
+            ToneThread(self.add_default_job_sys_tag, (ws_id,)).start()
             # 7. add default report template
-            self.add_default_report_tmpl_ws(ws_id)
+            ToneThread(self.add_default_report_tmpl_ws, (ws_id,)).start()
 
     @staticmethod
     def add_default_report_tmpl_ws(ws_id):
@@ -416,9 +416,15 @@ class WorkspaceMemberService(CommonService):
                 user_list.append(user.id)
         ws_id = data.get('ws_id')
         user_object_list = []
+        user_exist_dict = {}
         for user_id in user_list:
-            if WorkspaceMember.objects.filter(ws_id=ws_id, user_id=user_id).exists():
-                continue
+            work_member = WorkspaceMember.objects.filter(ws_id=ws_id, user_id=user_id).first()
+            if work_member and work_member.role_id:
+                role = Role.objects.filter(id=work_member.role_id).first()
+                role_name = role.description if role else ""
+                users = User.objects.filter(id=user_id).first()
+                if users and users.last_name:
+                    user_exist_dict[users.last_name] = role_name
             else:
                 user_object_list.append(
                     WorkspaceMember(
@@ -427,11 +433,16 @@ class WorkspaceMemberService(CommonService):
                         role_id=role_id if role_id else Role.objects.get(title='ws_member').id
                     )
                 )
-            # 添加用户并设置ws角色，发送消息到被操作人
-            InSiteMsgHandle().by_update_ws_role(operator, user_id, ws_id, role_id)
-        if not user_object_list:
-            return False, '用户已添加'
+        if user_exist_dict:
+            warn_info = ""
+            for name, role in user_exist_dict.items():
+                warn_info += f"用户{name}已经存在，角色是{role}；"
+            warn_info = warn_info.strip("；") + "。"
+            return False, warn_info.strip("；")
         else:
+            for workspace_member in user_object_list:
+                # 添加用户并设置ws角色，发送消息到被操作人
+                InSiteMsgHandle().by_update_ws_role(operator, workspace_member.user_id, ws_id, role_id)
             return True, WorkspaceMember.objects.bulk_create(user_object_list)
 
     @staticmethod
@@ -910,8 +921,9 @@ def product_project(product_id, data, product_name, product_description, product
                 else:
                     state = None
                 today_job_all = day_querys.count()
-                today_job_fail = day_querys.filter(state='fail').count()
-                today_job_success = day_querys.filter(state='success').count()
+                today_job_fail = len(list(filter(lambda x: x.get('today_query_state') in ['fail'], today_query_list)))
+                today_job_success = len(list(
+                    filter(lambda x: x.get('today_query_state') in ['success', 'pass'], today_query_list)))
                 project_list.append({
                     'project_id': project_id,
                     'project_name': project_name,
@@ -952,18 +964,19 @@ def get_job_state(test_job_id, test_type, state, func_view_config):
         state = 'pending'
     if test_type == 'functional' and (state == 'fail' or state == 'success'):
         if func_view_config and func_view_config.config_value == '2':
-            func_result = FuncResult.objects.filter(test_job_id=test_job_id)
-            if func_result.count() == 0:
+            if not FuncResult.objects.filter(test_job_id=test_job_id).exists():
                 state = 'fail'
                 return state
-            func_result_list = FuncResult.objects.filter(test_job_id=test_job_id, sub_case_result=2)
-            if func_result_list.count() == 0:
-                state = 'pass'
+            if TestJobCase.objects.filter(job_id=test_job_id, state='fail').exists():
+                state = 'fail'
             else:
-                if func_result_list.filter(match_baseline=0).count() > 0:
-                    state = 'fail'
-                else:
+                if not FuncResult.objects.filter(test_job_id=test_job_id, sub_case_result=2).exists():
                     state = 'pass'
+                else:
+                    if FuncResult.objects.filter(test_job_id=test_job_id, sub_case_result=2, match_baseline=0).exists():
+                        state = 'fail'
+                    else:
+                        state = 'pass'
     return state
 
 

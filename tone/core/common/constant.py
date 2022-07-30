@@ -77,7 +77,12 @@ PREPARE_STEP_STAGE_MAP = {
 }
 
 FUNC_CASE_RESULT_TYPE_MAP = {
-    1: 'Pass', 2: 'Fail', 3: 'Conf', 4: 'Block', 5: 'Skip',
+    1: 'Pass',
+    2: 'Fail',
+    3: 'Conf',
+    4: 'Block',
+    5: 'Skip',
+    6: 'Warning'
 }
 
 PERF_CASE_RESULT_TYPE_MAP = {
@@ -379,3 +384,37 @@ JOB_MONITOR_ITEM = ['cpu', 'disk', 'diskio', 'kernel', 'mem', 'swap', 'system', 
 class MonitorType:
     CASE_MACHINE = 'case_machine'
     CUSTOM_MACHINE = 'custom_machine'
+
+
+# 提示信息中需要前端增加超链接的文字
+LINK_INFO_LIST = ["T-One开发"]
+
+# 后端返回提示信息与前台提示信息映射表
+RESULT_INFO_MAP = {
+    "output_result": {
+        "run case done": "Completed",
+        "script exec failed(signal: killed)": "Script exec failed(signal: killed), please check the timeout "
+                                              "configuration in Test Suite management.",
+        "task sent successfully, but executing timeout": "Execution timeout, please check the timeout configuration "
+                                                         "in Test Suite management.",
+        "tone install *** error": "%s, please enter the machine to check the relevant log in the /tmp directory.",
+        "run ***:*** failed": "run case failed, please enter the machine to check the relevant log in the /tmp "
+                              "directory."
+    },
+    "test_prepare": {
+        "tone make install error": "tone make install error, please enter the machine to check the tone_prepare.log "
+                                   "in the /tmp directory.",
+        "clone tone from *** failed": "Failed to clone tone repo, please check machine network and proxy, or enter "
+                                      "the machine to check the tone_prepare.log in the /tmp directory.",
+        "Failed to ***": "%s, please enter the machine to check the relevant log in the /tmp directory.",
+        "/tmp/ostest_staragent_plugin/scripts/tone/TONE_CLEANUP': No such file or directory exit 127":
+            "The plugin script does not exist. Please delete the /tmp/ostest_staragent_plugin directroy and restart "
+            "the task. "
+    },
+    "add_machine": {
+        "***permission denied for host***": "无staragent控制权限，请联系T-One开发处理。",
+        "***/home/staragent/plugins/ostest_exec/ostest_wrapper.sh: No such file or directory exit 127***":
+            "机器没有安装staragent插件，请执行安装命令后重新发起任务："
+            "sudo /home/staragent/bin/pluginctl -p ostest_exec -r 0.2.20"
+    }
+}

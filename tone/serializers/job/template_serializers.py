@@ -160,7 +160,7 @@ class TestTemplateDetailSerializer(CommonSerializer):
             }
             cases = list()
             for case in templates_cases.filter(test_suite_id=template_suite.test_suite_id):
-                ip, is_instance = get_job_case_server(case.id, template=True)
+                ip, is_instance, _, _ = get_job_case_server(case.id, template=True)
                 cases.append({
                     'test_case_id': case.test_case_id,
                     'setup_info': case.setup_info,

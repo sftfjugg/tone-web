@@ -6,8 +6,10 @@ import re
 import requests
 from django.db.models import Q
 
+from tone.core.common.info_map import get_result_map
 from tone.core.common.services import CommonService
-from tone.core.common.toneagent import server_check, remove_server_from_toneagent, deploy_agent_by_ecs_assistant
+from tone.core.common.toneagent import server_check, remove_server_from_toneagent, deploy_agent_by_ecs_assistant, \
+    add_server_to_toneagent
 from django.db import transaction
 from tone.core.common.operation_log import operation
 from tone.core.common.enums.ts_enums import TestServerEnums
@@ -85,7 +87,7 @@ class TestServerService(CommonService):
                 q &= Q(**{'{}__in'.format(item): data.getlist(item)})
         return q
 
-    def add_group_server(self, post_data, operator):
+    def add_group_server(self, post_data):
         if 'ips' not in post_data:
             return False, 'ip is required'
         if 'owner' not in post_data:
@@ -94,8 +96,14 @@ class TestServerService(CommonService):
             return False, 'ws_id is required'
         update_owner(post_data)
         for ip in post_data.get('ips'):
+            # 向tone-agent平台注册机器
+            add_agent_result = add_server_to_toneagent(ip)
+            if not add_agent_result.get("SUCCESS"):
+                return False, add_agent_result.get('RESULT') or add_agent_result.get('msg')
+            tsn = add_agent_result['RESULT']['TSN']
             test_server = TestServer.objects.create(
                 ip=ip,
+                tsn=tsn,
                 state=post_data.get('state', 'Available'),
                 owner=post_data.get('owner'),
                 ws_id=post_data.get('ws_id'),
@@ -125,7 +133,9 @@ class TestServerService(CommonService):
         if 'description' not in post_data:
             post_data['description'] = ''
         ips = post_data['ips']
-        return self.add_server(ips, post_data, 1, operator)
+        success, msg = self.add_server(ips, post_data, 1, operator)
+        instance = get_result_map("add_machine", msg)
+        return success, instance
 
     def _mul_add_server(self, server_ips, post_data, in_pool, msg):
         """多机器分线程添加"""
@@ -520,7 +530,10 @@ class CloudServerService(CommonService):
             instance_server = CloudServer.objects.filter(instance_id=post_data.get('instance_id')).first()
             if instance_server:
                 workspace = Workspace.objects.filter(id=instance_server.ws_id).first()
-                return False, '该机器实例已存在{}'.format('' if workspace is None else f'于 {workspace.show_name} !')
+                if workspace:
+                    return False, f'该机器实例已经存在于【{workspace.show_name}】Workspace下！'
+                else:
+                    return False, '该机器实例已存在'
         else:
             if post_data.get('cluster_server_id') or post_data.get('cloud_server_id'):
                 if post_data.get('cluster_server_id'):
@@ -536,10 +549,22 @@ class CloudServerService(CommonService):
                         CloudServer.objects.filter(
                             ws_id=ws_id, is_instance=0,
                             template_name=post_data.get('name')).first().id != int(server_id):
-                    return False, '配置名称已存在'
+                    cloud_server_id = CloudServer.objects.filter(
+                        ws_id=ws_id, is_instance=0, template_name=post_data.get('name')).first().id
+                    if TestClusterServer.objects.filter(server_id=cloud_server_id):
+                        cluster_id = TestClusterServer.objects.filter(
+                            server_id=cloud_server_id).first().cluster_id
+                        cluster_name = TestCluster.objects.filter(id=cluster_id).first().name
+                        return False, '配置名称已存在于{}集群中'.format(cluster_name)
             else:
                 if CloudServer.objects.filter(ws_id=ws_id, is_instance=0, template_name=post_data.get('name')).exists():
-                    return False, '配置名称已存在'
+                    cloud_server_id = CloudServer.objects.filter(
+                        ws_id=ws_id, is_instance=0, template_name=post_data.get('name')).first().id
+                    if TestClusterServer.objects.filter(server_id=cloud_server_id):
+                        cluster_id = TestClusterServer.objects.filter(
+                            server_id=cloud_server_id).first().cluster_id
+                        cluster_name = TestCluster.objects.filter(id=cluster_id).first().name
+                        return False, '配置名称已存在于{}集群中'.format(cluster_name)
         return True, 'success'
 
     def create(self, post_data, user_id):
@@ -579,6 +604,7 @@ class CloudServerService(CommonService):
                 bandwidth = driver.get_bandwidth(post_data['instance_id'], post_data['region'])
                 pub_ip = instance['public_ips'][0] if instance['public_ips'] \
                     else instance['extra']['eip_address']['ip_address']
+                private_ip = instance.get('private_ips')[0]
                 create_data.update(
                     image=instance.get('image'),
                     bandwidth=bandwidth,
@@ -587,7 +613,7 @@ class CloudServerService(CommonService):
                     storage_size=disk_info.get('data_disk_size'),
                     storage_number=disk_info.get('data_disk_count'),
                     sn=instance.get('serial_number'),
-                    private_ip=instance.get('private_ips')[0],
+                    private_ip=private_ip,
                     pub_ip=pub_ip
                 )
             else:
@@ -610,6 +636,11 @@ class CloudServerService(CommonService):
                     private_ip=private_ip,
                     pub_ip=pub_ip
                 )
+            add_agent_result = add_server_to_toneagent(private_ip, pub_ip)
+            if not add_agent_result.get("SUCCESS"):
+                return False, add_agent_result.get('RESULT') or add_agent_result.get('msg')
+            tsn = add_agent_result['RESULT']['TSN']
+            create_data.update({'tsn': tsn})
         else:
             temp_data = dict(
                 template_name=post_data['name'],
@@ -728,7 +759,7 @@ class CloudServerService(CommonService):
                     self.delete_cloud_server(pk, user_id)
                     # 调用接口，将机器从toneagent系统移除
                     try:
-                        remove_server_from_toneagent(cloud_server.private_ip)
+                        remove_server_from_toneagent(cloud_server.private_ip, cloud_server.tsn)
                     except Exception as e:
                         error_logger.error(f'remove server from toneagent failed!server:'
                                            f'{cloud_server.private_ip}, error:{str(e)}')
@@ -765,34 +796,43 @@ class CloudServerService(CommonService):
 
     @staticmethod
     def get_image_list(data):
-        image = []
+        image_list = []
         cloud_ak = CloudAk.objects.filter(id=data.get('ak_id'), query_scope='all')
-        if cloud_ak:
+        if cloud_ak.exists():
+            ak_obj = cloud_ak.first()
             images = CloudImage.objects.filter(ak_id=data.get('ak_id'), region=data.get('region'))
             if images:
-                image = [{'id': tmp_img.image_id,
-                          'name': tmp_img.image_name,
-                          'owner_alias': 'self',
-                          'platform': tmp_img.platform} for tmp_img in images]
-            if cloud_ak.first().provider == TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES[1][0]:
-                pass
-            else:
-                ecs_driver = EcsDriver(cloud_ak.first().access_id, cloud_ak.first().access_key, data.get('region'),
-                                       data.get('zone'), cloud_ak.first().resource_group_id)
-                image.extend(ecs_driver.get_images(data.get('instance_type')))
-            return list(sorted(image, key=lambda x: (x.get('id', '') or x.get('name', ''))))
-        else:
-            return None
+                image_list = [
+                    {
+                        'id': tmp_img.image_id,
+                        'name': tmp_img.image_name,
+                        'owner_alias': 'self',
+                        'os_name': tmp_img.os_name,
+                        'platform': tmp_img.platform
+                    }
+                    for tmp_img in images
+                ]
+            if ak_obj.provider != TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES[1][0]:
+                ecs_driver = EcsDriver(
+                    ak_obj.access_id,
+                    ak_obj.access_key,
+                    data.get('region'),
+                    data.get('zone')
+                )
+                image_list.extend(ecs_driver.get_images(data.get('instance_type')))
+            return list(sorted(image_list, key=lambda x: (x.get('id', '') or x.get('name', ''))))
 
-    def get_ali_driver(self, ak_id, region='cn-hangzhou', zone=''):
+    @staticmethod
+    def get_ali_driver(ak_id, region='cn-hangzhou', zone=''):
         cloud_ak = CloudAk.objects.filter(id=ak_id)
-        if cloud_ak:
-            if cloud_ak.first().provider == TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES[1][0]:
-                driver = EciDriver(cloud_ak.first().access_id, cloud_ak.first().access_key, region, zone)
+        if cloud_ak.exists():
+            ak_obj = cloud_ak.first()
+            if ak_obj.provider == TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES[1][0]:
+                driver = EciDriver(ak_obj.access_id, ak_obj.access_key, region, zone)
             else:
-                driver = EcsDriver(cloud_ak.first().access_id, cloud_ak.first().access_key, region, zone,
-                                   resource_group_id=cloud_ak.first().resource_group_id)
-            return driver, cloud_ak.first().provider
+                driver = EcsDriver(ak_obj.access_id, ak_obj.access_key, region, zone,
+                                   resource_group_id=ak_obj.resource_group_id)
+            return driver, ak_obj.provider
         else:
             return None, None
 

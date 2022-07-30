@@ -4,6 +4,8 @@ import json
 from django.db import transaction
 from django.db.models import Q
 
+from tone.core.cloud import constant
+from tone.core.cloud.constant import TestType
 from tone.core.common.constant import TEST_SUITE_REDIS_KEY
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.redis_cache import redis_cache
@@ -12,7 +14,7 @@ from tone.core.utils.config_parser import get_config_from_db
 from tone.models import TestCase, TestSuite, TestMetric, WorkspaceCaseRelation, PerfResult, TestDomain, \
     DomainRelation, datetime, SuiteData, CaseData, BaseConfig, RoleMember, Role, TestJobCase, TestJob, \
     TestTmplCase, TestTemplate, TestBusiness, BusinessSuiteRelation, AccessCaseConf, User, TestJobSuite
-from tone.serializers.sys.testcase_serializers import RetrieveCaseSerializer
+from tone.serializers.sys.testcase_serializers import RetrieveCaseSerializer, RetrieveStatisticsSerializer, SimpleCaseSerializer
 from tone.tasks import sync_suite_case_toneagent
 
 
@@ -166,6 +168,53 @@ class TestCaseService(CommonService):
         # 删除Domain关联
         DomainRelation.objects.filter(object_type='case', object_id__in=id_list).delete()
 
+    def get_ws_all_cases(self, queryset, request):
+        ws_suite_data = []
+        ws_id = request.GET.get('ws_id')
+        test_type = request.GET.get('test_type')
+        test_suite_queryset = queryset.filter(ws_id=ws_id, test_type=test_type). \
+            values_list('test_suite_id', flat=True).distinct()
+        thread_tasks = []
+        for test_suite_id in test_suite_queryset:
+            if not TestSuite.objects.filter(id=test_suite_id).exists():
+                continue
+            thread_tasks.append(
+                ToneThread(self._get_ws_suite_case, (ws_id, test_suite_id))
+            )
+            thread_tasks[-1].start()
+        for thread_task in thread_tasks:
+            thread_task.join()
+            item_data = thread_task.get_result()
+            ws_suite_data.append(item_data)
+        ws_suite_data.reverse()
+        return ws_suite_data
+
+    def _get_ws_suite_case(self, ws_id, test_suite_id):
+        suite = TestSuite.objects.get(id=test_suite_id)
+        return {
+            'id': test_suite_id,
+            'name': suite.name,
+            'is_default': True,
+            'owner': 2,
+            'run_mode': suite.run_mode,
+            'test_type': suite.test_type,
+            'view_type': suite.view_type,
+            'domain_name_list': self.__get_domain_name_list(test_suite_id),
+            'test_case_list': self.__get_test_case_list(ws_id, test_suite_id)
+        }
+
+    @staticmethod
+    def __get_domain_name_list(test_suite_id):
+        domain_id_list = DomainRelation.objects.filter(object_type='suite', object_id=test_suite_id) \
+            .values_list('domain_id', flat=True)
+        domain_name_list = TestDomain.objects.filter(id__in=domain_id_list).values_list('name', flat=True)
+        return ','.join(domain_name_list)
+
+    @staticmethod
+    def __get_test_case_list(ws_id, test_suite_id):
+        case_id_list = WorkspaceCaseRelation.objects.filter(
+            ws_id=ws_id, test_suite_id=test_suite_id).values_list('test_case_id', flat=True)
+        return SimpleCaseSerializer(TestCase.objects.filter(id__in=case_id_list), many=True).data
 
 class TestSuiteService(CommonService):
     def filter(self, queryset, data):
@@ -955,27 +1004,30 @@ class SyncCaseToCacheService(CommonService):
 class WorkspaceRetrieveService(CommonService):
     @staticmethod
     def filter(queryset, data):
-        q = Q()
-        test_framework = get_config_from_db('TEST_FRAMEWORK', 'tone')
-        suite_id_list = TestSuite.objects.filter(test_framework=test_framework).values_list('id', flat=True)
-        queryset = queryset.filter(test_suite_id__in=suite_id_list)
+        ws_id = data.get('ws_id')
+        test_type = data.get('test_type')
+        suite_ids = queryset.filter(ws_id=ws_id).values_list('test_suite_id', flat=True).distinct()
+        q = Q(test_framework='tone', id__in=suite_ids)
+        if test_type:
+            q &= Q(test_type=test_type)
+        test_suite_queryset = TestSuite.objects.filter(q)
         # 获取性能测试、功能测试总数
         if data.get('total_num'):
-            func_suite_id_list = TestSuite.objects.filter(test_framework=test_framework, test_type='functional'
-                                                          ).values_list('id', flat=True)
-            perm_suite_id_list = TestSuite.objects.filter(test_framework=test_framework, test_type='performance'
-                                                          ).values_list('id', flat=True)
             res = {
-                'functional_num': TestCase.objects.filter(test_suite_id__in=func_suite_id_list).count(),
-                'performance_num': TestCase.objects.filter(test_suite_id__in=perm_suite_id_list).count(),
+                'functional_num': WorkspaceCaseRelation.objects.filter(
+                    ws_id=ws_id, test_type=TestType.FUNCTIONAL).count(),
+                'performance_num': WorkspaceCaseRelation.objects.filter(
+                    ws_id=ws_id, test_type=TestType.PERFORMANCE).count(),
             }
             return False, res
         # conf展开
         if data.get('suite_id'):
             if data.get('ws_id'):
-                ws_case_id = queryset.filter(test_type=data.get('test_type'), test_suite_id=data.get('suite_id'),
-                                             ws_id=data.get('ws_id')).values_list('test_case_id', flat=True)
-
+                ws_case_id = queryset.filter(
+                    test_type=data.get('test_type'),
+                    test_suite_id=data.get('suite_id'),
+                    ws_id=data.get('ws_id')
+                ).values_list('test_case_id', flat=True)
                 case_data_list = [
                     {'id': case.id, 'name': case.name, 'certificated': case.certificated,
                      'add_state': 1 if case.id in ws_case_id else 0}
@@ -986,18 +1038,7 @@ class WorkspaceRetrieveService(CommonService):
             if data.get('case_id'):
                 test_case_queryset = test_case_queryset.exclude(id=data.get('case_id'))
             return True, test_case_queryset
-        # 性能、功能测试suite信息
-        if data.get('test_type'):
-            q &= Q(test_type=data.get('test_type'))
-        ws_suite_id = queryset.filter(test_type=data.get('test_type'),
-                                      ws_id=data.get('ws_id')).values_list('test_suite_id', flat=True)
-        # suite_id_list = queryset.filter(q).values_list('test_suite_id', flat=True).distinct()
-        test_type_suite = TestSuite.objects.filter(id__in=suite_id_list, test_type=data.get('test_type'))
-        suite_data_list = [{'id': suite.id, 'name': suite.name, 'certificated': suite.certificated,
-                            'add_state': 1 if suite.id in ws_suite_id else 0,
-                            'case_count': TestCase.objects.filter(test_suite_id=suite.id).count()}
-                           for suite in test_type_suite]
-        return False, suite_data_list
+        return False, RetrieveStatisticsSerializer(test_suite_queryset, many=True).data
 
     @staticmethod
     def search(data, retrieve_view):
