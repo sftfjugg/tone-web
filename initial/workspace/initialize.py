@@ -27,4 +27,4 @@ class WorkspaceDataInitialize(object):
                 creator=system_user.id
             )
 
-            WorkspaceService().add_workspace_relation_data(common_ws.id, system_user.id, is_sys_user=True)
+            WorkspaceService().add_workspace_relation_data(common_ws.id, system_user.id)
