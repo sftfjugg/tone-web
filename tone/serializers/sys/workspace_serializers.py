@@ -16,11 +16,12 @@ class WorkspaceIndexListSerializer(CommonSerializer):
     owner_name = serializers.SerializerMethodField()
     is_member = serializers.SerializerMethodField()
     logo = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = Workspace
         fields = ['id', 'logo', 'show_name', 'owner_name', 'is_public', 'is_member',
-                  'theme_color', 'creator', 'is_common', 'description', 'is_show']
+                  'theme_color', 'creator', 'is_common', 'description', 'is_show', 'avatar']
 
     def get_owner_name(self, obj):
         user_list = self.context['request'].user_list
@@ -39,6 +40,10 @@ class WorkspaceIndexListSerializer(CommonSerializer):
     @staticmethod
     def get_logo(obj):
         return WorkspaceService.get_ws_logo(obj.logo)
+
+    @staticmethod
+    def get_avatar(obj):
+        return get_user_avatar(obj.owner)
 
 
 class WorkspaceSerializer(CommonSerializer):
