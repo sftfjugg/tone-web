@@ -183,7 +183,7 @@ class WorkspaceService(CommonService):
             )
         WorkspaceCaseRelation.objects.bulk_create(case_relations_obj_list)
 
-    def add_workspace_relation_data(self, ws_id, operator):
+    def add_workspace_relation_data(self, ws_id, operator, first_init=False):
         with transaction.atomic():
             # 1.add member
             WorkspaceMember.objects.get_or_create(
@@ -194,15 +194,22 @@ class WorkspaceService(CommonService):
             # 2.add history
             # WorkspaceHistoryService().add_entry_history(data={'ws_id': ws_id}, operator=operator)
             # 3.add job type
-            ToneThread(JobTypeDataInitialize().initialize_ws_job_type, (ws_id,)).start()
-            # 4.add default case
-            ToneThread(self.add_default_case_to_ws, (ws_id,)).start()
-            # 5.add default product/project
-            ToneThread(self.add_default_product_and_project, (ws_id,)).start()
-            # 6.add default sys_tag
-            ToneThread(self.add_default_job_sys_tag, (ws_id,)).start()
-            # 7. add default report template
-            ToneThread(self.add_default_report_tmpl_ws, (ws_id,)).start()
+            if not first_init:
+                ToneThread(JobTypeDataInitialize().initialize_ws_job_type, (ws_id,)).start()
+                # 4.add default case
+                ToneThread(self.add_default_case_to_ws, (ws_id,)).start()
+                # 5.add default product/project
+                ToneThread(self.add_default_product_and_project, (ws_id,)).start()
+                # 6.add default sys_tag
+                ToneThread(self.add_default_job_sys_tag, (ws_id,)).start()
+                # 7. add default report template
+                ToneThread(self.add_default_report_tmpl_ws, (ws_id,)).start()
+            else:
+                JobTypeDataInitialize().initialize_ws_job_type(ws_id)
+                self.add_default_case_to_ws(ws_id)
+                self.add_default_product_and_project(ws_id)
+                self.add_default_job_sys_tag(ws_id)
+                self.add_default_report_tmpl_ws(ws_id)
 
     @staticmethod
     def add_default_report_tmpl_ws(ws_id):

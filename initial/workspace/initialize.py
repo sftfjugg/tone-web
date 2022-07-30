@@ -15,8 +15,9 @@ class WorkspaceDataInitialize(object):
                     'system',
                     **{'emp_id': '000000', 'first_name': 'admin', 'last_name': 'tone', 'is_superuser': True}
                 )
-            common_ws = Workspace.objects.create(
-                id=short_uuid(),
+            ws_id = short_uuid()
+            Workspace.objects.create(
+                id=ws_id,
                 name='common_workspace',
                 show_name='公共workspace',
                 is_common=True,
@@ -27,4 +28,4 @@ class WorkspaceDataInitialize(object):
                 creator=system_user.id
             )
 
-            WorkspaceService().add_workspace_relation_data(common_ws.id, system_user.id)
+            WorkspaceService().add_workspace_relation_data(ws_id, system_user.id, first_init=True)
