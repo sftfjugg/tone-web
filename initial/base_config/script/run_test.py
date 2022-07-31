@@ -133,6 +133,9 @@ list_file(){{
 
 install_utils
 
+echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config
+systemctl restart sshd
+
 if [ -z ${{CLUSTER_SERVERS+x}} ];then
     echo "##standalone test .." >> $LOG
     prepare_suite $TONE_PATH $TEST_SUITE
