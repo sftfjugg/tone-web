@@ -442,17 +442,6 @@ class JobTestService(CommonService):
             job_id_li.append(job_id)
         if not self.check_delete_permission(operator, job_id_li):
             return False, '无权限删除非自己创建的job'
-        pending_jobs = TestJob.objects.filter(
-            id__in=job_id_li, state__in=['pending', 'pending_q']
-        )
-        group_pending_jobs = pending_jobs.filter(server_provider='aligroup')
-        yun_pending_jobs = pending_jobs.filter(server_provider='aliyun')
-        group_server_ids = TestJobCase.objects.filter(
-            job_id__in=group_pending_jobs.values_list('id', flat=True)
-        ).values_list('server_object_id', flat=True)
-        yun_server_ids = TestJobCase.objects.filter(
-            job_id__in=yun_pending_jobs.values_list('id', flat=True)
-        ).values_list('server_object_id', flat=True)
         with transaction.atomic():
             TestJob.objects.filter(id__in=job_id_li).delete()
             for job_id in job_id_li:
