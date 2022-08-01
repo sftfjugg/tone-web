@@ -301,10 +301,15 @@ class ReportHandle(object):
         for snap_shot_obj in snap_shot_objs:
             ip = snap_shot_obj.ip if job.server_provider == 'aligroup' else snap_shot_obj.private_ip
             if ip not in ip_li:
+                if not (snap_shot_obj.distro or snap_shot_obj.rpm_list or snap_shot_obj.gcc):
+                    continue
                 server_li.append({
                     'ip/sn': ip,
-                    'distro': snap_shot_obj.distro,
+                    'distro': snap_shot_obj.sm_name if job.server_provider == 'aligroup' else
+                    snap_shot_obj.instance_type,
+                    'os': snap_shot_obj.distro,
                     'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
+                    'kernel': snap_shot_obj.kernel_version,
                     'gcc': snap_shot_obj.gcc,
                 })
                 ip_li.append(ip)
