@@ -5,6 +5,7 @@ import logging
 from datetime import timedelta
 from django.db import transaction
 from django.template.loader import render_to_string
+from urllib.parse import quote
 
 from tone import settings
 from tone.core.common.callback import JobCallBack, CallBackType
@@ -669,7 +670,7 @@ class OutSiteMsgHandle(object):
                                         'metric={}&title={}%2F{}'.\
                         format(get_skip_url(), job_obj.ws_id, job_obj.test_type, job_obj.server_provider, start_date,
                                end_date, tag_id, job_obj.project_id, case_result.test_suite_id, case_id,
-                               case_result.metric, suite_name, conf_name)
+                               quote(case_result.metric), quote(suite_name), quote(conf_name))
                 else:
                     presult_e['link'] = ''
                 last_presult_e = None
