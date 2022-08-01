@@ -6,6 +6,7 @@ Date:
 Author: Yfh
 """
 import json
+import logging
 from datetime import datetime
 
 import yaml
@@ -29,7 +30,10 @@ from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.custom_error import JobTestException
 from tone.serializers.job.test_serializers import get_time
 from tone.settings import cp
-from tone.core.common.redis_cache import redis_cache_33
+from tone.core.common.redis_cache import redis_cache_6
+
+
+logger = logging.getLogger()
 
 
 class JobTestService(CommonService):
@@ -846,10 +850,14 @@ class UpdateStateService(CommonService):
             q = Q(occupied_job_id=job_obj.id) | Q(occupied_job_id__isnull=True)
             TestCluster.objects.filter(q).update(is_occpuied=0, occupied_job_id=None)
         # 6.清除redis数据
-        using_server = redis_cache_33.hgetall('tone-runner-using_server')
-        for key in using_server:
-            if using_server[key] == str(job_obj.id):
-                redis_cache_33.hdel('tone-runner-using_server', key)
+        try:
+            using_server = redis_cache_6.hgetall('tone-runner-using_server')
+            for key in using_server:
+                if using_server[key] == str(job_obj.id):
+                    redis_cache_6.hdel('tone-runner-using_server', key)
+        except Exception as e:
+            logger.warning(f'release server from redis error: {e}')
+
         # 7.回调接口
         if job_obj.callback_api:
             JobCallBack(

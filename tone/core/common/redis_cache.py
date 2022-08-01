@@ -183,4 +183,4 @@ class RedisCache(RedisControl):
 
 redis_cache = RedisCache()
 
-redis_cache_33 = RedisCache(cache_db=33, key_perfix="")
+redis_cache_6 = RedisCache(cache_db=6, key_perfix="")
