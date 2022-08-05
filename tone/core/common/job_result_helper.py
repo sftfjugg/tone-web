@@ -311,29 +311,32 @@ def get_tag_server(job_case, server=None):
     return server, is_instance
 
 
-def get_job_case_run_server(job_case_id):
+def get_job_case_run_server(job_case_id, return_field='ip'):
     job_case = TestJobCase.objects.get(id=job_case_id)
     run_mode = job_case.run_mode
     server_provider = job_case.server_provider
-    server = None
     if run_mode == 'standalone' and server_provider == 'aligroup':
-        server = TestServerSnapshot.objects.get(id=job_case.server_snapshot_id).ip if TestServerSnapshot.objects.filter(
-            id=job_case.server_snapshot_id).exists() else None
+        server = TestServerSnapshot.objects.filter(id=job_case.server_snapshot_id)
+        if server.exists():
+            return server.first().ip if return_field == 'ip' else server.first().id
     elif run_mode == 'standalone' and server_provider == 'aliyun':
-        server = CloudServerSnapshot.objects.get(
-            id=job_case.server_snapshot_id).private_ip if CloudServerSnapshot.objects.filter(
-            id=job_case.server_snapshot_id).exists() else None
+        server = CloudServerSnapshot.objects.filter(id=job_case.server_snapshot_id)
+        if server.exists():
+            return server.first().private_ip if return_field == 'ip' else server.first().id
     elif run_mode == 'cluster' and server_provider == 'aligroup':
-        if TestStep.objects.filter(job_case_id=job_case_id, stage='run_case').exists():
-            _server = TestStep.objects.filter(job_case_id=job_case_id, stage='run_case').last().server
-            server = TestServerSnapshot.objects.get(id=_server).private_ip
+        test_step = TestStep.objects.filter(job_case_id=job_case_id, stage='run_case')
+        if test_step.exists():
+            server_snapshot_id = TestStep.objects.get(job_case_id=job_case_id, stage='run_case').server
+            server = TestServerSnapshot.objects.filter(id=server_snapshot_id)
+            if server.exists():
+                return server.first().ip if return_field == 'ip' else server.first().id
     elif run_mode == 'cluster' and server_provider == 'aliyun':
-        if TestStep.objects.filter(job_case_id=job_case_id, stage='run_case').exists():
-            _server = TestStep.objects.filter(job_case_id=job_case_id, stage='run_case').last().server
-            server = CloudServerSnapshot.objects.get(id=_server).private_ip
-    else:
-        pass
-    return server
+        test_step = TestStep.objects.filter(job_case_id=job_case_id, stage='run_case')
+        if test_step.exists():
+            server_snapshot_id = TestStep.objects.get(job_case_id=job_case_id, stage='run_case').server
+            server = CloudServerSnapshot.objects.filter(id=server_snapshot_id)
+            if server.exists():
+                return server.first().private_ip if return_field == 'ip' else server.first().id
 
 
 def get_server_ip_sn(server, channel_type):
