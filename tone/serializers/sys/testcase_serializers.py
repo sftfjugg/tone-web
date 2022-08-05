@@ -103,7 +103,11 @@ class TestCaseSerializer(CommonSerializer):
     def get_domain_name_list(obj):
         domain_id_list = DomainRelation.objects.filter(object_type='case', object_id=obj.id).values_list(
             'domain_id', flat=True)
-        domain_name_list = [TestDomain.objects.filter(id=domain_id).first().name for domain_id in domain_id_list]
+        domain_name_list = []
+        for domain_id in domain_id_list:
+            domains = TestDomain.objects.filter(id=domain_id).first()
+            if domains:
+                domain_name_list.append(domains.name)
         return ','.join(domain_name_list)
 
 
@@ -149,8 +153,11 @@ class TestSuiteSerializer(CommonSerializer):
     def get_domain_name_list(obj):
         domain_id_list = DomainRelation.objects.filter(object_type='suite', object_id=obj.id).values_list(
             'domain_id', flat=True)
-        domain_name_list = [TestDomain.objects.filter(id=domain_id, query_scope='all').first().name
-                            for domain_id in domain_id_list]
+        domain_name_list = []
+        for domain_id in domain_id_list:
+            domains = TestDomain.objects.filter(id=domain_id, query_scope='all').first()
+            if domains:
+                domain_name_list.append(domains.name)
         return ','.join(domain_name_list)
 
 
@@ -185,7 +192,11 @@ class TestSuiteCaseSerializer(CommonSerializer):
     def get_domain_name_list(obj):
         domain_id_list = DomainRelation.objects.filter(object_type='suite', object_id=obj.id).values_list(
             'domain_id', flat=True)
-        domain_name_list = [TestDomain.objects.filter(id=domain_id).first().name for domain_id in domain_id_list]
+        domain_name_list = []
+        for domain_id in domain_id_list:
+            domains = TestDomain.objects.filter(id=domain_id).first()
+            if domains:
+                domain_name_list.append(domains.name)
         return ','.join(domain_name_list)
 
 
@@ -249,7 +260,11 @@ class SimpleSuiteSerializer(CommonSerializer):
     def get_domain_name_list(obj):
         domain_id_list = DomainRelation.objects.filter(object_type='suite', object_id=obj.id).values_list(
             'domain_id', flat=True)
-        domain_name_list = [TestDomain.objects.filter(id=domain_id).first().name for domain_id in domain_id_list]
+        domain_name_list = []
+        for domain_id in domain_id_list:
+            domains = TestDomain.objects.filter(id=domain_id).first()
+            if domains:
+                domain_name_list.append(domains.name)
         return ','.join(domain_name_list)
 
 
