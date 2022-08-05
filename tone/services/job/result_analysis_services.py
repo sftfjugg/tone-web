@@ -103,19 +103,6 @@ class PerfAnalysisService(CommonService):
                 baseline_data['cv_value'] = perf_result.baseline_cv_value
         return baseline_data
 
-    # @staticmethod
-    # def get_baseline_id(job_list, test_suite, test_case, metric):
-    #     if not job_list:
-    #         return None
-    #     job = job_list[0]
-    #     perf_results = PerfResult.objects.filter(test_job_id=job.get('job_id'), test_suite_id=test_suite,
-    #                                              test_case_id=test_case, metric=metric)
-    #     if perf_results.exists():
-    #         perf_result = perf_results.first()
-    #         return perf_result.compare_baseline if perf_result.compare_baseline != 0 else None
-    #     else:
-    #         return None
-
     @staticmethod
     def get_result_data(metric_data, provider_env, start_time, end_time):
         pack_data = dict()
@@ -139,9 +126,6 @@ class PerfAnalysisService(CommonService):
                 if not data_map[data['start_time'].split(' ')[0]] or \
                         data_map[data['start_time'].split(' ')[0]].get('start_time') <= data['start_time']:
                     data_map[data['start_time'].split(' ')[0]] = data
-                # if not (data['start_time'].split(' ')[0] in result_data and
-                #         result_data[data['start_time'].split(' ')[0]]['start_time'] <= data['start_time']):
-                #     result_data[data['start_time'].split(' ')[0]] = data
             result_data = data_map
         return result_data
 
@@ -166,7 +150,8 @@ class PerfAnalysisService(CommonService):
                         'result_obj_id': row[11],
                         # test_job_case.id未使用，所以跳过[12]
                         # test_job_case.run_mode未使用，所以跳过[13]
-                        'creator_id': row[14]
+                        'creator_id': row[14],
+                        'server_id': row[15]
                     }
                 )
         else:
@@ -191,6 +176,7 @@ class PerfAnalysisService(CommonService):
                         'run_mode': row[15],
                         # test_job_case.id未使用，所以跳过[16]
                         'creator_id': row[17],
+                        'server_id': row[18]
                     }
                 )
         return metric_data
@@ -223,6 +209,8 @@ class PerfAnalysisService(CommonService):
                             'commit_id': _value.get('commit_id'),
                             'creator': _value.get('creator'),
                             'server': _value.get('server'),
+                            'server_id': _value.get('server_id'),
+                            'server_provider': provider_env,
                             'value': _value.get('value'),
                             'cv_value': _value.get('cv_value'),
                             'note': _value.get('note'),
@@ -241,6 +229,8 @@ class PerfAnalysisService(CommonService):
                         'commit_id': value.get('commit_id'),
                         'creator': value.get('creator'),
                         'server': value.get('server'),
+                        'server_id': value.get('server_id'),
+                        'server_provider': provider_env,
                         'value': value.get('value'),
                         'cv_value': value.get('cv_value'),
                         'note': value.get('note'),
@@ -346,8 +336,14 @@ class FuncAnalysisService(CommonService):
                     func_result = FuncResult.objects.filter(test_job_id=value.get('job_id'), test_suite_id=test_suite,
                                                             test_case_id=test_case, sub_case_name=sub_case_name).first()
                     job_list.append(
-                        {**value, **{'server': get_job_case_run_server(job_case.id), 'note': func_result.note},
-                         'result_obj_id': func_result.id})
+                        {**value, **{
+                            'server': get_job_case_run_server(job_case.id),
+                            'server_id': get_job_case_run_server(job_case.id, return_field='id'),
+                            'server_provider': job_case.server_provider,
+                            'note': func_result.note
+                        },
+                         'result_obj_id': func_result.id}
+                    )
                     case_map[key] = {**value,
                                      **{'result': FUNC_CASE_RESULT_TYPE_MAP.get(func_result.sub_case_result),
                                         'note': func_result.note}}
