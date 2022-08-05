@@ -409,6 +409,7 @@ class JobTestProcessCaseSerializer(CommonSerializer):
     result = serializers.SerializerMethodField()
     step = serializers.SerializerMethodField()
     server = serializers.SerializerMethodField()
+    server_id = serializers.SerializerMethodField()
     log_file = serializers.SerializerMethodField()
     start_time = serializers.SerializerMethodField()
     end_time = serializers.SerializerMethodField()
@@ -416,7 +417,8 @@ class JobTestProcessCaseSerializer(CommonSerializer):
     class Meta:
         model = TestJobCase
         fields = ['id', 'state', 'test_case_name', 'need_reboot', 'setup_info', 'cleanup_info', 'start_time',
-                  'console', 'monitor_info', 'note', 'end_time', 'tid', 'result', 'step', 'server', 'log_file']
+                  'console', 'monitor_info', 'note', 'end_time', 'tid', 'result', 'step', 'server',
+                  'log_file', 'server_id']
 
     @staticmethod
     def get_start_time(obj):
@@ -441,6 +443,14 @@ class JobTestProcessCaseSerializer(CommonSerializer):
         else:
             server = step.server
         return server
+
+    @staticmethod
+    def get_server_id(obj):
+        step = TestStep.objects.filter(job_case_id=obj.id).first() \
+            if TestStep.objects.filter(job_case_id=obj.id).exists() else None
+        if not step or not step.server:
+            return None
+        return step.server
 
     @staticmethod
     def get_tid(obj):
@@ -622,6 +632,7 @@ class JobTestResultSerializer(CommonSerializer):
 class JobTestConfResultSerializer(CommonSerializer):
     conf_name = serializers.SerializerMethodField()
     server_ip = serializers.SerializerMethodField()
+    server_id = serializers.SerializerMethodField()
     result_data = serializers.SerializerMethodField()
     baseline = serializers.SerializerMethodField()
     start_time = serializers.SerializerMethodField()
@@ -631,7 +642,7 @@ class JobTestConfResultSerializer(CommonSerializer):
     class Meta:
         model = TestJobCase
         fields = ['id', 'conf_name', 'test_case_id', 'server_ip', 'result_data', 'start_time', 'end_time', 'note',
-                  'baseline', 'baseline_job_id']
+                  'baseline', 'baseline_job_id', 'server_id']
 
     @staticmethod
     def get_start_time(obj):
@@ -668,6 +679,10 @@ class JobTestConfResultSerializer(CommonSerializer):
     @staticmethod
     def get_server_ip(obj):
         return get_job_case_run_server(obj.id)
+
+    @staticmethod
+    def get_server_id(obj):
+        return get_job_case_run_server(obj.id, return_field='id')
 
     @staticmethod
     def get_result_data(obj):
@@ -903,6 +918,7 @@ def insert_standalone(step, server_step, provider):
             'result': get_result_map("test_prepare", step.result),
             'tid': step.tid,
             'server': server,
+            'server_id': step.server,
             'gmt_created': datetime.strftime(step.gmt_created, "%Y-%m-%d %H:%M:%S"),
             'gmt_modified': datetime.strftime(step.gmt_modified, "%Y-%m-%d %H:%M:%S")
             if step.state != 'running' else None
@@ -913,6 +929,7 @@ def insert_standalone(step, server_step, provider):
             'state': step.state,
             'result': get_result_map("test_prepare", step.result),
             'server': server,
+            'server_id': step.server,
             'tid': step.tid,
             'gmt_created': datetime.strftime(step.gmt_created, "%Y-%m-%d %H:%M:%S"),
             'gmt_modified': datetime.strftime(step.gmt_modified, "%Y-%m-%d %H:%M:%S")
