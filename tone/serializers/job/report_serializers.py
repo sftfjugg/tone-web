@@ -336,8 +336,10 @@ class ReportSerializer(CommonSerializer):
 
     @staticmethod
     def get_project(obj):
-        project = Project.objects.get_value(id=obj.project_id)
-        return project.name
+        if Project.objects.filter(id=obj.project_id).exists():
+            project = Project.objects.get_value(id=obj.project_id)
+            return project.name
+        return ''
 
 
 class ReportDetailSerializer(CommonSerializer):
