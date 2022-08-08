@@ -252,8 +252,8 @@ def _get_server_for_inheriting_machine(is_config, is_instance, job_case_id, serv
 
 
 def _get_server_for_aliyun_not_config(job_case, server):
-    server = CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id).pub_ip if \
-        CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id).pub_ip else \
+    server = CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id).private_ip if \
+        CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id).private_ip else \
         CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id).sn
     return server
 
@@ -273,13 +273,13 @@ def _get_server_for_aliyun_standalone(is_instance, job_case, server, server_dele
     server_obj = CloudServer.objects.filter(id=job_case.server_object_id).first()
     if server_obj:
         is_instance = 1 if server_obj.is_instance else 0
-        server = (server_obj.pub_ip if is_instance else server_obj.template_name) if \
-            (server_obj.pub_ip if is_instance else server_obj.template_name) else server_obj.sn
+        server = (server_obj.private_ip if is_instance else server_obj.template_name) if \
+            (server_obj.private_ip if is_instance else server_obj.template_name) else server_obj.sn
     else:
         server_obj = CloudServer.objects.filter(id=job_case.server_object_id, query_scope='deleted').first()
         if server_obj.is_instance:
             server_is_deleted = True
-            server_deleted = [{'ip': server_obj.pub_ip,
+            server_deleted = [{'ip': server_obj.private_ip,
                                'sn': server_obj.sn}]
     return is_instance, server, server_deleted, server_is_deleted
 
@@ -302,7 +302,7 @@ def get_tag_server(job_case, server=None):
     is_instance = None
     if server_provider == 'aliyun' and not job_case.server_object_id and job_case.server_snapshot_id:
         cloud_server = CloudServerSnapshot.objects.get(id=job_case.server_snapshot_id)
-        server = cloud_server.pub_ip if cloud_server.pub_ip else \
+        server = cloud_server.private_ip if cloud_server.private_ip else \
             TestServerSnapshot.objects.get(id=job_case.server_snapshot_id).sn
     if server_provider == 'aligroup' and not job_case.server_object_id and job_case.server_snapshot_id:
         server = TestServerSnapshot.objects.get(

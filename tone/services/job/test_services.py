@@ -312,7 +312,7 @@ class JobTestService(CommonService):
         else:
             server_list = list(filter(lambda x: x.job_id == job_id, clould_server_shot))
             if len(server_list) == 1:
-                server = server_list[0].pub_ip
+                server = server_list[0].private_ip
         return server
 
     def get_report_li(self, report_obj, job_id, create_name_map):
