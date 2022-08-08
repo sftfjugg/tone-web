@@ -442,23 +442,10 @@ class JobTestService(CommonService):
             job_id_li.append(job_id)
         if not self.check_delete_permission(operator, job_id_li):
             return False, '无权限删除非自己创建的job'
-        pending_jobs = TestJob.objects.filter(
-            id__in=job_id_li, state__in=['pending', 'pending_q']
-        )
-        group_pending_jobs = pending_jobs.filter(server_provider='aligroup')
-        yun_pending_jobs = pending_jobs.filter(server_provider='aliyun')
-        group_server_ids = TestJobCase.objects.filter(
-            job_id__in=group_pending_jobs.values_list('id', flat=True)
-        ).values_list('server_object_id', flat=True)
-        yun_server_ids = TestJobCase.objects.filter(
-            job_id__in=yun_pending_jobs.values_list('id', flat=True)
-        ).values_list('server_object_id', flat=True)
         with transaction.atomic():
             TestJob.objects.filter(id__in=job_id_li).delete()
-            if group_server_ids:
-                TestServer.objects.filter(id__in=group_server_ids).update(spec_use=0)
-            if yun_server_ids:
-                CloudServer.objects.filter(id__in=yun_server_ids).update(spec_use=0)
+            for job_id in job_id_li:
+                release_server(job_id)
         return True, '删除成功'
 
     @staticmethod
@@ -837,27 +824,8 @@ class UpdateStateService(CommonService):
         TestJobCase.objects.filter(
             job_id=job_obj.id
         ).update(note=operation_note)
-        # 4.释放单机机器
-        for server_model in [TestServer, CloudServer]:
-            server_model.objects.filter(
-                occupied_job_id=job_obj.id
-            ).update(
-                state=TestServerState.AVAILABLE,
-                occupied_job_id=None
-            )
-        # 5.释放集群机器
-        if TestJobCase.objects.filter(job_id=job_obj.id, run_mode='cluster').exists():
-            q = Q(occupied_job_id=job_obj.id) | Q(occupied_job_id__isnull=True)
-            TestCluster.objects.filter(q).update(is_occpuied=0, occupied_job_id=None)
-        # 6.清除redis数据
-        try:
-            using_server = redis_cache_6.hgetall('tone-runner-using_server')
-            for key in using_server:
-                if using_server[key] == str(job_obj.id):
-                    redis_cache_6.hdel('tone-runner-using_server', key)
-        except Exception as e:
-            logger.warning(f'release server from redis error: {e}')
-
+        # 4.释放机器
+        release_server(job_obj.id)
         # 7.回调接口
         if job_obj.callback_api:
             JobCallBack(
@@ -907,6 +875,29 @@ class UpdateStateService(CommonService):
                 id=test_job_conf_id, state__in=['pending', 'running']
             ).update(state=state)
             TestJobCase.objects.filter(id=test_job_conf_id).update(note=operation_note)
+
+
+def release_server(test_job_id):
+    # 1.释放单机机器
+    for server_model in [TestServer, CloudServer]:
+        server_model.objects.filter(
+            occupied_job_id=test_job_id
+        ).update(
+            state=TestServerState.AVAILABLE,
+            occupied_job_id=None
+        )
+    # 2.释放集群机器
+    if TestJobCase.objects.filter(job_id=test_job_id, run_mode='cluster').exists():
+        q = Q(occupied_job_id=test_job_id) | Q(occupied_job_id__isnull=True)
+        TestCluster.objects.filter(q).update(is_occpuied=0, occupied_job_id=None)
+    # 3.清除redis数据
+    try:
+        using_server = redis_cache_6.hgetall('tone-runner-using_server')
+        for key in using_server:
+            if using_server[key] == str(test_job_id):
+                redis_cache_6.hdel('tone-runner-using_server', key)
+    except Exception as e:
+        logger.warning(f'release server from redis error: {e}')
 
 
 class JobRerunService(CommonService):
