@@ -449,24 +449,25 @@ class TestSuiteService(CommonService):
 
     @staticmethod
     def check_exist_from_tone(data, test_framework):
-        suite_id = data.get('suite_id')
-        if data.get('test_type') != 'business':
-            suite_obj = SuiteData.objects.filter(name=data.get('suite_name')).first()
-            if suite_obj is None:
-                return 201, '请检查该suite是否已集成（集成后需等待用例缓存进系统）'
-            if suite_obj.test_type != data.get('test_type'):
-                return 201, '该suite是{}类型'.format(suite_obj.test_type)
-        test_suite = TestSuite.objects.filter(name=data.get('suite_name'), test_framework=test_framework).first()
-        if test_suite:
-            if suite_id is not None and str(suite_id) == str(test_suite.id):
-                return 200, 'success'
-            business_relation = BusinessSuiteRelation.objects.filter(test_suite_id=test_suite.id).first()
-            if business_relation:
-                test_business = TestBusiness.objects.filter(id=business_relation.business_id).first()
-                if test_business:
-                    return 201, f'该suite已存在于 {test_business.name} 业务'
-            return 201, '该suite已经存在'
         return 200, 'success'
+        # suite_id = data.get('suite_id')
+        # if data.get('test_type') != 'business':
+        #     suite_obj = SuiteData.objects.filter(name=data.get('suite_name')).first()
+        #     if suite_obj is None:
+        #         return 201, '请检查该suite是否已集成（集成后需等待用例缓存进系统）'
+        #     if suite_obj.test_type != data.get('test_type'):
+        #         return 201, '该suite是{}类型'.format(suite_obj.test_type)
+        # test_suite = TestSuite.objects.filter(name=data.get('suite_name'), test_framework=test_framework).first()
+        # if test_suite:
+        #     if suite_id is not None and str(suite_id) == str(test_suite.id):
+        #         return 200, 'success'
+        #     business_relation = BusinessSuiteRelation.objects.filter(test_suite_id=test_suite.id).first()
+        #     if business_relation:
+        #         test_business = TestBusiness.objects.filter(id=business_relation.business_id).first()
+        #         if test_business:
+        #             return 201, f'该suite已存在于 {test_business.name} 业务'
+        #     return 201, '该suite已经存在'
+        # return 200, 'success'
 
     def exist(self, data):
         test_framework = get_config_from_db('TEST_FRAMEWORK', 'tone')
