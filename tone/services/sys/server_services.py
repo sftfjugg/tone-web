@@ -16,7 +16,8 @@ from tone.core.common.enums.ts_enums import TestServerEnums
 from tone.core.cloud.aliyun.ecs_driver import EcsDriver
 from tone.core.cloud.aliyun.eci_driver import EciDriver
 from tone.models import TestServer, CloudServer, ServerTag, ServerTagRelation, \
-    TestCluster, TestClusterServer, CloudAk, CloudImage, User, Workspace, TestTmplCase, TestTemplate, Role, RoleMember
+    TestCluster, TestClusterServer, CloudAk, CloudImage, User, Workspace, TestTmplCase, TestTemplate, Role, \
+    RoleMember, TestServerSnapshot, CloudServerSnapshot
 from tone.settings import TONEAGENT_DOMAIN
 
 error_logger = logging.getLogger('error')
@@ -1695,3 +1696,20 @@ class ToneAgentService(CommonService):
             error_logger.error('request to toneagent version list api failed! detail: {}'.format(str(e)))
             return False, 'request to toneagent version list api failed!'
         return True, result['data']
+
+
+class ServerSnapshotService(CommonService):
+    @staticmethod
+    def filter(request):
+        data = request.GET
+        q = Q()
+        if data.get('ws_id'):
+            q &= Q(ws_id=data.get('ws_id'))
+        test_server_list = TestServerSnapshot.objects.exclude(ip='').filter(q).values_list('ip', flat=True).distinct()
+        cloud_server_list = CloudServerSnapshot.objects.exclude(pub_ip='').filter(q).values_list('pub_ip', flat=True). \
+            distinct()
+        test_server_sn_list = TestServerSnapshot.objects.exclude(sn='').filter(q & Q(ip='') & Q(sn__isnull=False)).\
+            values_list('sn', flat=True).distinct()
+        cloud_server_sn_list = CloudServerSnapshot.objects.exclude(sn='').\
+            filter(q & Q(pub_ip='') & Q(sn__isnull=False)).values_list('sn', flat=True).distinct()
+        return list(test_server_list)+list(cloud_server_list)+list(test_server_sn_list)+list(cloud_server_sn_list)
