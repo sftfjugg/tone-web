@@ -412,8 +412,8 @@ class JobTestService(CommonService):
             q &= Q(creator=operator.id)
         if data.get('server'):
             server = data.get('server')
-            server_objs = TestServerSnapshot.objects.filter(ip=server)
-            cloud_server_objs = CloudServerSnapshot.objects.filter(pub_ip=server)
+            server_objs = TestServerSnapshot.objects.filter(Q(ip=server) | Q(sn=server))
+            cloud_server_objs = CloudServerSnapshot.objects.filter(Q(pub_ip=server) | Q(sn=server))
             id_li = list(set([obj.job_id for obj in server_objs]) | set([obj.job_id for obj in cloud_server_objs]))
             q &= Q(id__in=id_li)
         if data.get('collection') or data.get('tab') == 'collection':
