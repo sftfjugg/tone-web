@@ -1140,6 +1140,8 @@ class TestClusterService(CommonService):
             q &= Q(description__contains=data.get('description'))
         if data.get('ws_id'):
             q &= Q(ws_id=data.get('ws_id'))
+        if data.get('name'):
+            return sorted(queryset.filter(q), key=lambda x: 0 if x.name == data.get('name') else 1)
         return queryset.filter(q)
 
     def create(self, post_data, user_id):
