@@ -188,6 +188,17 @@ class TestCaseService(CommonService):
             item_data = thread_task.get_result()
             ws_suite_data.append(item_data)
         ws_suite_data.reverse()
+        if request.GET.get('name'):
+            ws_suite_data = self._get_ws_suiite_filter_name(request, ws_suite_data)
+        return ws_suite_data
+
+    def _get_ws_suiite_filter_name(self, request, ws_suite_data):
+        filter_name = request.GET.get('name')
+        for suite in ws_suite_data:
+            if filter_name not in suite.get('name'):
+                suite['test_case_list'] = list(
+                    filter(lambda x: filter_name in x.get('name'), suite.get('test_case_list')))
+        ws_suite_data = list(filter(lambda x: len(x.get('test_case_list')) > 0, ws_suite_data))
         return ws_suite_data
 
     def _get_ws_suite_case(self, ws_id, test_suite_id):
