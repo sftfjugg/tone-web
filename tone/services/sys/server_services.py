@@ -68,23 +68,62 @@ class TestServerService(CommonService):
 
     @staticmethod
     def _get_search_q(data):
-        q = Q(parent_server_id__isnull=True)
-        q &= Q(in_pool=1)
+        flag = False
+        q = Q(in_pool=1)
         if data.get('ws_id'):
             q &= Q(ws_id=data.get('ws_id'))
         if data.get('ip'):
             q &= Q(ip__icontains=data.get('ip'))
+            flag = True
         if data.get('sn'):
             q &= Q(sn__icontains=data.get('sn'))
+            flag = True
+        if data.get('name'):
+            q &= Q(name__icontains=data.get('name'))
+            flag = True
         if data.get('sm_name'):
             q &= Q(sm_name__icontains=data.get('sm_name'))
+            flag = True
         if data.get('app_group'):
             q &= Q(app_group__icontains=data.get('app_group'))
+            flag = True
         if data.get('description'):
             q &= Q(description__icontains=data.get('description'))
+            flag = True
+        if data.get('idc'):
+            q &= Q(idc__icontains=data.get('idc'))
+            flag = True
+        if data.get('owner'):
+            user = User.objects.filter(Q(last_name__icontains=data.get('owner')) |
+                                       Q(first_name__icontains=data.get('owner'))).values_list('id', flat=True)
+            q &= Q(owner__in=user)
+            flag = True
         for item in ['state', 'real_state', 'channel_type', 'device_type']:
             if data.get(item):
                 q &= Q(**{'{}__in'.format(item): data.getlist(item)})
+                flag = True
+        tags = data.getlist('tags')
+        if len(tags) == 1 and tags != ['']:
+            tag_list_id = ServerTagRelation.objects.filter(server_tag_id__in=tags) \
+                .values_list('object_id', flat=True)
+            object_id = TestServer.objects.filter(ws_id=data.get('ws_id'), id__in=tag_list_id) \
+                .values_list('id', flat=True)
+            q &= Q(id__in=object_id)
+            flag = True
+        if len(tags) >= 2:
+            object_id_list = []
+            tags = [int(tag) for tag in tags]
+            test_server_id_list = TestServer.objects.filter(ws_id=data.get('ws_id')).values_list('id', flat=True)
+            for test_server_id in test_server_id_list:
+                server_id_list = ServerTagRelation.objects.filter(object_id=test_server_id).values_list(
+                    'server_tag_id', flat=True)
+                if set(tags) <= set(server_id_list):
+                    object_id_list.append(test_server_id)
+            q &= Q(id__in=object_id_list)
+            flag = True
+        if not flag:
+            q &= Q(parent_server_id__isnull=True)
+        data.flag = flag
         return q
 
     def add_group_server(self, post_data):
