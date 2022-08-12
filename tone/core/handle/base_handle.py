@@ -326,14 +326,16 @@ class BaseHandle(metaclass=ABCMeta):
             ip, sn = get_server_ip_sn(custom_ip, channel_type)
             if channel_type == 'staragent':
                 server_snapshot = TestServerSnapshot.objects.create(ip=ip, channel_type=channel_type, sn=sn,
-                                                                    in_pool=False) if provider == 'aligroup' \
+                                                                    in_pool=False, ws_id=self.ws_id) \
+                    if provider == 'aligroup' \
                     else CloudServerSnapshot.objects.create(
-                    pub_ip=ip, channel_type=channel_type, sn=sn, in_pool=False)
+                    pub_ip=ip, channel_type=channel_type, sn=sn, in_pool=False, ws_id=self.ws_id)
             else:
                 server_snapshot = TestServerSnapshot.objects.create(ip=ip, channel_type=channel_type, tsn=sn,
-                                                                    in_pool=False) if provider == 'aligroup' \
+                                                                    in_pool=False, ws_id=self.ws_id) \
+                    if provider == 'aligroup' \
                     else CloudServerSnapshot.objects.create(pub_ip=ip, channel_type=channel_type, sn=sn,
-                                                            in_pool=False)
+                                                            in_pool=False, ws_id=self.ws_id)
             self.server_map[custom_ip] = server_snapshot.id
         case_dict['server_snapshot_id'] = self.server_map[custom_ip]
 
