@@ -9,6 +9,14 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"
     />
     <title>T-One</title>
+    <meta
+      name="description"
+      content="T-One（testing in one）提供一站式自动化测试集成、管理、执行、分析，以及跨团队、跨企业质量协作能力。"
+    />
+    <meta
+      property="og:description"
+      content="T-One（testing in one）提供一站式自动化测试集成、管理、执行、分析，以及跨团队、跨企业质量协作能力。"
+    />
     <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="stylesheet" href="/umi.css" />
     <script>
@@ -40,27 +48,29 @@
         }
 
         .page-loading-warp {
-          display: flex;
-          align-items: center;
-          justify-content: center;
           padding: 98px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
         }
 
         .ant-spin {
-          position: absolute;
-          display: none;
           -webkit-box-sizing: border-box;
           box-sizing: border-box;
           margin: 0;
           padding: 0;
           color: rgba(0, 0, 0, 0.65);
-          color: #1890ff;
           font-size: 14px;
           font-variant: tabular-nums;
           line-height: 1.5;
+          list-style: none;
+          -webkit-font-feature-settings: "tnum";
+          font-feature-settings: "tnum";
+          position: absolute;
+          display: none;
+          color: #1890ff;
           text-align: center;
           vertical-align: middle;
-          list-style: none;
           opacity: 0;
           -webkit-transition: -webkit-transform 0.3s
             cubic-bezier(0.78, 0.14, 0.15, 0.86);
@@ -69,8 +79,6 @@
           transition: transform 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86);
           transition: transform 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86),
             -webkit-transform 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86);
-          -webkit-font-feature-settings: "tnum";
-          font-feature-settings: "tnum";
         }
 
         .ant-spin-spinning {
@@ -82,9 +90,9 @@
         .ant-spin-dot {
           position: relative;
           display: inline-block;
+          font-size: 20px;
           width: 20px;
           height: 20px;
-          font-size: 20px;
         }
 
         .ant-spin-dot-item {
@@ -140,9 +148,9 @@
         }
 
         .ant-spin-lg .ant-spin-dot {
+          font-size: 32px;
           width: 32px;
           height: 32px;
-          font-size: 32px;
         }
 
         .ant-spin-lg .ant-spin-dot i {

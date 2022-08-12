@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="14px" height="13px" viewBox="0 0 14 13" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title></title>
+    <defs>
+        <filter id="filter-1">
+            <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 1.000000 0 0 0 0 1.000000 0 0 0 0 1.000000 0 0 0 1.000000 0"></feColorMatrix>
+        </filter>
+    </defs>
+    <g id="dashboard" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="2" transform="translate(-317.000000, -19.000000)">
+            <g id="统计" transform="translate(316.000000, 14.000000)" filter="url(#filter-1)">
+                <g transform="translate(0.000000, 3.000000)">
+                    <path d="M1.509375,2.009375 L3.0734375,2.0109375 L3.0640625,12.46875 L14.484375,12.46875 L14.484375,14.0328125 L1.4984375,14.0328125 L1.509375,2.009375 Z M6.2515625,8.01875 L6.2515625,11.628125 L4.3765625,11.628125 L4.3765625,8.01875 L6.2515625,8.01875 Z M10.1203125,5.628125 L10.1203125,11.628125 L8.2453125,11.628125 L8.2453125,5.628125 L10.1203125,5.628125 Z M13.9890625,2.04375 L13.9890625,11.6234375 L12.1140625,11.6234375 L12.1140625,2.04375 L13.9890625,2.04375 Z" id="Combined-Shape" fill="#000000" fill-rule="nonzero"></path>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="16px" height="16px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title></title>
+    <g id="ws级dashboard优化" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="项目加统计icon" transform="translate(-582.000000, -305.000000)" fill-rule="nonzero">
+            <g id="Group-2" transform="translate(563.000000, 254.000000)">
+                <g id="统计" transform="translate(19.000000, 51.000000)">
+                    <rect id="矩形" fill="#000000" opacity="0" x="0" y="0" width="16" height="16"></rect>
+                    <path d="M3,2 L13,2 C13.5522847,2 14,2.44771525 14,3 L14,13 C14,13.5522847 13.5522847,14 13,14 L3,14 C2.44771525,14 2,13.5522847 2,13 L2,3 C2,2.44771525 2.44771525,2 3,2 Z M4,7 L4,12 L6,12 L6,7 L4,7 Z M7,5 L7,12 L9,12 L9,5 L7,5 Z M10,8 L10,12 L12,12 L12,8 L10,8 Z" id="形状" fill="#1890FF"></path>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64px" height="55px" viewBox="0 0 64 55" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title></title>
+    <g id="tone首页" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="系统介绍-3" transform="translate(-787.000000, -271.000000)" fill-rule="nonzero">
+            <g id="编组" transform="translate(126.000000, 100.000000)">
+                <g id="编组-9" transform="translate(11.000000, 140.000000)">
+                    <g id="编组-7" transform="translate(56.000000, 27.000000)">
+                        <g id="定位" transform="translate(594.000000, 4.000000)">
+                            <polygon id="Fill-1" fill="#1C8AEC" opacity="0.400000006" points="11.4284571 0 11.4284571 9.16414653 36.5724571 9.16414653 27.4284571 0"></polygon>
+                            <polygon id="Fill-2" fill="#1C8AEC" points="0 55 64 55 64 9.17812185 0 9.17812185"></polygon>
+                            <polygon id="Fill-4" fill="#181818" points="0 0 0 9.16414653 25.1428571 9.16414653 16 0"></polygon>
+                            <polygon id="Fill-5" fill="#FFFFFF" points="20.7969143 43.2678305 9.52262857 31.9661468 20.7969143 20.6656086 23.2209143 23.095253 14.3706286 31.9661468 23.2209143 40.8381862"></polygon>
+                            <polygon id="Fill-6" fill="#FFFFFF" points="43.2030857 43.2678305 40.7790857 40.8381862 49.6293714 31.9661468 40.7790857 23.095253 43.2030857 20.6656086 54.4773714 31.9661468"></polygon>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

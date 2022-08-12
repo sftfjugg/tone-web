@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="24px" height="24px" viewBox="0 0 24 24" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title></title>
+    <g id="dashboard" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Artboard" transform="translate(-296.000000, -98.000000)" fill-rule="nonzero">
+            <g id="ws_quantity" transform="translate(296.000000, 98.000000)">
+                <g id="尺子" opacity="0" fill="#000000">
+                    <rect id="Rectangle" x="0" y="0" width="24" height="24"></rect>
+                </g>
+                <rect id="Rectangle" fill="#000000" opacity="0" x="0" y="0" width="24" height="24"></rect>
+                <g id="空间">
+                    <rect id="Rectangle" fill="#000000" opacity="0" x="0" y="0" width="24" height="24"></rect>
+                    <g id="Group" transform="translate(3.000000, 3.000000)" fill="#B527CF">
+                        <polygon id="Path" points="14.25 6.72 14.25 8.45025 9.75 11.049 9.74925 15.74925 8.24925 15.74925 8.25 11.049 3.75 8.451 3.75 6.72 9 9.75"></polygon>
+                        <path d="M9,0 L18,5.25 L18,14.25 L9,19.5 L0,14.25 L0,5.25 L9,0 Z M9,1.73175 L1.5,6 L1.5,13.5 L9,17.7675 L16.5,13.5 L16.5,6 L9,1.73175 Z" id="Shape"></path>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

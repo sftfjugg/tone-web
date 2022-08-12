@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="16px" height="16px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title></title>
+    <g id="基线管理" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="云上-性能-机器展开" transform="translate(-241.000000, -235.000000)" fill="#000000" fill-rule="nonzero">
+            <g id="Group-7" transform="translate(221.000000, 123.000000)">
+                <g id="Group-8" transform="translate(0.000000, 67.000000)">
+                    <g id="Group-6" transform="translate(20.000000, 41.000000)">
+                        <g id="产品" transform="translate(0.000000, 4.000000)">
+                            <rect id="Rectangle" opacity="0" x="0" y="0" width="16" height="16"></rect>
+                            <path d="M7.86666667,9.53333333 L0.566666672,5.03333333 L7.86666667,0.566666672 L15.1666667,5.06666667 L7.86666667,9.53333333 Z M3.46666667,5.03333333 L7.9,7.76666667 L12.3333333,5.03333333 L7.86666667,2.33333333 L3.46666667,5.03333333 Z" id="Shape"></path>
+                            <polygon id="Path" points="12.3333333 8.1 7.86666667 10.8 3.46666667 8.06666667 2.3 7 0.6 8.03333333 7.86666667 12.5666667 15.2 8.13333333 13.5 7.06666667"></polygon>
+                            <polygon id="Path" points="12.3 11.1333333 7.86666667 13.8333333 3.46666667 11.0666667 2.3 10 0.566666672 11.0666667 7.86666667 15.6 15.1666667 11.1333333 13.5 10.1"></polygon>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

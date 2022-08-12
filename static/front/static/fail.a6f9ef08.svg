@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="16px" height="16px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title></title>
+    <g id="Symbols" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="C_FAIL" transform="translate(-4.000000, -5.000000)">
+            <g id="失败" transform="translate(4.000000, 5.000000)">
+                <rect id="Rectangle" fill="#000000" fill-rule="nonzero" opacity="0" x="0" y="0" width="16" height="16"></rect>
+                <polygon id="Shape" fill="#C84C5A" points="10.8533334 12.1066666 7.94666667 9.36 5.22666667 12.2666666 3.78666667 10.9066666 6.50666667 8 3.94666667 5.57333333 5.30666667 4.13333333 7.86666667 6.56 10.2933334 4 11.7333334 5.36 9.33333336 7.92 12.2133334 10.6666666"></polygon>
+            </g>
+        </g>
+    </g>
+</svg>
