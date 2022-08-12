@@ -52,8 +52,9 @@ def calc_job(job_id):
         success = func_result.filter(sub_case_result='1').count()
         fail = func_result.filter(sub_case_result='2').count()
         skip = func_result.filter(sub_case_result='5').count()
+        warn = func_result.filter(sub_case_result='6').count()
         count = func_result.count()
-        result = {'count': count, 'success': success, 'fail': fail, 'skip': skip}
+        result = {'count': count, 'success': success, 'fail': fail, 'skip': skip, 'warn': warn}
     return result
 
 
@@ -103,6 +104,7 @@ def calc_job_suite(job_suite_id, ws_id, test_type):
         # conf_success = func_result.filter(sub_case_result='1').count() + impact_baseline
         conf_fail = func_result.filter(sub_case_result='2', match_baseline=False).count() + impact_baseline
         conf_skip = func_result.filter(sub_case_result='5').count()
+        conf_warn = func_result.filter(sub_case_result='6').count()
         if conf_fail > 0:
             result = 'fail'
         elif conf_count > 0 and conf_fail == 0:
@@ -112,6 +114,7 @@ def calc_job_suite(job_suite_id, ws_id, test_type):
         count_data['conf_count'] = conf_count
         count_data['conf_success'] = func_result.filter(sub_case_result='1').count()
         count_data['conf_fail'] = func_result.filter(sub_case_result='2').count()
+        count_data['conf_warn'] = conf_warn
         count_data['conf_skip'] = conf_skip
     return result, count_data
 
@@ -172,6 +175,7 @@ def calc_job_case(job_case_id, is_api=False):
         count_data['case_count'] = case_count
         count_data['case_success'] = func_result.filter(sub_case_result='1').count()
         count_data['case_fail'] = func_result.filter(sub_case_result='2').count()
+        count_data['case_warn'] = func_result.filter(sub_case_result='6').count()
         count_data['case_skip'] = case_skip
     return result, count_data
 
@@ -539,6 +543,7 @@ def get_suite_conf_sub_case(suite_id, suite_value):
             'all_case': 0,
             'success_case': 0,
             'fail_case': 0,
+            'warn_case': 0,
         },
         'compare_count': list(),
     }
@@ -560,6 +565,7 @@ def get_suite_conf_sub_case(suite_id, suite_value):
             'obj_id': conf_value.get('obj_id'),
             'success_case': func_results.filter(sub_case_result=1).count(),
             'fail_case': func_results.filter(sub_case_result=2).count(),
+            'warn_case': func_results.filter(sub_case_result=6).count(),
             'conf_compare_data': get_conf_compare_data(conf_value.get('compare_objs'), suite_id, conf_id,
                                                        suite_obj['compare_count']),
             'sub_case_list': get_sub_case_list(func_results[:200], suite_id, conf_id, compare_job_li),
@@ -569,6 +575,7 @@ def get_suite_conf_sub_case(suite_id, suite_value):
         suite_obj['base_count']['all_case'] += conf_obj['all_case']
         suite_obj['base_count']['success_case'] += conf_obj['success_case']
         suite_obj['base_count']['fail_case'] += conf_obj['fail_case']
+        suite_obj['base_count']['warn_case'] += conf_obj['warn_case']
         conf_list.append(conf_obj)
     suite_obj['conf_list'] = conf_list
     return suite_obj
@@ -633,6 +640,7 @@ def get_conf_compare_data(compare_objs, suite_id, conf_id, compare_count):
             'all_case': 0,
             'success_case': 0,
             'fail_case': 0,
+            'warn_case': 0,
         }
         group_data = compare_obj
         if not compare_obj:
@@ -650,9 +658,11 @@ def get_conf_compare_data(compare_objs, suite_id, conf_id, compare_count):
         compare_count[idx]['all_case'] += func_results.count()
         compare_count[idx]['success_case'] += func_results.filter(sub_case_result=1).count()
         compare_count[idx]['fail_case'] += func_results.filter(sub_case_result=2).count()
+        compare_count[idx]['warn_case'] += func_results.filter(sub_case_result=6).count()
         group_data['all_case'] = func_results.count()
         group_data['success_case'] = func_results.filter(sub_case_result=1).count()
         group_data['fail_case'] = func_results.filter(sub_case_result=2).count()
+        group_data['warn_case'] = func_results.filter(sub_case_result=6).count()
         compare_data.append(group_data)
     return compare_data
 

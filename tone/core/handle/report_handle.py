@@ -59,7 +59,7 @@ class ReportHandle(object):
                                              job_name=self.job_obj.name, job_id=self.job_id, report_id=report.id,
                                              product_version=report.product_version, report_seq_id=report.id + 1)
             report.save()
-            func_all = fail = success = 0
+            func_all = fail = success = warn = 0
             perf_all = decline = increase = 0
             if self.report_template_obj.is_default:
                 conf_list = [job_case.test_case_id for job_case in TestJobCase.objects.filter(job_id=self.job_id)]
@@ -81,9 +81,11 @@ class ReportHandle(object):
                             conf_source['all_case'] = func_results.count()
                             conf_source['success_case'] = func_results.filter(sub_case_result=1).count()
                             conf_source['fail_case'] = func_results.filter(sub_case_result=2).count()
+                            conf_source['warn_case'] = func_results.filter(sub_case_result=6).count()
                             func_all += conf_source['all_case']
                             success += conf_source['success_case']
                             fail += conf_source['fail_case']
+                            warn += conf_source['warn_case']
                             report_item_conf = self.create_report_item(conf_id, conf_source, report_item_suite)
                             for func_result in func_results:
                                 self.handle_func_result(func_result, report_item_conf)
@@ -132,9 +134,11 @@ class ReportHandle(object):
                                         conf_source['all_case'] = func_results.count()
                                         conf_source['success_case'] = func_results.filter(sub_case_result=1).count()
                                         conf_source['fail_case'] = func_results.filter(sub_case_result=2).count()
+                                        conf_source['warn_case'] = func_results.filter(sub_case_result=6).count()
                                         func_all += conf_source['all_case']
                                         success += conf_source['success_case']
                                         fail += conf_source['fail_case']
+                                        warn += conf_source['warn_case']
                                     report_item_conf = self.create_report_item(tmpl_conf, conf_source, report_item_suite
                                                                                )
                                     if report_tmpl_item.test_type == 'functional':
@@ -156,7 +160,8 @@ class ReportHandle(object):
             func_count = {
                 'all': func_all,
                 'fail': fail,
-                'success': success
+                'success': success,
+                'warn': warn
             }
             perf_count = {
                 'all': perf_all,

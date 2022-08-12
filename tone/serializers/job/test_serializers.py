@@ -621,6 +621,7 @@ class JobTestResultSerializer(CommonSerializer):
                             'conf_count': '-',
                             'conf_success': '-',
                             'conf_fail': '-',
+                            'conf_warn': '-',
                             'conf_skip': '-',
                             'result': 'running'
                         }

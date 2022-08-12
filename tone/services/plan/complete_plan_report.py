@@ -634,6 +634,7 @@ def get_func_item(func_group, func_data_result, job_data, custom=False):
                     conf_source = {
                         'all_case': tmp_conf_info.get('all_case', 0),
                         'fail_case': tmp_conf_info.get('fail_case', 0),
+                        'warn_case': tmp_conf_info.get('warn_case', 0),
                         'obj_id': tmp_conf_info.get('obj_id'),
                         'success_case': tmp_conf_info.get('success_case', 0),
                         'is_job': 1,
@@ -643,12 +644,15 @@ def get_func_item(func_group, func_data_result, job_data, custom=False):
                             int(tmp_conf_info.get('success_case', 0))
                         job_data[tmp_conf_info.get('obj_id')]['fail'] += \
                             int(tmp_conf_info.get('fail_case', 0))
+                        job_data[tmp_conf_info.get('obj_id')]['warn'] += \
+                            int(tmp_conf_info.get('warn_case', 0))
                         job_data[tmp_conf_info.get('obj_id')]['all'] += \
                             int(tmp_conf_info.get('all_case', 0))
                     else:
                         job_data[tmp_conf_info.get('obj_id')] = {
                             'success': int(tmp_conf_info.get('success_case', 0)),
                             'fail': int(tmp_conf_info.get('fail_case', 0)),
+                            'warn': int(tmp_conf_info.get('warn_case', 0)),
                             'all': int(tmp_conf_info.get('all_case', 0)),
                         }
                     compare_conf_list = tmp_conf_info.get('conf_compare_data')
@@ -658,12 +662,15 @@ def get_func_item(func_group, func_data_result, job_data, custom=False):
                                 int(compare_conf_data.get('success_case', 0))
                             job_data[compare_conf_data.get('obj_id')]['fail'] += \
                                 int(compare_conf_data.get('fail_case', 0))
+                            job_data[compare_conf_data.get('obj_id')]['warn'] += \
+                                int(compare_conf_data.get('warn_case', 0))
                             job_data[compare_conf_data.get('obj_id')]['all'] += \
                                 int(compare_conf_data.get('all_case', 0))
                         else:
                             job_data[compare_conf_data.get('obj_id')] = {
                                 'success': int(compare_conf_data.get('success_case', 0)),
                                 'fail': int(compare_conf_data.get('fail_case', 0)),
+                                'warn': int(compare_conf_data.get('warn_case', 0)),
                                 'all': int(compare_conf_data.get('all_case', 0)),
                             }
                     sub_case_list = tmp_conf_info.get('sub_case_list')
