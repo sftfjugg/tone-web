@@ -364,14 +364,16 @@ class JobDataHandle(BaseHandle):
                 ip, sn = get_server_ip_sn(custom_ip, channel)
                 if channel == 'staragent':
                     server_snapshot = TestServerSnapshot.objects.create(ip=ip, channel_type=channel, sn=sn,
-                                                                        in_pool=False) if self.provider == 'aligroup' \
+                                                                        in_pool=False, ws_id=self.ws_id) \
+                        if self.provider == 'aligroup' \
                         else CloudServerSnapshot.objects.create(
-                        pub_ip=ip, channel_type=channel, sn=sn, in_pool=False)
+                        pub_ip=ip, channel_type=channel, sn=sn, in_pool=False, ws_id=self.ws_id)
                 else:
                     server_snapshot = TestServerSnapshot.objects.create(ip=ip, channel_type=channel, tsn=sn,
-                                                                        in_pool=False) if self.provider == 'aligroup' \
+                                                                        in_pool=False, ws_id=self.ws_id) \
+                        if self.provider == 'aligroup' \
                         else CloudServerSnapshot.objects.create(pub_ip=ip, channel_type=channel, sn=sn,
-                                                                in_pool=False)
+                                                                in_pool=False, ws_id=self.ws_id)
                 self.server_map[custom_ip] = server_snapshot.id
             return self.server_map[custom_ip]
         elif self.default_cloud_server:
