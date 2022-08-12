@@ -15,5 +15,5 @@ logger = logging.getLogger()
 def get_path(request):
     resp = CommResp()
     path = request.GET.get('path')
-    resp.data = f"http://{settings.TONE_STORAGE_HOST}:{settings.TONE_STORAGE_PROXY_PORT}{path}"
+    resp.data = f"http://{settings.TONE_STORAGE_DOMAIN}:{settings.TONE_STORAGE_PROXY_PORT}{path}"
     return resp.json_resp()
