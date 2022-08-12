@@ -47,5 +47,5 @@ urlpatterns = [
     path('toneagent_deploy/', server_views.ToneAgentDeploy.as_view(), name='toneagent_deploy'),
     path('del_confirm/', server_views.ServerDelConfirmView.as_view(), name='server_del_confirm'),
     path('sync_vm/', server_views.SyncVmView.as_view(), name='sync_vm_server'),
-
+    path('server_snapshot/', server_views.ServerSnapshotView.as_view(), name='server_snapshot'),
 ]

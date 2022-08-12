@@ -9,7 +9,8 @@ from tone.serializers.sys.server_serializers import TestServerSerializer, CloudS
     SpecifyTestServerSerializer
 from tone.serializers.sys.testcase_serializers import SysTemplateSerializer
 from tone.services.sys.server_services import TestServerService, CloudServerService, ServerTagService, \
-    TestClusterService, TestClusterServerService, CloudAkService, CloudImageService, ToneAgentService
+    TestClusterService, TestClusterServerService, CloudAkService, CloudImageService, ToneAgentService, \
+    ServerSnapshotService
 from tone.schemas.sys.server_schemas import ServerTagSchema, ServerTagDetailSchema, \
     TestServerCheckSchema, TestServerSchema, \
     TestServerDetailSchema, TestClusterSchema, TestClusterDetailSchema, TestClusterTestServerSchema, \
@@ -895,4 +896,17 @@ class SyncVmView(CommonAPIView):
             response_data = self.get_response_code(code=200, msg=instance)
         else:
             response_data = self.get_response_code(code=201, msg=instance)
+        return Response(response_data)
+
+
+class ServerSnapshotView(CommonAPIView):
+    service_class = ServerSnapshotService
+    permission_classes = []
+
+    def get(self, request):
+        """
+        集团单机列表查询
+        """
+        queryset = self.service.filter(request)
+        response_data = self.get_response_only_for_data(queryset)
         return Response(response_data)
