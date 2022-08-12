@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="16px" height="16px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title></title>
+    <g id="使用帮助" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="使用帮助-拥有编辑权限备份" transform="translate(-1186.000000, -170.000000)" fill="#000000" fill-rule="nonzero">
+            <g id="分组2" transform="translate(377.000000, 105.000000)">
+                <g id="编组-2" transform="translate(799.000000, 30.000000)">
+                    <g id="编组" transform="translate(10.000000, 0.000000)">
+                        <g id="下拉" transform="translate(0.000000, 35.000000)">
+                            <rect id="矩形" opacity="0" x="0" y="0" width="16" height="16"></rect>
+                            <path d="M7.616,10.224 L4.568,6.688 C4.4009791,6.51252737 4.34578356,6.25854563 4.42491149,6.0295797 C4.50403942,5.80061378 4.70427474,5.63490595 4.944,5.6 L11.048,5.6 C11.2892301,5.6289981 11.4932371,5.79209234 11.5746334,6.02101925 C11.6560296,6.24994615 11.6007764,6.50522181 11.432,6.68 L8.384,10.216 C8.29100297,10.3322147 8.1507317,10.4005226 8.00189659,10.4020999 C7.85306149,10.4036233 7.71139772,10.3382522 7.616,10.224 L7.616,10.224 Z" id="路径" opacity="0.349999994"></path>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

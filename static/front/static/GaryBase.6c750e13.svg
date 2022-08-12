@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="10px" height="15px" viewBox="0 0 10 15" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title></title>
+    <defs>
+        <filter color-interpolation-filters="auto" id="filter-1">
+            <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0.000000 0 0 0 0 0.000000 0 0 0 0 0.000000 0 0 0 0.450000 0"></feColorMatrix>
+        </filter>
+    </defs>
+    <g id="页面-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="3个group-性能-图表" transform="translate(-301.000000, -2293.000000)">
+            <g id="Group-10" transform="translate(120.000000, 1757.450000)">
+                <g id="性能测试项1" transform="translate(20.000000, 131.715068)">
+                    <g id="性能测试项1备份" transform="translate(16.000000, 64.834932)">
+                        <g id="性能表1" transform="translate(15.000000, 322.480039)">
+                            <g id="Group-10" transform="translate(106.000000, 13.000000)">
+                                <g id="basegroup" transform="translate(21.000000, 3.000000)" filter="url(#filter-1)">
+                                    <g fill-rule="nonzero">
+                                        <rect id="矩形" fill="#FFFFFF" opacity="0" x="0" y="0" width="16" height="16" rx="2"></rect>
+                                        <path d="M4,1 C3.72417824,1.00077249 3.50077249,1.22417824 3.5,1.5 L3.5,14.5 C3.5,14.7761424 3.72385763,15 4,15 C4.27614237,15 4.5,14.7761424 4.5,14.5 L4.5,1.5 C4.49922751,1.22417824 4.27582176,1.00077249 4,1 L4,1 Z M4.5,2 L12.5,6.5 L4.5,11" id="形状" fill="#1890FF"></path>
+                                    </g>
+                                </g>
+                            </g>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

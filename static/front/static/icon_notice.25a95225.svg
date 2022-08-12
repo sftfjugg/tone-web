@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="20px" height="20px" viewBox="0 0 20 20" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title></title>
+    <g id="体验升级-第一阶段" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="3.切换ws下拉" transform="translate(-1282.000000, -19.000000)" fill-rule="nonzero">
+            <g id="Group-23" transform="translate(-1.000000, 0.000000)">
+                <g id="分组-3" transform="translate(1281.000000, 9.000000)">
+                    <g id="分组-37" transform="translate(0.000000, 2.000000)">
+                        <g id="Group" transform="translate(0.000000, 6.000000)">
+                            <g id="通知" transform="translate(2.000000, 2.000000)">
+                                <rect id="Rectangle" fill="#000000" opacity="0" x="0" y="0" width="20" height="20"></rect>
+                                <path d="M10,20 C11.2272994,20 12.2222222,19.0050772 12.2222222,17.7777778 L7.77777777,17.7777778 C7.77777777,19.0050772 8.77270055,20 10,20 L10,20 Z" id="Shape" fill="#FFFFFF"></path>
+                                <path d="M16.6666667,12.7777778 L16.6666667,6.66666666 C16.6666666,2.98476837 13.6818983,9.93410746e-08 10,9.93410746e-08 C6.31810171,9.93410746e-08 3.33333339,2.98476837 3.33333334,6.66666666 L3.33333334,12.7777778 L0.555555547,16.6666667 L19.4444445,16.6666667 L16.6666667,12.7777778 Z" id="Path" fill="#FFFFFF"></path>
+                            </g>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

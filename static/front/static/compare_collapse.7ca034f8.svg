@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="25px" height="46px" viewBox="0 0 25 46" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title></title>
+    <defs>
+        <path d="M0,0 L12.7371541,2.3882164 C14.6290458,2.74294608 16,4.39484487 16,6.31970515 L16,31.6802949 C16,33.6051551 14.6290458,35.2570539 12.7371541,35.6117836 L0,38 L0,38 L0,0 Z" id="path-1"></path>
+        <filter x="0.0%" y="-13.2%" width="156.2%" height="121.1%" filterUnits="objectBoundingBox" id="filter-2">
+            <feGaussianBlur stdDeviation="0" in="SourceGraphic"></feGaussianBlur>
+        </filter>
+        <filter x="-28.1%" y="-25.0%" width="212.5%" height="144.7%" filterUnits="objectBoundingBox" id="filter-3">
+            <feOffset dx="5" dy="-1" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="2" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.05 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+    </defs>
+    <g id="报告" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="14.收起分组区" transform="translate(0.000000, -262.000000)">
+            <g id="Group-3" transform="translate(0.000000, 267.000000)">
+                <g id="Rectangle" filter="url(#filter-2)">
+                    <use fill="black" fill-opacity="1" filter="url(#filter-3)" xlink:href="#path-1"></use>
+                    <use fill="#FFFFFF" fill-rule="evenodd" xlink:href="#path-1"></use>
+                </g>
+                <g id="返回" transform="translate(0.000000, 11.000000)" fill="#000000" fill-rule="nonzero">
+                    <rect id="Rectangle" opacity="0" transform="translate(8.000000, 8.000000) scale(-1, -1) translate(-8.000000, -8.000000) " x="0" y="0" width="16" height="16"></rect>
+                    <polygon id="Path" points="10.803 15.875 2.928 8 10.803 0.125 11.51 0.832 4.342 8 11.51 15.168"></polygon>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

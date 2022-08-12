@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64px" height="64px" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title></title>
+    <defs>
+        <polygon id="path-1" points="0 64 64 64 64 0 0 0"></polygon>
+        <polygon id="path-3" points="0 64 64 64 64 0 0 0"></polygon>
+        <path d="M0,16 C0,24.837 7.163,32 16,32 L16,32 C24.837,32 32,24.837 32,16 L32,16 C32,7.164 24.837,0 16,0 L16,0 C7.163,0 0,7.164 0,16" id="path-5"></path>
+    </defs>
+    <g id="tone首页" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="系统介绍-3" transform="translate(-391.000000, -267.000000)">
+            <g id="编组" transform="translate(126.000000, 100.000000)">
+                <g id="编组-9" transform="translate(11.000000, 140.000000)">
+                    <g id="编组-7" transform="translate(56.000000, 27.000000)">
+                        <g id="质量协作" transform="translate(198.000000, 0.000000)">
+                            <polygon id="Fill-1" fill="#A4D0F7" fill-rule="nonzero" points="0 29.9998 6 35.9988 6 23.9998"></polygon>
+                            <polygon id="Fill-2" fill="#A4D0F7" fill-rule="nonzero" points="57.9996 35.9992 63.9996 30.0002 57.9996 23.9992"></polygon>
+                            <g id="编组">
+                                <path d="M45,50.9996 L19,50.9996 C14.582,50.9996 11,47.4186 11,42.9996 L11,16.9996 C11,12.5816 14.582,8.9996 19,8.9996 L45,8.9996 C49.418,8.9996 53,12.5816 53,16.9996 L53,42.9996 C53,47.4186 49.418,50.9996 45,50.9996" id="Fill-3" fill="#EBECEC" fill-rule="nonzero"></path>
+                                <g id="Fill-5-Clipped">
+                                    <mask id="mask-2" fill="white">
+                                        <use xlink:href="#path-1"></use>
+                                    </mask>
+                                    <g id="path-1"></g>
+                                    <polygon id="Fill-5" fill="#181818" fill-rule="nonzero" mask="url(#mask-2)" points="26 4 38 4 38 0 26 0"></polygon>
+                                </g>
+                                <g id="Fill-7-Clipped">
+                                    <mask id="mask-4" fill="white">
+                                        <use xlink:href="#path-3"></use>
+                                    </mask>
+                                    <g id="path-1"></g>
+                                    <path d="M40,59.9996 C40,62.2096 36.418,63.9996 32,63.9996 C27.582,63.9996 24,62.2096 24,59.9996 C24,57.7906 27.582,55.9996 32,55.9996 C36.418,55.9996 40,57.7906 40,59.9996" id="Fill-7" fill="#C3C5C6" fill-rule="nonzero" mask="url(#mask-4)"></path>
+                                </g>
+                            </g>
+                            <g id="Fill-8-Clipped" transform="translate(16.000000, 14.000000)">
+                                <mask id="mask-6" fill="white">
+                                    <use xlink:href="#path-5"></use>
+                                </mask>
+                                <g id="path-3"></g>
+                                <path d="M0,16 C0,24.837 7.163,32 16,32 L16,32 C24.837,32 32,24.837 32,16 L32,16 C32,7.164 24.837,0 16,0 L16,0 C7.163,0 0,7.164 0,16" id="Fill-8" fill="#1C8AEC" fill-rule="nonzero" mask="url(#mask-6)"></path>
+                            </g>
+                            <path d="M35.7695,25.0777 C34.9675,25.0777 34.2395,25.3737 33.6745,25.8567 L33.6715,25.8537 L33.6355,25.8897 L33.3115,26.2147 L31.9995,27.5257 L30.6885,26.2147 L30.3645,25.8897 L30.3285,25.8537 L30.3255,25.8567 C29.7605,25.3737 29.0325,25.0777 28.2305,25.0777 C26.4465,25.0777 24.9995,26.5237 24.9995,28.3077 C24.9995,29.2877 25.4375,30.1627 26.1245,30.7557 L31.9995,36.6307 L37.8745,30.7557 C38.5625,30.1627 38.9995,29.2877 38.9995,28.3077 C38.9995,26.5237 37.5535,25.0777 35.7695,25.0777" id="Fill-10" fill="#FFFFFF" fill-rule="nonzero"></path>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>
