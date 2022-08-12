@@ -46,7 +46,7 @@ class TestJob(BaseModel):
     job_type_id = models.IntegerField(help_text='job类型')
     project_id = models.IntegerField(help_text='project', db_index=True, null=True, blank=True)
     product_id = models.IntegerField(help_text='product', null=True, blank=True)
-    product_version = models.CharField(help_text='product_version', null=True, blank=True, max_length=64)
+    product_version = models.TextField(help_text='product_version', null=True, blank=True)
     baseline_id = models.IntegerField(help_text='基线', null=True, blank=True)
     baseline_job_id = models.IntegerField(help_text='基线Job', null=True, blank=True)
     test_type = models.CharField(max_length=64, choices=TEST_TYPE_CHOICES, default='functional', db_index=True,
