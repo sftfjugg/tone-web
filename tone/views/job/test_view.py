@@ -11,7 +11,7 @@ from django.utils.decorators import method_decorator
 
 from tone import settings
 from tone.core.common.views import CommonAPIView, BaseView
-from tone.models import TestJob, TestJobCase, FuncResult, ResultFile, PerfResult,\
+from tone.models import TestJob, TestJobCase, FuncResult, ResultFile, PerfResult, \
     JobCollection, TestJobSuite, MonitorInfo
 from tone.serializers.job.test_serializers import JobTestSerializer, JobTestSummarySerializer, \
     JobTestConfigSerializer, JobTestResultSerializer, JobTestConfResultSerializer, \
@@ -343,14 +343,11 @@ class JobTestCaseFileView(CommonAPIView):
                 result.append(item)
             else:
                 key_value = key.split('$')
-                path_list = path_map.get(key_value[1])
-                result.append(
-                    {
-                        "name": key_value[0], 'items': [],
-                        'path': (path_list[0].rstrip('/') + '/' + path_list[1].lstrip('/')).split(
-                            settings.TONE_STORAGE_PROXY_PORT)[-1]
-                    }
-                )
+                result.append({
+                    "name": key_value[0],
+                    "items": [],
+                    "path": self.get_sign_url(path_map.get(key_value[1]))
+                })
 
     @staticmethod
     def get_sign_url(path):
