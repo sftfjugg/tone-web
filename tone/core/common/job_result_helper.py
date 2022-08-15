@@ -433,7 +433,8 @@ def _get_suite_conf_metric(suite_id, conf_id, conf_value, compare_job_li, suite_
             compare_job = i.get('obj_id')
         else:
             compare_job = None
-        compare_job_li.append(compare_job)
+        if compare_job not in compare_job_li:
+            compare_job_li.append(compare_job)
     if not suite_obj.get('compare_count'):
         suite_obj['compare_count'] = [{'all': 0, 'increase': 0, 'decline': 0} for _ in
                                       range(len(conf_value.get('compare_objs')))]
