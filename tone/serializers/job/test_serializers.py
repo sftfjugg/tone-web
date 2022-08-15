@@ -461,7 +461,9 @@ class JobTestProcessCaseSerializer(CommonSerializer):
 
     @staticmethod
     def get_log_file(obj):
-        return ''
+        test_step = TestStep.objects.filter(job_case_id=obj.id, stage='run_case')
+        if test_step.exists():
+            return test_step.first().log_file
 
     @staticmethod
     def get_result(obj):
