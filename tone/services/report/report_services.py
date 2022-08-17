@@ -43,7 +43,8 @@ class ReportTemplateService(CommonService):
 
         update_fields = ['ws_id', 'name', 'description', 'need_test_background', 'need_test_method',
                          'need_test_summary', 'need_test_conclusion', 'need_test_env', 'need_func_data',
-                         'need_env_description', 'need_perf_data']
+                         'need_env_description', 'need_perf_data', 'background_desc', 'test_method_desc',
+                         'test_summary_desc', 'test_conclusion_desc', 'test_env_desc', 'env_description_desc']
 
         for write_field in update_fields:
             create_data[write_field] = data.get(write_field)
@@ -109,6 +110,9 @@ class ReportTemplateService(CommonService):
         need_test_description = config_data.get('need_test_description', False)
         need_test_conclusion = config_data.get('need_test_conclusion', False)
         show_type = config_data.get('show_type', 'list')
+        test_env_desc = config_data.get('test_env_desc', '')
+        test_description_desc = config_data.get('test_description_desc', '')
+        test_conclusion_desc = config_data.get('test_conclusion_desc', '')
         template_item = self.adapt_font_data(template_item)
         for tmp_item in template_item:
             tmpl_item_obj = ReportTmplItem.objects.create(name=tmp_item.get('name'),
@@ -125,7 +129,10 @@ class ReportTemplateService(CommonService):
                                                    need_test_suite_description=need_test_suite_description,
                                                    need_test_env=need_test_env,
                                                    need_test_description=need_test_description,
-                                                   need_test_conclusion=need_test_conclusion
+                                                   need_test_conclusion=need_test_conclusion,
+                                                   test_env_desc=test_env_desc,
+                                                   test_description_desc=test_description_desc,
+                                                   test_conclusion_desc=test_conclusion_desc
                                                    )
 
     @staticmethod
@@ -153,7 +160,8 @@ class ReportTemplateService(CommonService):
         update_data = dict()
         allow_update_fields = ['name', 'description', 'need_test_background', 'need_test_method',
                                'need_test_summary', 'need_test_conclusion', 'need_test_env', 'need_env_description',
-                               'need_func_data', 'need_perf_data']
+                               'need_func_data', 'need_perf_data', 'background_desc', 'test_method_desc',
+                               'test_summary_desc', 'test_conclusion_desc', 'test_env_desc', 'env_description_desc']
         for update_field in allow_update_fields:
             update_data[update_field] = data.get(update_field)
 

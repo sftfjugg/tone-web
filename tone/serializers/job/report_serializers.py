@@ -62,13 +62,16 @@ class ReportTemplateDetailSerializer(CommonSerializer):
         if item_suite is not None:
             res = {
                 'need_test_description': item_suite.need_test_description,
-                'need_test_conclusion': item_suite.need_test_conclusion
+                'test_description_desc': item_suite.test_description_desc,
+                'need_test_conclusion': item_suite.need_test_conclusion,
+                'test_conclusion_desc': item_suite.test_conclusion_desc,
             }
             if test_type == 'performance':
                 res.update({
                     'need_test_suite_description': item_suite.need_test_suite_description,
                     'show_type': item_suite.show_type,
                     'need_test_env': item_suite.need_test_env,
+                    'test_env_desc': item_suite.test_env_desc
                 })
             return res
 
