@@ -11,7 +11,7 @@ from django.db import transaction
 
 from tone.core.utils.permission_manage import check_operator_permission
 from tone.models import Report, ReportItem, ReportItemConf, ReportItemMetric, ReportItemSubCase, ReportObjectRelation, \
-    ReportItemSuite
+    ReportItemSuite, TestJobCase, TestServerSnapshot, CloudServerSnapshot, PlanInstance, PlanInstanceTestRelation
 from tone.core.common.services import CommonService
 from tone.models.report.test_report import ReportTemplate, ReportTmplItem, ReportTmplItemSuite
 from tone.services.plan.plan_services import random_choice_str
@@ -293,11 +293,11 @@ class ReportService(CommonService):
             report_id = report.id
             perf_data = test_item.get('perf_data', list())
             func_data = test_item.get('func_data', list())
-            self.save_test_item(perf_data, report_id, 'performance')
-            self.save_test_item(func_data, report_id, 'functional')
+            self.save_test_item(perf_data, report_id, 'performance', job_li, plan_li)
+            self.save_test_item(func_data, report_id, 'functional', job_li, plan_li)
         return report
 
-    def save_test_item(self, data, report_id, test_type):
+    def save_test_item(self, data, report_id, test_type, job_li, plan_li):
         for item in data:
             name = item.get('name')
             suite_list = item.get('suite_list', list())
@@ -305,9 +305,9 @@ class ReportService(CommonService):
             report_item = ReportItem.objects.create(name=name, report_id=report_id, test_type=test_type)
             report_item_id = report_item.id
             for suite in suite_list:
-                self.save_item_suite(suite, report_item_id, test_type)
+                self.save_item_suite(suite, report_item_id, test_type, job_li, plan_li)
 
-    def save_item_suite(self, suite, report_item_id, test_type):
+    def save_item_suite(self, suite, report_item_id, test_type, job_li, plan_li):
         test_suite_id = suite.get('suite_id')
         test_suite_name = suite.get('suite_name')
         show_type = suite.get('show_type', 0)
@@ -319,7 +319,7 @@ class ReportService(CommonService):
                                                         test_suite_name=test_suite_name, show_type=show_type)
         else:
             test_suite_description = suite.get('test_suite_description')
-            test_env = suite.get('test_env')
+            test_env = self.get_suite_env(test_suite_id, job_li, plan_li)
             test_description = suite.get('test_description')
             test_conclusion = suite.get('test_conclusion')
             item_suite = ReportItemSuite.objects.create(report_item_id=report_item_id, test_suite_id=test_suite_id,
@@ -330,6 +330,27 @@ class ReportService(CommonService):
         item_suite_id = item_suite.id
         for conf in conf_list:
             self.save_item_conf(conf, item_suite_id, test_type)
+
+    def get_suite_env(self, test_suite_id, job_li, plan_li):
+        test_env = list()
+        if plan_li:
+            plan_id_list = PlanInstance.objects.filter(plan_id__in=plan_li).values_list('id', flat=True)
+            if plan_id_list:
+                job_li = PlanInstanceTestRelation.objects.filter(plan_instance_id__in=plan_id_list). \
+                    values_list('job_id', flat=True)
+        for job_id in job_li:
+            ip = ''
+            test_job_case = TestJobCase.objects.filter(job_id=job_id, test_suite_id=test_suite_id).first()
+            if test_job_case:
+                snapshot = TestServerSnapshot.objects.filter(id=test_job_case.server_object_id).first()
+                if snapshot:
+                    ip = snapshot.ip
+                else:
+                    snapshot = CloudServerSnapshot.objects.filter(id=test_job_case.server_object_id).first()
+                    if snapshot:
+                        ip = snapshot.pub_ip
+            test_env.append(ip)
+        return test_env
 
     def save_item_conf(self, conf, item_suite_id, test_type):
         test_conf_id = conf.get('conf_id')

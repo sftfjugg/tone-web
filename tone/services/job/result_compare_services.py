@@ -216,6 +216,11 @@ class CompareEnvInfoService(CommonService):
                     'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
                     'kernel': snap_shot_obj.kernel_version,
                     'gcc': snap_shot_obj.gcc,
+                    'glibc': snap_shot_obj.glibc,
+                    'memory_info': snap_shot_obj.memory_info,
+                    'disk': snap_shot_obj.disk,
+                    'cpu_info': snap_shot_obj.cpu_info,
+                    'ether': snap_shot_obj.ether,
                 })
                 ip_li.append(ip)
 
