@@ -58,6 +58,12 @@ class ReportHandle(object):
             report.name = before_name.format(date=datetime.strftime(report.gmt_created, "%Y-%m-%d %H:%M:%S"),
                                              job_name=self.job_obj.name, job_id=self.job_id, report_id=report.id,
                                              product_version=report.product_version, report_seq_id=report.id + 1)
+            if self.report_template_obj:
+                report.test_background = self.report_template_obj.background_desc
+                report.test_method = self.report_template_obj.test_method_desc
+                report.test_conclusion = self.report_template_obj.test_conclusion_desc
+                report.test_env = self.report_template_obj.test_env_desc
+                report.env_description = self.report_template_obj.env_description_desc
             report.save()
             func_all = fail = success = warn = 0
             perf_all = decline = increase = 0
@@ -118,9 +124,14 @@ class ReportHandle(object):
                     for tmpl_suite in tmpl_suites:
                         if TestJobSuite.objects.filter(job_id=self.job_id,
                                                        test_suite_id=tmpl_suite.test_suite_id).exists():
+                            test_env = self.get_suite_env(tmpl_suite.test_suite_id)
+                            if not test_env:
+                                test_env = tmpl_suite.test_env_desc
                             report_item_suite = ReportItemSuite.objects.create(
                                 report_item_id=report_item.id, test_suite_id=tmpl_suite.test_suite_id,
-                                test_suite_name=tmpl_suite.test_suite_show_name,
+                                test_suite_name=tmpl_suite.test_suite_show_name, test_env=test_env,
+                                test_description=tmpl_suite.test_description_desc,
+                                test_conclusion=tmpl_suite.test_conclusion_desc,
                                 show_type=0 if tmpl_suite.show_type == 'list' else 1)
                             for tmpl_conf in tmpl_suite.test_conf_list:
                                 if TestJobCase.objects.filter(job_id=self.job_id,
@@ -173,6 +184,21 @@ class ReportHandle(object):
             self.job_obj.report_is_saved = True
             ReportObjectRelation.objects.create(object_type='job', object_id=self.job_id, report_id=report.id)
             self.job_obj.save()
+
+    def get_suite_env(self, test_suite_id):
+        test_env = ''
+        test_job_case = TestJobCase.objects.filter(job_id=self.job_id, test_suite_id=test_suite_id).first()
+        if test_job_case:
+            if self.job_obj.server_provider == 'aligroup':
+                snapshot = TestServerSnapshot.objects.filter(id=test_job_case.server_object_id).first()
+                if snapshot:
+                    test_env = snapshot.ip
+            else:
+                snapshot = CloudServerSnapshot.objects.filter(
+                    id=test_job_case.server_object_id).first()
+                if snapshot:
+                    test_env = snapshot.pub_ip
+        return test_env
 
     def create_report_item(self, conf_id, conf_source, report_item_suite):
         if self.job_obj.baseline_id:
@@ -316,6 +342,11 @@ class ReportHandle(object):
                     'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
                     'kernel': snap_shot_obj.kernel_version,
                     'gcc': snap_shot_obj.gcc,
+                    'glibc': snap_shot_obj.glibc,
+                    'memory_info': snap_shot_obj.memory_info,
+                    'disk': snap_shot_obj.disk,
+                    'cpu_info': snap_shot_obj.cpu_info,
+                    'ether': snap_shot_obj.ether,
                 })
                 ip_li.append(ip)
 
