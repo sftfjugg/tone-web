@@ -507,8 +507,8 @@ class TestSuiteService(CommonService):
         case_obj_list = []
         # 从SuiteData中查询 suite_name, 获取suite下的case name list
         suite_data = SuiteData.objects.filter(name=suite.name, test_type=suite.test_type).first()
-        if suite_data is None:
-            return 201, '该suite不存在'
+        if not suite_data:
+            return ErrorCode.SUITE_DATA_NOT_EXISTS[0], ErrorCode.SUITE_DATA_NOT_EXISTS[1]
         suite.doc = suite_data.description
         suite.save()
         case_name_list = CaseData.objects.filter(suite_id=suite_data.id).values_list('name', flat=True)
