@@ -258,3 +258,4 @@ class ErrorCode(object):
 
     JOB_CONF_NAME_NOT_EXISTS = (1378, "job_id对应的任务中没有该test_conf!")
 
+    GLOBAL_VARIABLES_ERROR = (1380, "全局变量填写不符合规范，请参考全局变量的使用规则")
