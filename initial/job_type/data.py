@@ -8,7 +8,7 @@ JOB_TYPE_ITEM_DATA = [
      'description': '安装发布、未发布、build内核等信息', 'config_index': 2},
     {'name': 'reboot', 'show_name': '重启机器', 'description': '针对机器是否重启的操作', 'config_index': 2},
     {'name': 'global_variable', 'show_name': '全局变量', 'description': 'Job的全局变量配置', 'config_index': 2},
-    {'name': 'rpm', 'show_name': '安装RPM', 'description': '安装rpm和选择安装时间配置', 'config_index': 2},
+    {'name': 'rpm', 'show_name': 'RPM列表', 'description': '安装rpm和选择安装时间配置', 'config_index': 2},
     {'name': 'script', 'show_name': '执行脚本', 'description': '安装脚本和选择安装的时间配置', 'config_index': 2},
 
     {'name': 'domain', 'show_name': '领域选择', 'description': '开启按领域分类选择', 'config_index': 3},
