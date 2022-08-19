@@ -4,25 +4,27 @@ Module Description:
 Date:
 Author: Yfh
 """
+import urllib.parse as urlparse
 from datetime import datetime
+
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
-from tone.core.common.serializers import CommonSerializer
-from tone.core.utils.tone_thread import ToneThread
+from tone import settings
+from tone.core.common.constant import CASE_STEP_STAGE_MAP, PREPARE_STEP_STAGE_MAP, \
+    FUNC_CASE_RESULT_TYPE_MAP, PERF_CASE_RESULT_TYPE_MAP, SUITE_STEP_PREPARE_MAP
 from tone.core.common.enums.job_enums import JobState
 from tone.core.common.info_map import get_result_map
-
+from tone.core.common.job_result_helper import calc_job_suite, calc_job_case, calc_job, get_job_case_server, \
+    get_job_case_run_server
+from tone.core.common.serializers import CommonSerializer
+from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestJob, JobType, Project, Product, TestJobCase, TestJobSuite, TestCase, TestSuite, \
     JobTagRelation, JobTag, TestStep, FuncResult, PerfResult, ResultFile, User, TestMetric, FuncBaselineDetail, \
     TestServerSnapshot, CloudServerSnapshot, PlanInstanceTestRelation, PlanInstance, ReportObjectRelation, Report, \
     BusinessSuiteRelation, TestBusiness, WorkspaceCaseRelation, JobMonitorItem, MonitorInfo, BaseConfig, \
     TestClusterSnapshot, TestCluster, CloudServer
 from tone.models.sys.baseline_models import Baseline, PerfBaselineDetail
-from tone.core.common.constant import CASE_STEP_STAGE_MAP, PREPARE_STEP_STAGE_MAP, \
-    FUNC_CASE_RESULT_TYPE_MAP, PERF_CASE_RESULT_TYPE_MAP, SUITE_STEP_PREPARE_MAP
-from tone.core.common.job_result_helper import calc_job_suite, calc_job_case, calc_job, get_job_case_server, \
-    get_job_case_run_server
 
 
 class JobTestSerializer(CommonSerializer):
@@ -463,7 +465,8 @@ class JobTestProcessCaseSerializer(CommonSerializer):
     def get_log_file(obj):
         test_step = TestStep.objects.filter(job_case_id=obj.id, stage='run_case')
         if test_step.exists():
-            return test_step.first().log_file
+            path = urlparse.urlparse(test_step.first().log_file).path
+            return f"http://{settings.TONE_STORAGE_DOMAIN}:{settings.TONE_STORAGE_PROXY_PORT}{path}"
 
     @staticmethod
     def get_result(obj):
@@ -552,15 +555,51 @@ class JobTestResultSerializer(CommonSerializer):
 
     @staticmethod
     def _get_test_suite_result(suite, test_job, test_type, test_type_map):
-            test_suite = TestSuite.objects.get(id=suite.test_suite_id)
-            business_name = None
-            if suite.state != 'running':
-                if test_job.test_type == 'business':
-                    tmp_test_suite = TestSuite.objects.filter(id=suite.test_suite_id, query_scope='all').first()
-                    test_type = test_type_map.get(tmp_test_suite.test_type)
-                    business = BusinessSuiteRelation.objects.filter(test_suite_id=suite.test_suite_id,
-                                                                    query_scope='all').first()
-                    business_name = TestBusiness.objects.filter(id=business.business_id, query_scope='all').first().name
+        test_suite = TestSuite.objects.get(id=suite.test_suite_id)
+        business_name = None
+        if suite.state != 'running':
+            if test_job.test_type == 'business':
+                tmp_test_suite = TestSuite.objects.filter(id=suite.test_suite_id, query_scope='all').first()
+                test_type = test_type_map.get(tmp_test_suite.test_type)
+                business = BusinessSuiteRelation.objects.filter(test_suite_id=suite.test_suite_id,
+                                                                query_scope='all').first()
+                business_name = TestBusiness.objects.filter(id=business.business_id, query_scope='all').first().name
+            suite_data = {
+                'job_suite_id': suite.id,
+                'suite_id': suite.test_suite_id,
+                'suite_name': test_suite.name,
+                'test_type': test_type,
+                'note': suite.note,
+                'start_time': datetime.strftime(suite.start_time,
+                                                "%Y-%m-%d %H:%M:%S") if suite.start_time else None,
+                'end_time': datetime.strftime(suite.end_time, "%Y-%m-%d %H:%M:%S") if suite.end_time else None,
+                'creator': test_job.creator,
+                'business_name': business_name,
+            }
+            if test_type == '性能测试':
+                per_result = PerfResult.objects.filter(test_job_id=test_job.id, test_suite_id=suite.test_suite_id)
+                baseline_id = test_job.baseline_id
+                baseline = None
+                if per_result.exists() and per_result.first().compare_baseline:
+                    baseline_id = per_result.first().compare_baseline
+                if Baseline.objects.filter(id=baseline_id).exists():
+                    baseline = Baseline.objects.get(id=baseline_id).name
+                suite_data['baseline'] = baseline
+                _, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
+            elif test_type == '业务测试':
+                result, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
+                suite_data['result'] = result
+            else:
+                result, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
+                suite_data['result'] = result
+            suite_data = {**suite_data, **count_data}
+            suite_data['baseline_job_id'] = test_job.baseline_job_id
+            return suite_data
+        else:
+            # 当有任意case结束时返回running的suite
+            check_cases = TestJobCase.objects.filter(job_id=test_job.id, test_suite_id=suite.test_suite_id,
+                                                     state__in=['success', 'fail', 'skip', 'stop']).count()
+            if check_cases > 0:
                 suite_data = {
                     'job_suite_id': suite.id,
                     'suite_id': suite.test_suite_id,
@@ -571,65 +610,29 @@ class JobTestResultSerializer(CommonSerializer):
                                                     "%Y-%m-%d %H:%M:%S") if suite.start_time else None,
                     'end_time': datetime.strftime(suite.end_time, "%Y-%m-%d %H:%M:%S") if suite.end_time else None,
                     'creator': test_job.creator,
-                    'business_name': business_name,
+                    'business_name': business_name
                 }
                 if test_type == '性能测试':
-                    per_result = PerfResult.objects.filter(test_job_id=test_job.id, test_suite_id=suite.test_suite_id)
-                    baseline_id = test_job.baseline_id
-                    baseline = None
-                    if per_result.exists() and per_result.first().compare_baseline:
-                        baseline_id = per_result.first().compare_baseline
-                    if Baseline.objects.filter(id=baseline_id).exists():
-                        baseline = Baseline.objects.get(id=baseline_id).name
-                    suite_data['baseline'] = baseline
-                    _, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
-                elif test_type == '业务测试':
-                    result, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
-                    suite_data['result'] = result
+                    count_data = {
+                        'count': '-',
+                        'increase': '-',
+                        'decline': '-',
+                        'normal': '-',
+                        'invalid': '-',
+                        'na': '-'
+                    }
                 else:
-                    result, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
-                    suite_data['result'] = result
+                    count_data = {
+                        'conf_count': '-',
+                        'conf_success': '-',
+                        'conf_fail': '-',
+                        'conf_warn': '-',
+                        'conf_skip': '-',
+                        'result': 'running'
+                    }
                 suite_data = {**suite_data, **count_data}
                 suite_data['baseline_job_id'] = test_job.baseline_job_id
                 return suite_data
-            else:
-                # 当有任意case结束时返回running的suite
-                check_cases = TestJobCase.objects.filter(job_id=test_job.id, test_suite_id=suite.test_suite_id,
-                                                         state__in=['success', 'fail', 'skip', 'stop']).count()
-                if check_cases > 0:
-                    suite_data = {
-                        'job_suite_id': suite.id,
-                        'suite_id': suite.test_suite_id,
-                        'suite_name': test_suite.name,
-                        'test_type': test_type,
-                        'note': suite.note,
-                        'start_time': datetime.strftime(suite.start_time,
-                                                        "%Y-%m-%d %H:%M:%S") if suite.start_time else None,
-                        'end_time': datetime.strftime(suite.end_time, "%Y-%m-%d %H:%M:%S") if suite.end_time else None,
-                        'creator': test_job.creator,
-                        'business_name': business_name
-                    }
-                    if test_type == '性能测试':
-                        count_data = {
-                            'count': '-',
-                            'increase': '-',
-                            'decline': '-',
-                            'normal': '-',
-                            'invalid': '-',
-                            'na': '-'
-                        }
-                    else:
-                        count_data = {
-                            'conf_count': '-',
-                            'conf_success': '-',
-                            'conf_fail': '-',
-                            'conf_warn': '-',
-                            'conf_skip': '-',
-                            'result': 'running'
-                        }
-                    suite_data = {**suite_data, **count_data}
-                    suite_data['baseline_job_id'] = test_job.baseline_job_id
-                    return suite_data
 
 
 class JobTestConfResultSerializer(CommonSerializer):
