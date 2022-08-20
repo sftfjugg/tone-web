@@ -62,7 +62,7 @@ class ReportHandle(object):
                 report.test_background = self.report_template_obj.background_desc
                 report.test_method = self.report_template_obj.test_method_desc
                 report.test_conclusion = self.report_template_obj.test_conclusion_desc
-                report.test_env = self.report_template_obj.test_env_desc
+                # report.test_env = self.report_template_obj.test_env_desc
                 report.env_description = self.report_template_obj.env_description_desc
             report.save()
             func_all = fail = success = warn = 0
