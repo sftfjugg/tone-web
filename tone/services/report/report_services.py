@@ -402,13 +402,15 @@ class ReportService(CommonService):
             if hasattr(report, key):
                 setattr(report, key, value)
         test_item = data.get('test_item', None)
+        job_li = list()
+        plan_li = list()
         with transaction.atomic():
             if test_item:
                 ReportItem.objects.filter(report_id=report_id).delete()
                 perf_data = test_item.get('perf_data', list())
                 func_data = test_item.get('func_data', list())
-                self.save_test_item(perf_data, report_id, 'performance')
-                self.save_test_item(func_data, report_id, 'functional')
+                self.save_test_item(perf_data, report_id, 'performance', job_li, plan_li)
+                self.save_test_item(func_data, report_id, 'functional', job_li, plan_li)
             report.save()
 
     @staticmethod
