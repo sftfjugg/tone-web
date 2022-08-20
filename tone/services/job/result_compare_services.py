@@ -294,9 +294,18 @@ class CompareChartService(CommonService):
         }
         conf_list = list()
         for conf_id, conf_value in conf_dic.items():
-            job_id = conf_value.get('obj_id') if conf_value.get('is_job') else FuncBaselineDetail.objects.get_value(
-                id=conf_value.get('obj_id')).test_job_id
-            perf_results = PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id, test_case_id=conf_id)
+            job_id = conf_value.get('obj_id') if conf_value.get('is_job') else (FuncBaselineDetail.objects.get_value(
+                id=conf_value.get('obj_id')).test_job_id if FuncBaselineDetail.objects.get_value(
+                id=conf_value.get('obj_id')) else None)
+            perf_results = None
+            if not job_id and len(conf_value.get('compare_objs')) > 0:
+                test_job = TestJob.objects.filter(id=conf_value.get('compare_objs')[0].get('obj_id')).first()
+                if test_job:
+                    perf_results = PerfBaselineDetail.objects.filter(baseline_id=test_job.baseline_id,
+                                                                     test_suite_id=suite_id, test_case_id=conf_id)
+            else:
+                perf_results = PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id,
+                                                         test_case_id=conf_id)
             if not perf_results.exists():
                 continue
             compare_job_li = [i.get('obj_id') for i in conf_value.get('compare_objs', list()) if i]
