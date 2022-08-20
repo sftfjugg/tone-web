@@ -62,7 +62,6 @@ class ReportHandle(object):
                 report.test_background = self.report_template_obj.background_desc
                 report.test_method = self.report_template_obj.test_method_desc
                 report.test_conclusion = self.report_template_obj.test_conclusion_desc
-                report.test_env = self.report_template_obj.test_env_desc
                 report.env_description = self.report_template_obj.env_description_desc
             report.save()
             func_all = fail = success = warn = 0
@@ -279,7 +278,8 @@ class ReportHandle(object):
 
     def get_test_env(self):
         compare_groups = list()
-        compare_groups.append(self.get_server_info())
+        server_info = self.get_server_info()
+        compare_groups.append(server_info)
         env_info = {
             'base_group': {
                 'tag': self.get_baseline_name(),
@@ -288,8 +288,9 @@ class ReportHandle(object):
             },
             'compare_groups': compare_groups,
         }
-        count = len(self.get_server_info().get('server_info'))
+        count = len(server_info.get('server_info'))
         env_info['count'] = count
+        self.logger.info(f'server_info')
         return env_info
 
     def get_test_conclusion(self, report, perf_count, func_count):
