@@ -61,8 +61,11 @@ class JobTestView(CommonAPIView):
         """
         创建JobTest
         """
-        # todo
-        self.service.create(request.data, operator=request.user)
+        try:
+            self.service.create(request.data, operator=request.user)
+        except JobTestException:
+            return Response(self.get_response_code(code=ErrorCode.GLOBAL_VARIABLES_ERROR[0],
+                                                   msg=ErrorCode.GLOBAL_VARIABLES_ERROR[1]))
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
