@@ -190,10 +190,10 @@ class TestCaseService(CommonService):
             ws_suite_data.append(item_data)
         ws_suite_data.reverse()
         if request.GET.get('name'):
-            ws_suite_data = self._get_ws_suiite_filter_name(request, ws_suite_data)
+            ws_suite_data = self._get_ws_suite_filter_name(request, ws_suite_data)
         return ws_suite_data
 
-    def _get_ws_suiite_filter_name(self, request, ws_suite_data):
+    def _get_ws_suite_filter_name(self, request, ws_suite_data):
         filter_name = request.GET.get('name')
         for suite in ws_suite_data:
             if filter_name not in suite.get('name'):
