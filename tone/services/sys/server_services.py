@@ -1539,6 +1539,7 @@ class ServerTagService(CommonService):
     @staticmethod
     def filter(queryset, data):
         q = Q()
+        storted_fun = lambda x: (0 if not x.create_user else 1, -x.id)
         if data.get('name'):
             q &= Q(name__icontains=data.get('name'))
         if data.get('description'):
@@ -1550,7 +1551,11 @@ class ServerTagService(CommonService):
                                                                   object_type=data.get('run_mode')
                                                                   ).values_list('server_tag_id', flat=True)
             q &= Q(id__in=set(server_tag_id_list))
-        return sorted(queryset.filter(q), key=lambda x: (0 if not x.create_user else 1, -x.id))
+        if data.get('tag_id_list'):
+            tag_id_list = str(data.get('tag_id_list')).split(',')
+            # 排序优先级：集群当前的标签 > 系统预设标签 > id
+            storted_fun = lambda x: (0 if str(x.id) in tag_id_list else 1, 0 if not x.create_user else 1, -x.id)
+        return sorted(queryset.filter(q), key=storted_fun)
 
     @staticmethod
     def create(data, user_id):
