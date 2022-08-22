@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from django.utils.decorators import method_decorator
 
 from tone import settings
+from tone.core.common.exceptions import exception_code
 from tone.core.common.views import CommonAPIView, BaseView
 from tone.models import TestJob, TestJobCase, FuncResult, ResultFile, PerfResult, \
     JobCollection, TestJobSuite, MonitorInfo
@@ -482,14 +483,23 @@ class MachineFaultView(CommonAPIView):
     service_class = MachineFaultService
 
     def get(self, request):
-        job_id = request.GET.get('job_id')
-        server_provider = TestJobCase.objects.filter(job_id=job_id).values_list('server_provider', flat=True)[0]
-        queryset = self.service.get_machine_fault(request.GET)
-        if server_provider == 'aligroup':
-            self.serializer_class = JobTestMachineFaultSerializer
-            response_data = self.get_response_data(queryset)
-            return Response(response_data)
-        else:
-            self.serializer_class = CloudJobTestMachineFaultSerializer
-            response_data = self.get_response_data(queryset)
+        try:
+            server_provider = ''
+            job_id = request.GET.get('job_id')
+            test_job = TestJob.objects.filter(id=job_id).first()
+            if test_job:
+                server_provider = test_job.server_provider
+            queryset = self.service.get_machine_fault(request.GET)
+            if server_provider == 'aligroup':
+                self.serializer_class = JobTestMachineFaultSerializer
+                response_data = self.get_response_data(queryset)
+                return Response(response_data)
+            else:
+                self.serializer_class = CloudJobTestMachineFaultSerializer
+                response_data = self.get_response_data(queryset)
+                return Response(response_data)
+        except Exception:
+            response_data = self.get_response_code(code=exception_code.MACHINE_INFO_ERROR_514['code'],
+                                                   msg=exception_code.MACHINE_INFO_ERROR_514['msg'])
+            response_data['data'] = []
             return Response(response_data)

@@ -258,4 +258,7 @@ class ErrorCode(object):
 
     JOB_CONF_NAME_NOT_EXISTS = (1378, "job_id对应的任务中没有该test_conf!")
 
+    SUITE_DATA_NOT_EXISTS = (1379, '该suite不存在')
+
     GLOBAL_VARIABLES_ERROR = (1380, "全局变量填写不符合规范，请参考全局变量的使用规则")
+    
