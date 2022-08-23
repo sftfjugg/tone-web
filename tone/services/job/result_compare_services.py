@@ -106,21 +106,22 @@ class CompareSuiteInfoService(CommonService):
             self._package_compare_data(data_dic, test_type, compare_group)
 
     def _package_compare_data(self, data_dic, test_type, compare_group):
-        compare_obj_li = list()
         job_obj_dict = dict()
-        for compare_obj in compare_group:
-            obj_id = compare_obj.get('obj_id')
-            is_job = compare_obj.get('is_job')
-            if obj_id not in job_obj_dict:
-                job_data = self.get_obj(obj_id, is_job)
-                job_obj_dict.setdefault(obj_id, job_data)
-            else:
-                job_data = job_obj_dict.get(obj_id)
-            if is_job:
-
-                compare_obj_li.append(job_data)
         for suite_key, suite_value in data_dic.items():
             for conf_key, conf_value in suite_value.get('conf_dic', dict()).items():
+                compare_obj_li = list()
+                for compare_obj in compare_group:
+                    obj_id = compare_obj.get('obj_id')
+                    is_job = compare_obj.get('is_job')
+                    if obj_id not in job_obj_dict:
+                        job_data = self.get_obj(obj_id, is_job)
+                        job_obj_dict.setdefault(obj_id, job_data)
+                    else:
+                        job_data = job_obj_dict.get(obj_id)
+                    if is_job:
+                        if TestJobCase.objects.filter(job_id=obj_id, test_suite_id=int(suite_key),
+                                                      test_case_id=int(conf_key)).exists():
+                            compare_obj_li.append(job_data)
                 conf_value.get('compare_groups', list()).append(compare_obj_li)
 
     def get_red_dot_count(self, func_suite_dic, perf_suite_dic, group_num):
