@@ -28,7 +28,7 @@ WS_ROLE_MAP = {
 # 白名单
 VALID_URL_LIST = [
     "^/$", "/api/job/create/",
-    "/favicon.ico", "/admin/.*", "/api/job/query/"
+    "/favicon.ico", "/admin/.*", "/api/job/query/", "/api/server/add/"
 ]
 SYS_PERMISSION_CONFIG = {
     # 用户管理

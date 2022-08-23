@@ -2,7 +2,7 @@ from django.urls import path
 
 from tone.views.api.views import TestAPIView
 from tone.views.api import create_job, query_job, rerun_config, create_build, get_oss_url, get_product_version, \
-    get_analytics_tags, append_item, get_suite_info
+    get_analytics_tags, append_item, get_suite_info, add_server
 
 urlpatterns = [
     path('job', TestAPIView.as_view()),
@@ -22,4 +22,6 @@ urlpatterns = [
     path('workspace_list/', query_job.get_workspace, name='ws_query'),
     path('workspace/project/', query_job.get_project, name='project_query'),
     path('workspace/job_type/', query_job.get_job_type, name='job_type_query'),
+
+    path('server/add/', add_server.add_server, name='add_server'),
 ]

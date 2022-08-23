@@ -141,6 +141,9 @@ class AddAgentRequest(ToneAgentRequest):
     def set_ip(self, ip):
         self._request_data['ip'] = ip
 
+    def set_tsn(self, tsn):
+        self._request_data['tsn'] = tsn
+
     def set_public_ip(self, public_ip):
         self._request_data['public_ip'] = public_ip
 
@@ -218,9 +221,10 @@ def remove_server_from_toneagent(ip_list, tsn_list=None):
     return res
 
 
-def add_server_to_toneagent(server_ip, pub_ip=None, arch=None, version=None, mode='active'):
+def add_server_to_toneagent(server_ip, server_tsn=None, pub_ip=None, arch=None, version=None, mode='active'):
     request = AddAgentRequest(settings.TONEAGENT_ACCESS_KEY, settings.TONEAGENT_SECRET_KEY)
     request.set_ip(server_ip)
+    request.set_tsn(server_tsn)
     request.set_public_ip(pub_ip)
     request.set_arch(arch)
     request.set_version(version)
