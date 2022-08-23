@@ -187,3 +187,33 @@ def get_ws(ws_name):
     if not Workspace.objects.filter(name=ws_name).exists():
         raise ValueError(ErrorCode.WS_NOT_EXISTS)
     return Workspace.objects.get(name=ws_name).id
+
+
+@token_required
+@api_catch_error
+def get_server_list(request):
+    data = request.GET
+    ws_id = data.get('ws_id')
+    provider = data.get('provider')
+    run_mode = data.get('run_mode')
+    resp = CommResp()
+    if provider == 'aligroup' and run_mode == 'standalone':
+        queryset = TestServer.objects.exclude(ip='').\
+            filter(ws_id=ws_id, state='Available', spec_use=0, occupied_job_id__isnull=True).\
+            values_list('ip', flat=True).distinct()
+        resp.data = list(queryset)
+    elif provider == 'aliyun' and run_mode == 'standalone':
+        queryset = CloudServer.objects.exclude(instance_id='').\
+            filter(ws_id=ws_id, state='Available', spec_use=0, occupied_job_id__isnull=True).\
+            values_list('instance_id', flat=True).distinct()
+        resp.data = list(queryset)
+    return resp.json_resp()
+@token_required
+@api_catch_error
+def get_server_tag_list(request):
+    data = request.GET
+    ws_id = data.get('ws_id')
+    resp = CommResp()
+    queryset = ServerTag.objects.filter(ws_id=ws_id).values_list('name', flat=True)
+    resp.data = list(queryset)
+    return resp.json_resp()

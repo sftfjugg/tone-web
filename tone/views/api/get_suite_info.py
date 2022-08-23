@@ -52,5 +52,8 @@ def get_suite_increase(request):
     suite_data_list = [{'case_id': case_info.id, 'case_name': case_info.name, 'suite_id': case_info.suite_id,
                         'suite_name': case_info.suite_name, 'test_type': case_info.test_type}
                        for case_info in queryset]
-    resp.data = suite_data_list
+    queryset_deleted = TestCase.objects. \
+        filter(gmt_modified__gt=datetime.strptime(last_sync_time, '%Y-%m-%d %H:%M:%S'), query_scope='deleted'). \
+        values_list('id', flat=True)
+    resp.data = {'increase': suite_data_list, 'deleted': list(queryset_deleted)}
     return resp.json_resp()
