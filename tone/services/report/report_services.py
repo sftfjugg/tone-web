@@ -319,23 +319,22 @@ class ReportService(CommonService):
             job_id=job.id) if job.server_provider == 'aligroup' else CloudServerSnapshot.objects.filter(job_id=job.id)
         for snap_shot_obj in snap_shot_objs:
             ip = snap_shot_obj.ip if job.server_provider == 'aligroup' else snap_shot_obj.private_ip
-            if ip not in ip_li:
-                if not (snap_shot_obj.distro or snap_shot_obj.rpm_list or snap_shot_obj.gcc):
-                    continue
-                server_li.append({
-                    'ip/sn': ip,
-                    'distro': snap_shot_obj.sm_name if job.server_provider == 'aligroup' else
-                    snap_shot_obj.instance_type,
-                    'os': snap_shot_obj.distro,
-                    'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
-                    'kernel': snap_shot_obj.kernel_version,
-                    'gcc': snap_shot_obj.gcc,
-                    'glibc': snap_shot_obj.glibc,
-                    'memory_info': snap_shot_obj.memory_info,
-                    'disk': snap_shot_obj.disk,
-                    'cpu_info': snap_shot_obj.cpu_info,
-                    'ether': snap_shot_obj.ether,
-                })
+            if not (snap_shot_obj.distro or snap_shot_obj.rpm_list or snap_shot_obj.gcc):
+                continue
+            server_li.append({
+                'ip/sn': ip,
+                'distro': snap_shot_obj.sm_name if job.server_provider == 'aligroup' else
+                snap_shot_obj.instance_type,
+                'os': snap_shot_obj.distro,
+                'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
+                'kernel': snap_shot_obj.kernel_version,
+                'gcc': snap_shot_obj.gcc,
+                'glibc': snap_shot_obj.glibc,
+                'memory_info': snap_shot_obj.memory_info,
+                'disk': snap_shot_obj.disk,
+                'cpu_info': snap_shot_obj.cpu_info,
+                'ether': snap_shot_obj.ether,
+            })
         return server_li
 
     def save_test_item_v1(self, data, report_id, test_type, base_index):
