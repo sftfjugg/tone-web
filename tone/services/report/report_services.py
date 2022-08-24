@@ -463,7 +463,7 @@ class ReportService(CommonService):
                 max_value=perf_result.max_value,
                 min_value=perf_result.min_value,
                 value_list=perf_result.value_list,
-                direction=perf_result.direction,
+                direction=test_metric.direction,
                 compare_data=compare_data_list)
             item_metric_list.append(report_metric)
             ReportItemMetric.objects.bulk_create(item_metric_list)
