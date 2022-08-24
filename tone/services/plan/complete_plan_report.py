@@ -86,12 +86,14 @@ def handler_stage_group(plan_instance, plan_inst_id):  # noqa: C901
     comp_num = group_num - 1
     [func_compare_groups.append([]) for _ in range(comp_num - func_comp_num)]
     [perf_compare_groups.append([]) for _ in range(comp_num - perf_comp_num)]
+    func_compare_data = func_compare_groups[0] if len(func_compare_groups) > 0 else list()
+    perf_compare_data = perf_compare_groups[0] if len(perf_compare_groups) > 0 else list()
     data = {
-        'func_data': {'base_obj_li': func_base_obj_li,
+        'func_data': {'base_obj_li': func_base_obj_li if func_base_obj_li else func_compare_data,
                       'compare_groups': func_compare_groups
                       },
         'group_num': group_num,
-        'perf_data': {'base_obj_li': perf_base_obj_li,
+        'perf_data': {'base_obj_li': perf_base_obj_li if perf_base_obj_li else perf_compare_data,
                       'compare_groups': perf_compare_groups}
     }
 

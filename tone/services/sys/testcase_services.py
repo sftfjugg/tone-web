@@ -15,7 +15,8 @@ from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestCase, TestSuite, TestMetric, WorkspaceCaseRelation, PerfResult, TestDomain, \
     DomainRelation, datetime, SuiteData, CaseData, BaseConfig, RoleMember, Role, TestJobCase, TestJob, \
     TestTmplCase, TestTemplate, TestBusiness, BusinessSuiteRelation, AccessCaseConf, User, TestJobSuite
-from tone.serializers.sys.testcase_serializers import RetrieveCaseSerializer, RetrieveStatisticsSerializer, SimpleCaseSerializer
+from tone.serializers.sys.testcase_serializers import RetrieveCaseSerializer, RetrieveStatisticsSerializer, \
+    SimpleCaseSerializer
 from tone.tasks import sync_suite_case_toneagent
 
 
@@ -188,6 +189,17 @@ class TestCaseService(CommonService):
             item_data = thread_task.get_result()
             ws_suite_data.append(item_data)
         ws_suite_data.reverse()
+        if request.GET.get('name'):
+            ws_suite_data = self._get_ws_suite_filter_name(request, ws_suite_data)
+        return ws_suite_data
+
+    def _get_ws_suite_filter_name(self, request, ws_suite_data):
+        filter_name = request.GET.get('name')
+        for suite in ws_suite_data:
+            if filter_name not in suite.get('name'):
+                suite['test_case_list'] = list(
+                    filter(lambda x: filter_name in x.get('name'), suite.get('test_case_list')))
+        ws_suite_data = list(filter(lambda x: len(x.get('test_case_list')) > 0, ws_suite_data))
         return ws_suite_data
 
     def _get_ws_suite_case(self, ws_id, test_suite_id):
@@ -507,8 +519,8 @@ class TestSuiteService(CommonService):
         case_obj_list = []
         # 从SuiteData中查询 suite_name, 获取suite下的case name list
         suite_data = SuiteData.objects.filter(name=suite.name, test_type=suite.test_type).first()
-        if suite_data is None:
-            return 201, '该suite不存在'
+        if not suite_data:
+            return ErrorCode.SUITE_DATA_NOT_EXISTS[0], ErrorCode.SUITE_DATA_NOT_EXISTS[1]
         suite.doc = suite_data.description
         suite.save()
         case_name_list = CaseData.objects.filter(suite_id=suite_data.id).values_list('name', flat=True)

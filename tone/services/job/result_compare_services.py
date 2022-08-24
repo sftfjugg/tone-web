@@ -106,21 +106,22 @@ class CompareSuiteInfoService(CommonService):
             self._package_compare_data(data_dic, test_type, compare_group)
 
     def _package_compare_data(self, data_dic, test_type, compare_group):
-        compare_obj_li = list()
         job_obj_dict = dict()
-        for compare_obj in compare_group:
-            obj_id = compare_obj.get('obj_id')
-            is_job = compare_obj.get('is_job')
-            if obj_id not in job_obj_dict:
-                job_data = self.get_obj(obj_id, is_job)
-                job_obj_dict.setdefault(obj_id, job_data)
-            else:
-                job_data = job_obj_dict.get(obj_id)
-            if is_job:
-
-                compare_obj_li.append(job_data)
         for suite_key, suite_value in data_dic.items():
             for conf_key, conf_value in suite_value.get('conf_dic', dict()).items():
+                compare_obj_li = list()
+                for compare_obj in compare_group:
+                    obj_id = compare_obj.get('obj_id')
+                    is_job = compare_obj.get('is_job')
+                    if obj_id not in job_obj_dict:
+                        job_data = self.get_obj(obj_id, is_job)
+                        job_obj_dict.setdefault(obj_id, job_data)
+                    else:
+                        job_data = job_obj_dict.get(obj_id)
+                    if is_job:
+                        if TestJobCase.objects.filter(job_id=obj_id, test_suite_id=int(suite_key),
+                                                      test_case_id=int(conf_key)).exists():
+                            compare_obj_li.append(job_data)
                 conf_value.get('compare_groups', list()).append(compare_obj_li)
 
     def get_red_dot_count(self, func_suite_dic, perf_suite_dic, group_num):
@@ -216,6 +217,11 @@ class CompareEnvInfoService(CommonService):
                     'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
                     'kernel': snap_shot_obj.kernel_version,
                     'gcc': snap_shot_obj.gcc,
+                    'glibc': snap_shot_obj.glibc,
+                    'memory_info': snap_shot_obj.memory_info,
+                    'disk': snap_shot_obj.disk,
+                    'cpu_info': snap_shot_obj.cpu_info,
+                    'ether': snap_shot_obj.ether,
                 })
                 ip_li.append(ip)
 
@@ -289,9 +295,18 @@ class CompareChartService(CommonService):
         }
         conf_list = list()
         for conf_id, conf_value in conf_dic.items():
-            job_id = conf_value.get('obj_id') if conf_value.get('is_job') else FuncBaselineDetail.objects.get_value(
-                id=conf_value.get('obj_id')).test_job_id
-            perf_results = PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id, test_case_id=conf_id)
+            job_id = conf_value.get('obj_id') if conf_value.get('is_job') else (FuncBaselineDetail.objects.get_value(
+                id=conf_value.get('obj_id')).test_job_id if FuncBaselineDetail.objects.get_value(
+                id=conf_value.get('obj_id')) else None)
+            perf_results = None
+            if not job_id and len(conf_value.get('compare_objs')) > 0:
+                test_job = TestJob.objects.filter(id=conf_value.get('compare_objs')[0].get('obj_id')).first()
+                if test_job:
+                    perf_results = PerfBaselineDetail.objects.filter(baseline_id=test_job.baseline_id,
+                                                                     test_suite_id=suite_id, test_case_id=conf_id)
+            else:
+                perf_results = PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id,
+                                                         test_case_id=conf_id)
             if not perf_results.exists():
                 continue
             compare_job_li = [i.get('obj_id') for i in conf_value.get('compare_objs', list()) if i]

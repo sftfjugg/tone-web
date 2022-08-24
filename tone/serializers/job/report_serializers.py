@@ -62,13 +62,16 @@ class ReportTemplateDetailSerializer(CommonSerializer):
         if item_suite is not None:
             res = {
                 'need_test_description': item_suite.need_test_description,
-                'need_test_conclusion': item_suite.need_test_conclusion
+                'test_description_desc': item_suite.test_description_desc,
+                'need_test_conclusion': item_suite.need_test_conclusion,
+                'test_conclusion_desc': item_suite.test_conclusion_desc,
             }
             if test_type == 'performance':
                 res.update({
                     'need_test_suite_description': item_suite.need_test_suite_description,
                     'show_type': item_suite.show_type,
                     'need_test_env': item_suite.need_test_env,
+                    'test_env_desc': item_suite.test_env_desc
                 })
             return res
 
@@ -272,9 +275,7 @@ class ReportTemplateDetailSerializer(CommonSerializer):
         group_name_map = dict()
         result = list()
         item_data_map = dict()
-        for tmp_item in sorted(ReportTmplItem.objects.filter(tmpl_id=tmpl_id, test_type=test_type),
-                               key=lambda item: item.name):
-
+        for tmp_item in ReportTmplItem.objects.filter(tmpl_id=tmpl_id, test_type=test_type):
             item_suite_list = list()
             for item_suite in ReportTmplItemSuite.objects.filter(report_tmpl_item_id=tmp_item.id):
                 case_source = [{'test_conf_id': case_id, 'test_conf_name': case_name,
@@ -283,9 +284,13 @@ class ReportTemplateDetailSerializer(CommonSerializer):
                                 } for case_id, case_name in
                                TestCase.objects.filter(id__in=item_suite.test_conf_list).values_list('id', 'name')]
                 tmp_suite = TestSuite.objects.filter(id=item_suite.test_suite_id).first()
+                suite_doc = None
+                if tmp_suite and tmp_suite.doc and tmp_suite.doc.find('Description') > -1 and \
+                        tmp_suite.doc.find('## Homepage') > -1:
+                    suite_doc = tmp_suite.doc.split('Description')[1].split('## Homepage')[0]
                 item_suite_data = {
                     'test_suite_id': item_suite.test_suite_id,
-                    'test_tool': None if not tmp_suite else tmp_suite.doc,
+                    'test_tool': suite_doc,
                     'suite_show_name': item_suite.test_suite_show_name,
                     'case_source': case_source,
                 }
