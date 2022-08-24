@@ -259,4 +259,4 @@ class ErrorCode(object):
     JOB_CONF_NAME_NOT_EXISTS = (1378, "job_id对应的任务中没有该test_conf!")
 
     ADD_SERVER_TO_TONEAGENT_FAILED = (1379, "添加机器至ToneAgent系统失败")
-    SERVER_ALREADY_EXIST = (1380, "机器已经存在")
+    SERVER_TSN_ALREADY_EXIST = (1380, "该机器在系统中已存在")

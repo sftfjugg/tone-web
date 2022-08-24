@@ -31,6 +31,11 @@ def add_server(request):
     data = json.loads(request.body)
     ip = data.get('ip')
     tsn = data.get('tsn')
+    if TestServer.objects.filter(tsn=tsn).exists():
+        return JsonResponse({
+            'code': ErrorCode.SERVER_TSN_ALREADY_EXIST[0],
+            'msg': ErrorCode.SERVER_TSN_ALREADY_EXIST[1]
+        })
     common_ws = Workspace.objects.filter(is_common=True).first()
     test_server = TestServer.objects.create(
         ip=ip,
