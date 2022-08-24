@@ -1,24 +1,14 @@
 # _*_ coding:utf-8 _*_
-"""
-Module Description:
-Date:
-Author: Yfh
-"""
+
 import json
 import uuid
 
-from django.db import transaction
 from django.http import JsonResponse
 
 from tone.core.common.toneagent import add_server_to_toneagent
-from tone.models import TestJob, TestJobCase, TestJobSuite, JobTagRelation, Project, JobTag, Baseline, TestTemplate, \
-    JobType, TestSuite, TestCase, TestServer, CloudServer, TestCluster, ServerTag, Workspace, KernelInfo
-from tone.core.utils.helper import CommResp
-from tone.core.handle.job_handle import JobDataHandle
-from tone.core.common.verify_token import token_required
+from tone.models import Workspace, TestServer
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.error_catch import api_catch_error
-from tone.serializers.job.test_serializers import JobTestSerializer, JobSerializerForAPI
 
 
 @api_catch_error
