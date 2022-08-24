@@ -531,20 +531,19 @@ class ReportService(CommonService):
     def update(self, data, operator):
         report_id = data.get('report_id')
         report = Report.objects.get(id=report_id)
+        base_index = data.get('base_index')
         assert report_id, ReportException(ErrorCode.REPORT_ID_NEED)
         for key, value in data.items():
             if hasattr(report, key):
                 setattr(report, key, value)
         test_item = data.get('test_item', None)
-        job_li = list()
-        plan_li = list()
         with transaction.atomic():
             if test_item:
                 ReportItem.objects.filter(report_id=report_id).delete()
                 perf_data = test_item.get('perf_data', list())
                 func_data = test_item.get('func_data', list())
-                self.save_test_item(perf_data, report_id, 'performance', job_li, plan_li)
-                self.save_test_item(func_data, report_id, 'functional', job_li, plan_li)
+                self.save_test_item_v1(perf_data, report_id, 'performance', base_index)
+                self.save_test_item_v1(func_data, report_id, 'functional', base_index)
             report.save()
 
     @staticmethod
