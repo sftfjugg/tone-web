@@ -12,7 +12,7 @@ from django.db import transaction
 from tone.core.utils.permission_manage import check_operator_permission
 from tone.models import Report, ReportItem, ReportItemConf, ReportItemMetric, ReportItemSubCase, ReportObjectRelation, \
     ReportItemSuite, TestJobCase, TestServerSnapshot, CloudServerSnapshot, PlanInstance, PlanInstanceTestRelation, \
-    PerfResult, FuncResult, TestMetric
+    PerfResult, FuncResult, TestMetric, TestJob
 from tone.core.common.job_result_helper import get_compare_result
 from tone.core.common.services import CommonService
 from tone.models.report.test_report import ReportTemplate, ReportTmplItem, ReportTmplItemSuite
@@ -273,7 +273,6 @@ class ReportService(CommonService):
         test_item = data.get('test_item')
         creator = operator
         ws_id = data.get('ws_id')
-        base_index = data.get('base_index')
         job_li = data.get('job_li', list())
         plan_li = data.get('plan_li', list())
         assert name, ReportException(ErrorCode.NAME_NEED)
@@ -284,6 +283,20 @@ class ReportService(CommonService):
         assert tmpl_id, ReportException(ErrorCode.TEMPLATE_NEED)
         assert test_item, ReportException(ErrorCode.TEST_ITEM_NEED)
         with transaction.atomic():
+            base_index = test_env.get('base_index')
+            job_index = 0
+            for job_id in job_li:
+                test_job = TestJob.objects.filter(id=job_id).first()
+                if not test_job:
+                    continue
+                if job_index == base_index:
+                    test_env['base_group']['server_info'] = self.package_server_li(test_job)
+                else:
+                    if base_index < job_index:
+                        compare_index = job_index - 1
+                    else:
+                        compare_index = job_index
+                    test_env['compare_groups'][compare_index]['server_info'].append(self.package_server_li(test_job))
             report = Report.objects.create(name=name, product_version=product_version, project_id=project_id,
                                            ws_id=ws_id, test_method=test_method, test_conclusion=test_conclusion,
                                            report_source=report_source, test_env=test_env, description=description,
@@ -299,6 +312,31 @@ class ReportService(CommonService):
             self.save_test_item_v1(perf_data, report_id, 'performance', base_index)
             self.save_test_item_v1(func_data, report_id, 'functional', base_index)
         return report
+
+    def package_server_li(self, job):
+        server_li = list()
+        snap_shot_objs = TestServerSnapshot.objects.filter(
+            job_id=job.id) if job.server_provider == 'aligroup' else CloudServerSnapshot.objects.filter(job_id=job.id)
+        for snap_shot_obj in snap_shot_objs:
+            ip = snap_shot_obj.ip if job.server_provider == 'aligroup' else snap_shot_obj.private_ip
+            if ip not in ip_li:
+                if not (snap_shot_obj.distro or snap_shot_obj.rpm_list or snap_shot_obj.gcc):
+                    continue
+                server_li.append({
+                    'ip/sn': ip,
+                    'distro': snap_shot_obj.sm_name if job.server_provider == 'aligroup' else
+                    snap_shot_obj.instance_type,
+                    'os': snap_shot_obj.distro,
+                    'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
+                    'kernel': snap_shot_obj.kernel_version,
+                    'gcc': snap_shot_obj.gcc,
+                    'glibc': snap_shot_obj.glibc,
+                    'memory_info': snap_shot_obj.memory_info,
+                    'disk': snap_shot_obj.disk,
+                    'cpu_info': snap_shot_obj.cpu_info,
+                    'ether': snap_shot_obj.ether,
+                })
+        return server_li
 
     def save_test_item_v1(self, data, report_id, test_type, base_index):
         for item in data:
