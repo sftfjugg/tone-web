@@ -578,7 +578,7 @@ class ReportService(CommonService):
     def update(self, data, operator):
         report_id = data.get('report_id')
         report = Report.objects.get(id=report_id)
-        base_index = data.get('base_index')
+        base_index = report.test_env.get('base_index')
         assert report_id, ReportException(ErrorCode.REPORT_ID_NEED)
         for key, value in data.items():
             if hasattr(report, key):
