@@ -579,8 +579,12 @@ class ReportService(CommonService):
         report_id = data.get('report_id')
         report = Report.objects.get(id=report_id)
         base_index = report.test_env.get('base_index')
+        if data.get('test_env').get('text'):
+            report.test_env['text'] = data.get('test_env').get('text')
         assert report_id, ReportException(ErrorCode.REPORT_ID_NEED)
         for key, value in data.items():
+            if key == 'test_env':
+                continue
             if hasattr(report, key):
                 setattr(report, key, value)
         test_item = data.get('test_item', None)
