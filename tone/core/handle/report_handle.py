@@ -52,9 +52,9 @@ class ReportHandle(object):
             report = Report.objects.create(name=report_name, product_version=self.job_obj.product_version,
                                            project_id=self.job_obj.project_id, ws_id=self.job_obj.ws_id,
                                            tmpl_id=self.report_template_obj.id, creator=self.job_obj.creator)
-            test_env = self.get_test_env()
+            # test_env = self.get_test_env()
             before_name = report.name
-            report.test_env = test_env
+            # report.test_env = test_env
             report.name = before_name.format(date=datetime.strftime(report.gmt_created, "%Y-%m-%d %H:%M:%S"),
                                              job_name=self.job_obj.name, job_id=self.job_id, report_id=report.id,
                                              product_version=report.product_version, report_seq_id=report.id + 1)
@@ -62,7 +62,7 @@ class ReportHandle(object):
                 report.test_background = self.report_template_obj.background_desc
                 report.test_method = self.report_template_obj.test_method_desc
                 report.test_conclusion = self.report_template_obj.test_conclusion_desc
-                # report.test_env = self.report_template_obj.test_env_desc
+                report.test_env = self.report_template_obj.test_env_desc
                 report.env_description = self.report_template_obj.env_description_desc
             report.save()
             func_all = fail = success = warn = 0

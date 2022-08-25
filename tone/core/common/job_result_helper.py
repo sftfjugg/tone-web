@@ -438,14 +438,23 @@ def _get_suite_conf_metric(suite_id, conf_id, conf_value, compare_job_li, suite_
     if not suite_obj.get('compare_count'):
         suite_obj['compare_count'] = [{'all': 0, 'increase': 0, 'decline': 0} for _ in
                                       range(len(conf_value.get('compare_objs')))]
-    conf_obj = {
-        'conf_name': conf_value.get('conf_name'),
-        'conf_id': conf_id,
-        'is_job': conf_value.get('is_job'),
-        'obj_id': conf_value.get('obj_id'),
-        'conf_compare_data': conf_value.get('compare_objs'),
-        'metric_list': get_metric_list(perf_results, suite_id, conf_id, compare_job_li, suite_obj['compare_count']),
-    }
+    metric_list = get_metric_list(perf_results, suite_id, conf_id, compare_job_li, suite_obj['compare_count'])
+    has_data = False
+    for metric_obj in metric_list:
+        if metric_obj:
+            has_data = True
+            break
+    if has_data:
+        conf_obj = {
+            'conf_name': conf_value.get('conf_name'),
+            'conf_id': conf_id,
+            'is_job': conf_value.get('is_job'),
+            'obj_id': conf_value.get('obj_id'),
+            'conf_compare_data': conf_value.get('compare_objs'),
+            'metric_list': metric_list,
+        }
+    else:
+        conf_obj = {}
     if not conf_obj['metric_list']:
         return
     return conf_obj
