@@ -575,7 +575,7 @@ class ReportService(CommonService):
                                         min_value=min_value, value_list=value_list, direction=direction,
                                         compare_data=compare_data)
 
-    def update(self, data, operator):
+    def update(self, data):
         report_id = data.get('report_id')
         report = Report.objects.get(id=report_id)
         base_index = report.test_env.get('base_index')

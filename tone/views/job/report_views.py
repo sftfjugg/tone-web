@@ -124,7 +124,7 @@ class ReportView(CommonAPIView):
         """
         编辑测试报告
         """
-        self.service.update(request.data, operator=request.user)
+        self.service.update(request.data)
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
