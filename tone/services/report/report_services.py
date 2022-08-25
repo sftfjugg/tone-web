@@ -13,13 +13,14 @@ from tone.core.utils.permission_manage import check_operator_permission
 from tone.models import Report, ReportItem, ReportItemConf, ReportItemMetric, ReportItemSubCase, ReportObjectRelation, \
     ReportItemSuite, TestJobCase, TestServerSnapshot, CloudServerSnapshot, PlanInstance, PlanInstanceTestRelation, \
     PerfResult, FuncResult, TestMetric, TestJob
-from tone.core.common.job_result_helper import get_compare_result
+from tone.core.common.job_result_helper import get_compare_result, get_func_compare_data
 from tone.core.common.services import CommonService
 from tone.models.report.test_report import ReportTemplate, ReportTmplItem, ReportTmplItemSuite
 from tone.services.plan.plan_services import random_choice_str
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.custom_error import ReportException
 from tone.core.utils.date_util import DateUtil
+from tone.core.common.constant import FUNC_CASE_RESULT_TYPE_MAP
 
 
 class ReportTemplateService(CommonService):
@@ -284,19 +285,25 @@ class ReportService(CommonService):
         assert test_item, ReportException(ErrorCode.TEST_ITEM_NEED)
         with transaction.atomic():
             base_index = test_env.get('base_index')
-            job_index = 0
-            for job_id in job_li:
-                test_job = TestJob.objects.filter(id=job_id).first()
-                if not test_job:
-                    continue
-                if job_index == base_index:
-                    test_env['base_group']['server_info'] = self.package_server_li(test_job)
-                else:
-                    if base_index < job_index:
-                        compare_index = job_index - 1
-                    else:
-                        compare_index = job_index
-                    test_env['compare_groups'][compare_index]['server_info'].append(self.package_server_li(test_job))
+            test_env['base_group']['is_job'] = 1
+            if not test_env['base_group'].get('server_info'):
+                test_env['base_group']['server_info'] = list()
+            for base_obj in test_env['base_group']['base_objs']:
+                test_job = TestJob.objects.filter(id=base_obj.get('obj_id')).first()
+                if test_job:
+                    test_env['base_group']['server_info'].append(self.package_server_li(test_job))
+            count = len(test_env['base_group']['base_objs'])
+            for group in test_env['compare_groups']:
+                group['is_job'] = 1
+                if not group.get('server_info'):
+                    group['server_info'] = list()
+                for base_obj in group['base_objs']:
+                    if len(group['base_objs']) > count:
+                        count = len(group['base_objs'])
+                    test_job = TestJob.objects.filter(id=base_obj.get('obj_id')).first()
+                    if test_job:
+                        group['server_info'].append(self.package_server_li(test_job))
+            test_env['count'] = count
             report = Report.objects.create(name=name, product_version=product_version, project_id=project_id,
                                            ws_id=ws_id, test_method=test_method, test_conclusion=test_conclusion,
                                            report_source=report_source, test_env=test_env, description=description,
@@ -314,14 +321,14 @@ class ReportService(CommonService):
         return report
 
     def package_server_li(self, job):
-        server_li = list()
+        server_li = None
         snap_shot_objs = TestServerSnapshot.objects.filter(
             job_id=job.id) if job.server_provider == 'aligroup' else CloudServerSnapshot.objects.filter(job_id=job.id)
         for snap_shot_obj in snap_shot_objs:
             ip = snap_shot_obj.ip if job.server_provider == 'aligroup' else snap_shot_obj.private_ip
             if not (snap_shot_obj.distro or snap_shot_obj.rpm_list or snap_shot_obj.gcc):
                 continue
-            server_li.append({
+            server_li = ({
                 'ip/sn': ip,
                 'distro': snap_shot_obj.sm_name if job.server_provider == 'aligroup' else
                 snap_shot_obj.instance_type,
@@ -378,20 +385,26 @@ class ReportService(CommonService):
         conf_source = dict()
         job_index = 0
         for compare_job in conf.get('job_list'):
-            func_results = FuncResult.objects.\
-                filter(test_job_id=compare_job, test_suite_id=test_suite_id, test_case_id=test_conf_id)
-            compare_count = dict({
-                'all_case': func_results.count(),
-                'obj_id': compare_job,
-                'success_case': func_results.filter(sub_case_result=1).count(),
-                'fail_case': func_results.filter(sub_case_result=2).count(),
-            })
+            if test_type == 'functional':
+                func_results = FuncResult.objects. \
+                    filter(test_job_id=compare_job, test_suite_id=test_suite_id, test_case_id=test_conf_id)
+                compare_count = dict({
+                    'is_job': 1,
+                    'all_case': func_results.count(),
+                    'obj_id': compare_job,
+                    'success_case': func_results.filter(sub_case_result=1).count(),
+                    'fail_case': func_results.filter(sub_case_result=2).count(),
+                })
+            else:
+                compare_count = dict({
+                    'is_job': 1,
+                    'obj_id': compare_job,
+                })
             if job_index == base_index:
                 conf_source = compare_count
             else:
                 compare_conf_list.append(compare_count)
             job_index += 1
-        compare_conf_list = conf.get('compare_conf_list', list())
         item_conf = ReportItemConf.objects.create(report_item_suite_id=item_suite_id, test_conf_id=test_conf_id,
                                                   test_conf_name=test_conf_name, conf_source=conf_source,
                                                   compare_conf_list=compare_conf_list)
@@ -409,14 +422,11 @@ class ReportService(CommonService):
             values_list('sub_case_name', 'sub_case_result')
         item_sub_case_list = list()
         for func_result in func_results:
-            compare_data = FuncResult.objects.\
-                filter(test_job_id__in=job_list,sub_case_name=func_result[0], test_suite_id=test_suite_id,
-                       test_case_id=test_conf_id).values_list('sub_case_result', flat=True)
             report_sub_case = ReportItemSubCase(
                 report_item_conf_id=item_conf_id,
                 sub_case_name=func_result[0],
-                result=func_result[1],
-                compare_data=compare_data)
+                result=FUNC_CASE_RESULT_TYPE_MAP.get(func_result[1]),
+                compare_data=get_func_compare_data(test_suite_id,test_conf_id,func_result[0],job_list))
             item_sub_case_list.append(report_sub_case)
         ReportItemSubCase.objects.bulk_create(item_sub_case_list)
 
