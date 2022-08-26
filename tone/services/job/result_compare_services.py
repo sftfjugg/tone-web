@@ -4,13 +4,15 @@ Module Description:
 Date:
 Author: Yfh
 """
+import copy
 import json
 from datetime import datetime
 from django.db.models import Q, Count
 
 from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestJob, PerfResult, TestJobCase, TestSuite, TestCase, FuncBaselineDetail, PerfBaselineDetail, \
-    TestServerSnapshot, CloudServerSnapshot, User, CompareForm, FuncResult, Project, BaseConfig, Product
+    TestServerSnapshot, CloudServerSnapshot, User, CompareForm, FuncResult, Project, BaseConfig, Product, \
+    ReportObjectRelation
 from tone.core.common.job_result_helper import get_suite_conf_metric, get_suite_conf_sub_case, \
     get_metric_list, get_suite_conf_metric_v1, get_suite_conf_sub_case_v1
 from tone.core.common.services import CommonService
@@ -113,7 +115,7 @@ class CompareConfInfoService(CommonService):
 
     def package_conf_data(self, test_job_id, suite_id):
         test_case_data = dict()
-        case_id_list = TestJobCase.objects.filter(job_id=test_job_id, test_suite_id=suite_id).\
+        case_id_list = TestJobCase.objects.filter(job_id=test_job_id, test_suite_id=suite_id). \
             values_list('test_case_id', flat=True)
         all_test_cases = list(TestCase.objects.filter(id__in=case_id_list).values_list('id', 'name'))
         for job_case in all_test_cases:
@@ -201,6 +203,7 @@ class CompareListService(CommonService):
     """
     结果对比列表数据
     """
+
     def get_suite_compare_data(self, data):
         suite_id = data.get('suite_id')
         suite_info = data.get('suite_info')
@@ -405,14 +408,25 @@ class CompareFormService(CommonService):
 
     @staticmethod
     def __fetch_job_ids(data):
+        job_id_list = list()
         for group_data in data['allGroupData']:
-            result = CompareFormService.__get_job_infos(group_data.get("members", None))
-            group_data['members'] = result
+            if 'members' in group_data:
+                job_id_list.extend(group_data.get('members'))
+        result = CompareFormService.__get_job_infos(job_id_list)
+        for group_data in data['allGroupData']:
+            member_list = list()
+            if 'members' not in group_data:
+                data['allGroupData']['members'] = member_list
+                continue
+            for job_id in group_data.get('members'):
+                member_list.append(result[job_id])
+            data['allGroupData']['members'] = member_list
 
     @staticmethod
     def __get_job_infos(ids):
+        job_dict = dict()
         if not ids:
-            return []
+            return job_dict
         test_type_map = {
             'functional': '功能测试',
             'performance': '性能测试',
@@ -421,25 +435,32 @@ class CompareFormService(CommonService):
         }
         results, create_name_map = list(), dict()
         jobs = TestJob.objects.filter(id__in=ids)
+        fun_result = FuncResult.objects.filter(test_job_id__in=ids)
+        test_job_case = TestJobCase.objects.filter(job_id__in=ids)
+        report_obj = ReportObjectRelation.objects.filter(object_id__in=ids)
+        test_server_shot = TestServerSnapshot.objects.filter(job_id__in=ids)
+        cloud_server_shot = CloudServerSnapshot.objects.filter(job_id__in=ids)
         for job in jobs:
             creator_name = JobTestService.get_expect_name(User, create_name_map, job.creator)
             job_data = job.to_dict()
             func_view_config = BaseConfig.objects.filter(config_type='ws', ws_id=job_data.get('ws_id'),
                                                          config_key='FUNC_RESULT_VIEW_TYPE').first()
             job_data.update({
-                'state': JobTestService().get_job_state(job.id, job.test_type, job.state, func_view_config),
+                'state': JobTestService().get_job_state(fun_result, test_job_case, job.id, job.test_type, job.state,
+                                                        func_view_config),
                 'test_type': test_type_map.get(job.test_type),
                 'creator_name': creator_name,
                 'start_time': datetime.strftime(job.start_time, "%Y-%m-%d %H:%M:%S") if job.start_time else None,
                 'end_time': datetime.strftime(job.end_time, "%Y-%m-%d %H:%M:%S") if job.end_time else None,
                 'gmt_created': datetime.strftime(job.gmt_created, "%Y-%m-%d %H:%M:%S") if job.gmt_created else None,
-                'report_li': JobTestService().get_report_li(job.id, create_name_map),
+                'report_li': JobTestService().get_report_li(report_obj, job.id, create_name_map),
                 'project_name': JobTestService().get_expect_name(Project, {}, job.project_id),
                 'product_name': JobTestService().get_expect_name(Product, {}, job.product_id),
-                'server': JobTestService().get_job_server(job.server_provider, job.id)
+                'server': JobTestService().get_job_server(test_server_shot, cloud_server_shot, job.server_provider,
+                                                          job.id)
             })
-            results.append(job_data)
-        return results
+            job_dict[job.id] = job_data
+        return job_dict
 
 
 class CompareDuplicateService(CommonService):
@@ -488,7 +509,7 @@ class CompareDuplicateService(CommonService):
                              "test_case.id = " + model_table + ".test_case_id"]). \
                 values_list('test_suite_id', 'test_case_id', 'test_suite_name', 'test_case_name'). \
                 annotate(dcount=Count('test_case_id')).filter(dcount__gt=1)
-        job_list = TestJob.objects.filter(id__in=job_id_list).\
+        job_list = TestJob.objects.filter(id__in=job_id_list). \
             extra(select={'user_name': 'user.username'},
                   tables=['user'],
                   where=["user.id = test_job.creator"])
