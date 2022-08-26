@@ -387,14 +387,6 @@ def get_custom_server(job_case_id, template=None):
             'custom_sn': server_obj.sn if server_obj.channel_type == 'staragent' else server_obj.tsn,
             'custom_channel': server_obj.channel_type,
         }
-    elif job_case.server_snapshot_id and not TestServerSnapshot.objects.get(
-            id=job_case.server_snapshot_id).in_pool and server_provider == 'aligroup':
-        server_obj = TestServerSnapshot.objects.get(id=job_case.server_snapshot_id)
-        server = {
-            'custom_ip': server_obj.private_ip,
-            'custom_sn': server_obj.sn,
-            'custom_channel': server_obj.channel_type,
-        }
     else:
         server = None
     return server
