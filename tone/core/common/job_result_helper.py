@@ -894,30 +894,31 @@ def get_suite_conf_sub_case_v1(suite_id, suite_name, base_index, group_job_list,
             fail_case = case_info[4]
             conf_id = case_info[1]
             conf_name = case_info[2]
-            func_results = FuncResult.objects.filter(q & Q(test_case_id=conf_id)).\
+            duplicate_jobs = [duplicate_data for duplicate_data in duplicate_conf
+                              if duplicate_data['conf_id'] == conf_id]
+            duplicate_job_id = test_job_id
+            if len(duplicate_jobs) == 1:
+                duplicate_job_id = duplicate_jobs[0]['job_id']
+            func_results = FuncResult.objects.filter(Q(test_job_id=duplicate_job_id) & Q(test_case_id=conf_id)).\
                 values_list('sub_case_name', 'sub_case_result').distinct()
             exist_conf = [conf for conf in conf_list if conf['conf_id'] == conf_id]
             if exist_conf and len(exist_conf) > 0:
                 continue
             base_data = {
                 'all_case': all_case,
-                'obj_id': test_job_id,
+                'obj_id': duplicate_job_id,
                 'success_case': success_case,
                 'fail_case': fail_case,
             }
-            duplicate_jobs = [duplicate_data for duplicate_data in duplicate_conf
-                              if duplicate_data['conf_id'] == conf_id]
-            duplicate_job_id = test_job_id
-            if len(duplicate_jobs) == 1:
-                duplicate_job_id = duplicate_jobs[0]['job_id']
             compare_data = list()
-            compare_data.extend(get_conf_compare_data_v1(group_job_list, suite_id, conf_id,
-                                                         suite_obj['compare_count'])),
+            conf_compare_data = get_conf_compare_data_v1(group_job_list, suite_id, conf_id, suite_obj['compare_count'])
+            compare_data.extend(conf_compare_data),
             compare_data.insert(base_index, base_data)
             conf_obj = {
                 'conf_name': conf_name,
                 'conf_id': conf_id,
-                'conf_compare_data': [compare for compare in compare_data if compare['obj_id'] == duplicate_job_id],
+                'conf_compare_data': compare_data,
+                # 'conf_compare_data': [compare for compare in compare_data if compare['obj_id'] == duplicate_job_id],
                 'sub_case_list': get_sub_case_list_v1(func_results[:200], suite_id, conf_id, group_job_list, base_index)
             }
             suite_obj['base_count']['all_case'] += all_case

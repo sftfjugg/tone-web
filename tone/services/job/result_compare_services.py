@@ -432,15 +432,21 @@ class CompareFormService(CommonService):
             'business': '业务测试',
             'stability': '稳定性测试'
         }
-        results, create_name_map = list(), dict()
+        name_list, project_list, product_list = list(), list(), list()
         jobs = TestJob.objects.filter(id__in=ids)
         fun_result = FuncResult.objects.filter(test_job_id__in=ids)
         test_job_case = TestJobCase.objects.filter(job_id__in=ids)
-        report_obj = ReportObjectRelation.objects.filter(object_id__in=ids)
+        # report_obj = ReportObjectRelation.objects.filter(object_id__in=ids)
         test_server_shot = TestServerSnapshot.objects.filter(job_id__in=ids)
         cloud_server_shot = CloudServerSnapshot.objects.filter(job_id__in=ids)
         for job in jobs:
-            creator_name = JobTestService.get_expect_name(User, create_name_map, job.creator)
+            name_list.append(job.creator)
+            project_list.append(job.project_id)
+            product_list.append(job.product_id)
+        create_name_map = CompareFormService.__get_objects_name_map(User, name_list)
+        project_name_map = CompareFormService.__get_objects_name_map(Project, project_list)
+        product_name_map = CompareFormService.__get_objects_name_map(Product, product_list)
+        for job in jobs:
             job_data = job.to_dict()
             func_view_config = BaseConfig.objects.filter(config_type='ws', ws_id=job_data.get('ws_id'),
                                                          config_key='FUNC_RESULT_VIEW_TYPE').first()
@@ -448,18 +454,27 @@ class CompareFormService(CommonService):
                 'state': JobTestService().get_job_state(fun_result, test_job_case, job.id, job.test_type, job.state,
                                                         func_view_config),
                 'test_type': test_type_map.get(job.test_type),
-                'creator_name': creator_name,
+                'creator_name': create_name_map[job.creator],
                 'start_time': datetime.strftime(job.start_time, "%Y-%m-%d %H:%M:%S") if job.start_time else None,
                 'end_time': datetime.strftime(job.end_time, "%Y-%m-%d %H:%M:%S") if job.end_time else None,
                 'gmt_created': datetime.strftime(job.gmt_created, "%Y-%m-%d %H:%M:%S") if job.gmt_created else None,
-                'report_li': JobTestService().get_report_li(report_obj, job.id, create_name_map),
-                'project_name': JobTestService().get_expect_name(Project, {}, job.project_id),
-                'product_name': JobTestService().get_expect_name(Product, {}, job.product_id),
+                # 'report_li': JobTestService().get_report_li(report_obj, job.id, create_name_map),
+                'project_name': project_name_map[job.project_id],
+                'product_name': product_name_map[job.product_id],
                 'server': JobTestService().get_job_server(test_server_shot, cloud_server_shot, job.server_provider,
                                                           job.id)
             })
             job_dict[job.id] = job_data
         return job_dict
+
+    @staticmethod
+    def __get_objects_name_map(target_model, ids):
+        target_dict = dict()
+        targets = target_model.objects.filter(id__in=ids)
+        for target in targets:
+            if target_model == User:
+                target_dict[target.id] = target.first_name if target.first_name else target.last_name
+        return target_dict
 
 
 class CompareDuplicateService(CommonService):

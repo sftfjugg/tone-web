@@ -48,6 +48,7 @@ urlpatterns = [
     path('result/perf/analysis/', result_analysis.PerfAnalysisView.as_view(), name='perf_analysis'),
     path('result/func/analysis/', result_analysis.FuncAnalysisView.as_view(), name='func_analysis'),
     path('result/compare/suite/', result_compare.CompareSuiteInfoView.as_view(), name='suite_info'),
+    path('result/compare/conf/', result_compare.CompareConfInfoView.as_view(), name='conf_info'),
     path('result/compare/info/', result_compare.CompareEnvInfoView.as_view(), name='compare_info'),
     path('result/compare/list/', result_compare.CompareListView.as_view(), name='compare_list'),
     path('result/compare/chart/', result_compare.CompareChartView.as_view(), name='compare_chart'),
