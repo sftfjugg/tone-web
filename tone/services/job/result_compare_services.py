@@ -4,6 +4,7 @@ Module Description:
 Date:
 Author: Yfh
 """
+import copy
 import json
 from datetime import datetime
 from django.db.models import Q, Count
@@ -406,14 +407,25 @@ class CompareFormService(CommonService):
 
     @staticmethod
     def __fetch_job_ids(data):
+        job_id_list = list()
         for group_data in data['allGroupData']:
-            result = CompareFormService.__get_job_infos(group_data.get("members", None))
-            group_data['members'] = result
+            if 'members' in group_data:
+                job_id_list.extend(group_data.get('members'))
+        result = CompareFormService.__get_job_infos(job_id_list)
+        for group_data in data['allGroupData']:
+            member_list = list()
+            if 'members' not in group_data:
+                data['allGroupData']['members'] = member_list
+                continue
+            for job_id in group_data.get('members'):
+                member_list.append(result[job_id])
+            data['allGroupData']['members'] = member_list
 
     @staticmethod
     def __get_job_infos(ids):
+        job_dict = dict()
         if not ids:
-            return []
+            return job_dict
         test_type_map = {
             'functional': '功能测试',
             'performance': '性能测试',
@@ -426,7 +438,7 @@ class CompareFormService(CommonService):
         test_job_case = TestJobCase.objects.filter(job_id__in=ids)
         report_obj = ReportObjectRelation.objects.filter(object_id__in=ids)
         test_server_shot = TestServerSnapshot.objects.filter(job_id__in=ids)
-        clould_server_shot = CloudServerSnapshot.objects.filter(job_id__in=ids)
+        cloud_server_shot = CloudServerSnapshot.objects.filter(job_id__in=ids)
         for job in jobs:
             creator_name = JobTestService.get_expect_name(User, create_name_map, job.creator)
             job_data = job.to_dict()
@@ -443,10 +455,11 @@ class CompareFormService(CommonService):
                 'report_li': JobTestService().get_report_li(report_obj, job.id, create_name_map),
                 'project_name': JobTestService().get_expect_name(Project, {}, job.project_id),
                 'product_name': JobTestService().get_expect_name(Product, {}, job.product_id),
-                'server': JobTestService().get_job_server(test_server_shot, clould_server_shot, job.server_provider, job.id)
+                'server': JobTestService().get_job_server(test_server_shot, cloud_server_shot, job.server_provider,
+                                                          job.id)
             })
-            results.append(job_data)
-        return results
+            job_dict[job.id] = job_data
+        return job_dict
 
 
 class CompareDuplicateService(CommonService):
@@ -495,7 +508,7 @@ class CompareDuplicateService(CommonService):
                              "test_case.id = " + model_table + ".test_case_id"]). \
                 values_list('test_suite_id', 'test_case_id', 'test_suite_name', 'test_case_name'). \
                 annotate(dcount=Count('test_case_id')).filter(dcount__gt=1)
-        job_list = TestJob.objects.filter(id__in=job_id_list).\
+        job_list = TestJob.objects.filter(id__in=job_id_list). \
             extra(select={'user_name': 'user.username'},
                   tables=['user'],
                   where=["user.id = test_job.creator"])
