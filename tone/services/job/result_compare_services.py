@@ -10,7 +10,8 @@ from django.db.models import Q, Count
 
 from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestJob, PerfResult, TestJobCase, TestSuite, TestCase, FuncBaselineDetail, PerfBaselineDetail, \
-    TestServerSnapshot, CloudServerSnapshot, User, CompareForm, FuncResult, Project, BaseConfig, Product
+    TestServerSnapshot, CloudServerSnapshot, User, CompareForm, FuncResult, Project, BaseConfig, Product, \
+    ReportObjectRelation
 from tone.core.common.job_result_helper import get_suite_conf_metric, get_suite_conf_sub_case, \
     get_metric_list, get_suite_conf_metric_v1, get_suite_conf_sub_case_v1
 from tone.core.common.services import CommonService
@@ -421,22 +422,28 @@ class CompareFormService(CommonService):
         }
         results, create_name_map = list(), dict()
         jobs = TestJob.objects.filter(id__in=ids)
+        fun_result = FuncResult.objects.filter(test_job_id__in=ids)
+        test_job_case = TestJobCase.objects.filter(job_id__in=ids)
+        report_obj = ReportObjectRelation.objects.filter(object_id__in=ids)
+        test_server_shot = TestServerSnapshot.objects.filter(job_id__in=ids)
+        clould_server_shot = CloudServerSnapshot.objects.filter(job_id__in=ids)
         for job in jobs:
             creator_name = JobTestService.get_expect_name(User, create_name_map, job.creator)
             job_data = job.to_dict()
             func_view_config = BaseConfig.objects.filter(config_type='ws', ws_id=job_data.get('ws_id'),
                                                          config_key='FUNC_RESULT_VIEW_TYPE').first()
             job_data.update({
-                'state': JobTestService().get_job_state(job.id, job.test_type, job.state, func_view_config),
+                'state': JobTestService().get_job_state(fun_result, test_job_case, job.id, job.test_type, job.state,
+                                                        func_view_config),
                 'test_type': test_type_map.get(job.test_type),
                 'creator_name': creator_name,
                 'start_time': datetime.strftime(job.start_time, "%Y-%m-%d %H:%M:%S") if job.start_time else None,
                 'end_time': datetime.strftime(job.end_time, "%Y-%m-%d %H:%M:%S") if job.end_time else None,
                 'gmt_created': datetime.strftime(job.gmt_created, "%Y-%m-%d %H:%M:%S") if job.gmt_created else None,
-                'report_li': JobTestService().get_report_li(job.id, create_name_map),
+                'report_li': JobTestService().get_report_li(report_obj, job.id, create_name_map),
                 'project_name': JobTestService().get_expect_name(Project, {}, job.project_id),
                 'product_name': JobTestService().get_expect_name(Product, {}, job.product_id),
-                'server': JobTestService().get_job_server(job.server_provider, job.id)
+                'server': JobTestService().get_job_server(test_server_shot, clould_server_shot, job.server_provider, job.id)
             })
             results.append(job_data)
         return results
