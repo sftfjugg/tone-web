@@ -354,6 +354,7 @@ class ReportDetailSerializer(CommonSerializer):
     creator_name = serializers.SerializerMethodField()
     group_count = serializers.SerializerMethodField()
     old_report = serializers.SerializerMethodField()
+    test_env = serializers.SerializerMethodField()
 
     class Meta:
         model = Report
@@ -374,7 +375,7 @@ class ReportDetailSerializer(CommonSerializer):
         return 1 if obj.gmt_created < datetime.strptime('2022-08-11', '%Y-%m-%d') else 0
 
     def get_test_item(self, obj):
-        base_index = obj.test_env.get('base_index', 0)
+        base_index = obj.test_env.get('base_index', 0) if obj.test_env else 0
         is_old_report = 1 if obj.gmt_created < datetime.strptime('2022-08-11', '%Y-%m-%d') else 0
         perf_data = self.get_perf_data(obj.id, base_index, is_old_report)
         func_data = self.get_func_data(obj.id, base_index, is_old_report)
@@ -405,6 +406,15 @@ class ReportDetailSerializer(CommonSerializer):
             else:
                 package_name_v1(0, item_map, name_li, item.id, 'functional', base_index)
         return item_map
+
+    @staticmethod
+    def get_test_env(obj):
+        if obj.test_env:
+            count_li = [len(_info.get('server_info')) for _info in obj.test_env.get('compare_groups')]
+            count_li.append(len(obj.test_env.get('base_group').get('server_info')))
+            count = max(count_li)
+            obj.test_env['count'] = count
+            return str(obj.test_env)
 
     @staticmethod
     def get_group_count(obj):

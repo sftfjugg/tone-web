@@ -405,6 +405,7 @@ class ReportService(CommonService):
             else:
                 compare_conf_list.append(compare_count)
             job_index += 1
+        compare_conf_list.insert(base_index, conf_source)
         item_conf = ReportItemConf.objects.create(report_item_suite_id=item_suite_id, test_conf_id=test_conf_id,
                                                   test_conf_name=test_conf_name, conf_source=conf_source,
                                                   compare_conf_list=compare_conf_list)
@@ -422,11 +423,13 @@ class ReportService(CommonService):
             values_list('sub_case_name', 'sub_case_result')
         item_sub_case_list = list()
         for func_result in func_results:
+            compare_data = get_func_compare_data(test_suite_id, test_conf_id, func_result[0], job_list)
+            compare_data.insert(base_index, FUNC_CASE_RESULT_TYPE_MAP.get(func_result[1]))
             report_sub_case = ReportItemSubCase(
                 report_item_conf_id=item_conf_id,
                 sub_case_name=func_result[0],
                 result=FUNC_CASE_RESULT_TYPE_MAP.get(func_result[1]),
-                compare_data=get_func_compare_data(test_suite_id,test_conf_id,func_result[0],job_list))
+                compare_data=compare_data)
             item_sub_case_list.append(report_sub_case)
         ReportItemSubCase.objects.bulk_create(item_sub_case_list)
 
@@ -446,7 +449,7 @@ class ReportService(CommonService):
                 continue
             compare_data = PerfResult.objects. \
                 filter(test_job_id__in=job_list, metric=perf_result.metric, test_suite_id=test_suite_id,
-                       test_case_id=test_conf_id)
+                       test_case_id=test_conf_id).distinct()
             test_value = round(float(perf_result.test_value), 2)
             for compare_metric in compare_data:
                 value = round(float(compare_metric.test_value), 2)
@@ -455,8 +458,8 @@ class ReportService(CommonService):
                                                                    test_metric.cmp_threshold, cv_value,
                                                                    test_metric.cv_threshold)
                 compare = dict({
-                    'test_value': compare_metric.test_value,
-                    'cv_value': compare_metric.cv_value,
+                    'test_value': round(float(compare_metric.test_value), 2),
+                    'cv_value': compare_metric.cv_value.split('±')[-1],
                     'max_value': compare_metric.max_value,
                     'min_value': compare_metric.min_value,
                     'compare_value': compare_value,
@@ -581,8 +584,12 @@ class ReportService(CommonService):
         base_index = report.test_env.get('base_index')
         assert report_id, ReportException(ErrorCode.REPORT_ID_NEED)
         for key, value in data.items():
+            if key == 'test_env':
+                continue
             if hasattr(report, key):
                 setattr(report, key, value)
+        if data.get('test_env').get('text'):
+            report.test_env['text'] = data.get('test_env').get('text')
         test_item = data.get('test_item', None)
         with transaction.atomic():
             if test_item:

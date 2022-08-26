@@ -785,8 +785,16 @@ def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_lis
                 compare_result = PerfResult.objects.\
                     filter(test_job_id=job_id, test_suite_id=suite_id, test_case_id=conf_id)
             compare_result_li.append(compare_result)
-    conf_compare_data = compare_job_list
-    conf_compare_data.insert(base_index, base_job_id)
+    conf_compare_data = list()
+    for compare_job in compare_job_list:
+        conf_compare_data.append(dict({
+            'is_job': 1,
+            'obj_id': compare_job
+        }))
+    conf_compare_data.insert(base_index, dict({
+            'is_job': 1,
+            'obj_id': base_job_id
+        }))
     conf_obj = {
         'conf_id': conf_id,
         'conf_name': conf_name,
@@ -953,7 +961,7 @@ def concurrent_calc_v1(func_result, suite, conf, compare_job_li, base_index, q):
     q.put(
         {
             'sub_case_name': sub_case_name,
-            'result': result,
+            # 'result': result,
             'compare_data': compare_data,
         }
     )
