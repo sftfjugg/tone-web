@@ -415,11 +415,11 @@ class CompareFormService(CommonService):
         for group_data in data['allGroupData']:
             member_list = list()
             if 'members' not in group_data:
-                data['allGroupData']['members'] = member_list
+                group_data['members'] = member_list
                 continue
             for job_id in group_data.get('members'):
                 member_list.append(result[job_id])
-            data['allGroupData']['members'] = member_list
+            group_data['members'] = member_list
 
     @staticmethod
     def __get_job_infos(ids):

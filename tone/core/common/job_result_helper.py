@@ -6,7 +6,7 @@ Author: Yfh
 """
 import json
 import requests
-from django.db.models import Count, Case, When
+from django.db.models import Count, Case, When, Q
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
