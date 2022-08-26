@@ -474,6 +474,8 @@ class CompareFormService(CommonService):
         for target in targets:
             if target_model == User:
                 target_dict[target.id] = target.first_name if target.first_name else target.last_name
+            else:
+                target_dict[target.id] = target.name
         return target_dict
 
 
