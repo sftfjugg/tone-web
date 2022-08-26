@@ -5,15 +5,16 @@ Date:
 Author: Yfh
 """
 import json
-
+from datetime import datetime
 from django.db.models import Q, Count
 
 from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestJob, PerfResult, TestJobCase, TestSuite, TestCase, FuncBaselineDetail, PerfBaselineDetail, \
-    TestServerSnapshot, CloudServerSnapshot, User, CompareForm, FuncResult
+    TestServerSnapshot, CloudServerSnapshot, User, CompareForm, FuncResult, Project, BaseConfig, Product
 from tone.core.common.job_result_helper import get_suite_conf_metric, get_suite_conf_sub_case, \
-    get_metric_list, get_suite_conf_metric_v1, get_suite_conf_sub_case_v1, get_metric_list_v1
+    get_metric_list, get_suite_conf_metric_v1, get_suite_conf_sub_case_v1
 from tone.core.common.services import CommonService
+from tone.services.job.test_services import JobTestService
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.custom_error import AnalysisException
 
@@ -394,12 +395,51 @@ class CompareFormService(CommonService):
         if CompareForm.objects.filter(hash_key=hash_key).exists():
             obj_id = CompareForm.objects.filter(hash_key=hash_key).first().id
         else:
+            CompareFormService.__fetch_job_ids(form_data)
             compare_form_obj = CompareForm.objects.create(
                 req_form=form_data,
                 hash_key=hash_key,
             )
             obj_id = compare_form_obj.id
         return obj_id, hash_key
+
+    @staticmethod
+    def __fetch_job_ids(data):
+        for group_data in data['allGroupData']:
+            result = CompareFormService.__get_job_infos(group_data.get("members", None))
+            group_data['members'] = result
+
+    @staticmethod
+    def __get_job_infos(ids):
+        if not ids:
+            return []
+        test_type_map = {
+            'functional': '功能测试',
+            'performance': '性能测试',
+            'business': '业务测试',
+            'stability': '稳定性测试'
+        }
+        results, create_name_map = list(), dict()
+        jobs = TestJob.objects.filter(id__in=ids)
+        for job in jobs:
+            creator_name = JobTestService.get_expect_name(User, create_name_map, job.creator)
+            job_data = job.to_dict()
+            func_view_config = BaseConfig.objects.filter(config_type='ws', ws_id=job_data.get('ws_id'),
+                                                         config_key='FUNC_RESULT_VIEW_TYPE').first()
+            job_data.update({
+                'state': JobTestService().get_job_state(job.id, job.test_type, job.state, func_view_config),
+                'test_type': test_type_map.get(job.test_type),
+                'creator_name': creator_name,
+                'start_time': datetime.strftime(job.start_time, "%Y-%m-%d %H:%M:%S") if job.start_time else None,
+                'end_time': datetime.strftime(job.end_time, "%Y-%m-%d %H:%M:%S") if job.end_time else None,
+                'gmt_created': datetime.strftime(job.gmt_created, "%Y-%m-%d %H:%M:%S") if job.gmt_created else None,
+                'report_li': JobTestService().get_report_li(job.id, create_name_map),
+                'project_name': JobTestService().get_expect_name(Project, {}, job.project_id),
+                'product_name': JobTestService().get_expect_name(Product, {}, job.product_id),
+                'server': JobTestService().get_job_server(job.server_provider, job.id)
+            })
+            results.append(job_data)
+        return results
 
 
 class CompareDuplicateService(CommonService):
