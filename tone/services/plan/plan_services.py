@@ -18,6 +18,7 @@ from tone.core.handle.report_handle import ReportHandle
 from tone.core.schedule.schedule_handle import ScheduleHandle
 from tone.core.schedule.schedule_job import TestPlanScheduleJob
 from tone.core.schedule.single_scheduler import scheduler
+from tone.core.utils.common_utils import pack_env_infos
 from tone.core.utils.permission_manage import check_operator_permission
 from tone.models import TestPlan, PlanStageRelation, PlanStagePrepareRelation, PlanStageTestRelation, datetime, \
     PlanInstance, PlanInstanceStageRelation, PlanInstancePrepareRelation, PlanInstanceTestRelation, ScheduleMap, \
@@ -67,13 +68,7 @@ class PlanService(CommonService):
     @staticmethod
     def get_env_info(origin_env_info):
         """获取全局变量"""
-        env_info = dict()
-        # 获取环境变量信息, 个用英文逗号或者\n分隔
-        for tmp_env in origin_env_info.replace(',', '\n').split('\n'):
-            if '=' in tmp_env:
-                env_key, env_value = tmp_env.split('=')
-                env_info[env_key.strip()] = env_value.strip()
-        return env_info
+        return pack_env_infos(origin_env_info)
 
     def create_plan(self, data, operator):
         """
