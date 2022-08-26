@@ -201,18 +201,32 @@ class ReportHandle(object):
         return test_env
 
     def create_report_item(self, conf_id, conf_source, report_item_suite):
+        compare_conf_list = list()
+        compare_conf_list.append(conf_source)
         if self.job_obj.baseline_id:
-            compare_conf_list = list()
-            compare_conf_list.append(conf_source)
+            if self.job_obj.test_type == 'functional':
+                baseline = FuncBaselineDetail.objects.filter(baseline_id=self.job_obj.baseline_id)
+                compare_conf_list.insert(0, dict({
+                    "is_job": 0,
+                    "obj_id": self.job_obj.baseline_id,
+                    "all_case": baseline.count(),
+                    "success_case": baseline.filter(sub_case_result=1).count(),
+                    "fail_case": baseline.filter(sub_case_result=2).count(),
+                    "warn_case": baseline.filter(sub_case_result=6).count()}))
+            else:
+                compare_conf_list.insert(0, dict({
+                    "is_job": 0,
+                    "obj_id": self.job_obj.baseline_id}))
             report_item_conf = ReportItemConf.objects.create(
                 report_item_suite_id=report_item_suite.id, test_conf_id=conf_id,
                 test_conf_name=TestCase.objects.get_value(id=conf_id).name,
                 compare_conf_list=compare_conf_list)
         else:
+            compare_conf_list.insert(0, dict())
             report_item_conf = ReportItemConf.objects.create(
                 report_item_suite_id=report_item_suite.id, test_conf_id=conf_id,
                 test_conf_name=TestCase.objects.get_value(id=conf_id).name,
-                conf_source=conf_source)
+                conf_source=conf_source, compare_conf_list=compare_conf_list)
         return report_item_conf
 
     def handle_perf_result(self, conf_id, perf_result, report_item_conf):
@@ -262,15 +276,18 @@ class ReportHandle(object):
 
     def handle_func_result(self, func_result, report_item_conf):
         compare_data = list()
+        compare_data.append(FUNC_CASE_RESULT_TYPE_MAP.get(func_result.sub_case_result))
         if self.job_obj.baseline_id:
             func_baseline = FuncBaselineDetail.objects. \
                 filter(baseline_id=self.job_obj.baseline_id, sub_case_name=func_result.sub_case_name).first()
-            compare_data.append(FUNC_CASE_RESULT_TYPE_MAP.get(func_result.sub_case_result))
+            if func_baseline:
+                compare_data.append(FUNC_CASE_RESULT_TYPE_MAP.get(func_baseline.sub_case_result))
             ReportItemSubCase.objects.create(report_item_conf_id=report_item_conf.id,
                                              sub_case_name=func_result.sub_case_name,
                                              result='Fail' if func_baseline else None,
                                              compare_data=compare_data)
         else:
+            compare_data.insert(0, '')
             ReportItemSubCase.objects.create(report_item_conf_id=report_item_conf.id,
                                              sub_case_name=func_result.sub_case_name,
                                              result=FUNC_CASE_RESULT_TYPE_MAP.get(
