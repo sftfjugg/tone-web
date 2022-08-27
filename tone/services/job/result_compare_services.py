@@ -520,7 +520,7 @@ class CompareDuplicateService(CommonService):
             duplicate_case_id_list = model_result.objects.filter(q). \
                 extra(select={'test_suite_name': 'test_suite.name',
                               'test_case_name': 'test_case.name'},
-                      tables=['test_suite', 'test_case', model_table],
+                      tables=['test_suite', 'test_case'],
                       where=["test_suite.id = " + model_table + ".test_suite_id",
                              "test_case.id = " + model_table + ".test_case_id"]). \
                 values_list('test_suite_id', 'test_case_id', 'test_suite_name', 'test_case_name'). \
