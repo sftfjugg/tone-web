@@ -768,11 +768,11 @@ def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_lis
     for compare_job in group_list:
         duplicate_conf = compare_job.get('duplicate_conf')
         has_duplicate = _check_has_duplicate(duplicate_conf, conf_id)
-        job_list = list()
+        job_list = compare_job.get('job_list')
         if not has_duplicate and len(compare_job.get('job_list')) > 0:
             for job_id in compare_job.get('job_list'):
                 if PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id, test_case_id=conf_id).exists():
-                    job_list.append(job_id)
+                    job_list= [job_id]
                     compare_job_list.append(job_id)
                     break
         for job_id in job_list:
