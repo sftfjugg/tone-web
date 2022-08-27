@@ -745,6 +745,8 @@ def _check_duplicate_hit(duplicate_conf, conf_id, test_job_id):
 
 
 def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_list, base_job_id, base_index):
+    if suite_id == 7:
+        qqq = 1
     perf_results = PerfResult.objects.all().\
         extra(select={'cv_threshold': 'test_track_metric.cv_threshold',
                       'cmp_threshold': 'test_track_metric.cmp_threshold',
@@ -768,11 +770,13 @@ def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_lis
     for compare_job in group_list:
         duplicate_conf = compare_job.get('duplicate_conf')
         has_duplicate = _check_has_duplicate(duplicate_conf, conf_id)
-        job_list = compare_job.get('job_list')
+        job_list = list()
         if not has_duplicate and len(compare_job.get('job_list')) > 0:
-            job_list = list()
-            job_list.append(compare_job.get('job_list')[0])
-            compare_job_list.append(compare_job.get('job_list')[0])
+            for job_id in compare_job.get('job_list'):
+                if PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id, test_case_id=conf_id).exists():
+                    job_list.append(job_id)
+                    compare_job_list.append(job_id)
+                    break
         for job_id in job_list:
             if has_duplicate:
                 if _check_duplicate_hit(duplicate_conf, conf_id, job_id):
