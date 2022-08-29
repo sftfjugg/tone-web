@@ -31,9 +31,8 @@ class PerfAnalysisService(CommonService):
             assert project_id, AnalysisException(ErrorCode.PROJECT_ID_NEED)
         test_job = TestJob.objects.filter(project_id=project_id)
         if test_job:
-            test_job_id = test_job.last().id
             perf_res = PerfResult.objects.filter(test_suite_id=test_suite, test_case_id=test_case,
-                                                 test_job_id=test_job_id).last()
+                                                 test_job_id__in=test_job.values_list('id', flat=True)).last()
             if not perf_res:
                 return None
             metrics = PerfResult.objects.filter(test_job_id=perf_res.test_job_id, test_suite_id=test_suite,
