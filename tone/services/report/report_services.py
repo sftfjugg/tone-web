@@ -629,6 +629,25 @@ class ReportService(CommonService):
                             ReportItemConf.objects.filter(id__in=suite_value).delete()
                     item_suite.save()
 
+    @staticmethod
+    def update_item_suite_desc(data):
+        test_suite_description = data.get('test_suite_description')
+        test_env = data.get('test_env')
+        test_description = data.get('test_description')
+        test_conclusion = data.get('test_conclusion')
+        item_suite_id = data.get('item_suite_id')
+        report_item_suite = ReportItemSuite.objects.filter(id=item_suite_id).first()
+        if report_item_suite:
+            if test_suite_description:
+                report_item_suite.test_suite_description = test_suite_description
+            if test_env:
+                report_item_suite.test_env = test_env
+            if test_description:
+                report_item_suite.test_description = test_description
+            if test_conclusion:
+                report_item_suite.test_conclusion = test_conclusion
+            report_item_suite.save()
+
 
 class ReportDetailService(CommonService):
     @staticmethod
