@@ -4,16 +4,19 @@ Module Description:
 Date:
 Author: Yfh
 """
+import copy
 import json
-
-from django.db.models import Q
+from datetime import datetime
+from django.db.models import Q, Count
 
 from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestJob, PerfResult, TestJobCase, TestSuite, TestCase, FuncBaselineDetail, PerfBaselineDetail, \
-    TestServerSnapshot, CloudServerSnapshot, User, CompareForm
+    TestServerSnapshot, CloudServerSnapshot, User, CompareForm, FuncResult, Project, BaseConfig, Product, \
+    ReportObjectRelation
 from tone.core.common.job_result_helper import get_suite_conf_metric, get_suite_conf_sub_case, \
-    get_metric_list
+    get_metric_list, get_suite_conf_metric_v1, get_suite_conf_sub_case_v1
 from tone.core.common.services import CommonService
+from tone.services.job.test_services import JobTestService
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.custom_error import AnalysisException
 
@@ -22,106 +25,51 @@ class CompareSuiteInfoService(CommonService):
 
     def filter(self, data):
         func_suite_dic, perf_suite_dic = dict(), dict()
-        func_data = data.get('func_data', list())
-        perf_data = data.get('perf_data', list())
-        group_num = int(data.get('group_num', 0))
-        self.pack_suite_dic(func_data, func_suite_dic, 'func')
-        self.pack_suite_dic(perf_data, perf_suite_dic, 'perf')
+        func_data = data.get('func_data')
+        perf_data = data.get('perf_data')
+        self.pack_suite_dic(func_data, func_suite_dic)
+        self.pack_suite_dic(perf_data, perf_suite_dic)
         res_data = {
             'func_suite_dic': func_suite_dic,
             'perf_suite_dic': perf_suite_dic,
-            'red_dot_count': self.get_red_dot_count(func_suite_dic, perf_suite_dic, group_num),
         }
         return res_data
 
-    def pack_suite_dic(self, data, data_dic, test_type):
-        base_obj_li = data.get('base_obj_li', list())
-        compare_groups = data.get('compare_groups', list())
-        self.package_base_data(base_obj_li, data_dic, test_type)
-        self.package_compare_data(compare_groups, data_dic, test_type)
+    def pack_suite_dic(self, data, data_dic):
+        base_obj_li = data.get('base_job')
+        self.package_base_data(base_obj_li, data_dic)
 
-    def package_base_data(self, base_obj_li, data_dic, test_type):
-        for base_obj in base_obj_li:
-            obj_id = base_obj.get('obj_id')
-            is_job = base_obj.get('is_job')
-            test_job_data = dict()
-            if is_job:
-                job_cases = TestJobCase.objects.filter(job_id=obj_id)
-                test_job = TestJob.objects.get(id=obj_id)
-                test_job_data['name'] = test_job.name
-                test_job_data['is_job'] = is_job
-                test_job_data['obj_id'] = obj_id
+    def package_base_data(self, base_obj_li, data_dic):
+        all_test_suites = TestJobCase.objects.filter(job_id__in=base_obj_li). \
+            extra(select={'test_suite_name': 'test_suite.name'},
+                  tables=['test_suite'],
+                  where=["test_suite.id = test_job_case.test_suite_id"])
+        for test_suite in all_test_suites:
+            if test_suite.test_suite_id not in data_dic:
+                data_dic[test_suite.test_suite_id] = {
+                    'suite_name': test_suite.test_suite_name,
+                    'suite_id': test_suite.test_suite_id,
+                    'test_job_id': [test_suite.job_id]
+                }
             else:
-                job_cases = FuncBaselineDetail.objects.filter(
-                    baseline_id=obj_id) if test_type == 'func' else PerfBaselineDetail.objects.filter(
-                    baseline_id=obj_id)
-            all_test_suites = list(TestSuite.objects.values_list('id', 'name'))
-            case_id_list = TestJobCase.objects.filter(job_id=obj_id).values_list('test_case_id', flat=True)
-            all_test_cases = list(TestCase.objects.filter(id__in=case_id_list).values_list('id', 'name'))
-            for job_case in job_cases:
-                suite_id = job_case.test_suite_id
-                case_id = job_case.test_case_id
-                for temp_test_suite in all_test_suites:
-                    if temp_test_suite[0] == suite_id:
-                        cur_test_suite = temp_test_suite
-                        break
-                else:
-                    continue
-
-                for temp_test_case in all_test_cases:
-                    if temp_test_case[0] == case_id:
-                        cur_test_case = temp_test_case
-                        break
-                else:
-                    continue
-
-                if suite_id in data_dic:
-                    if case_id in data_dic[suite_id]['conf_dic']:
-                        data_dic[suite_id]['conf_dic'][case_id]['base_obj_li'].append(test_job_data)
-                    else:
-                        data_dic[suite_id]['conf_dic'][case_id] = {
-                            'conf_name': cur_test_case[1],
-                            'conf_id': cur_test_case[0],
-                            'is_job': is_job,
-                            'base_obj_li': [test_job_data],
-                            'obj_id': obj_id if is_job else job_case.id,
-                            'compare_groups': list(),
-                        }
-                else:
-                    data_dic[suite_id] = {
-                        'suite_name': cur_test_suite[1],
-                        'suite_id': cur_test_suite[0],
-                        'conf_dic': {
-                            case_id: {
-                                'conf_name': cur_test_case[1],
-                                'conf_id': cur_test_case[0],
-                                'base_obj_li': [test_job_data],
-                                'compare_groups': list(),
-                            }
-                        }
-                    }
+                if test_suite.job_id not in data_dic[test_suite.test_suite_id]['test_job_id']:
+                    data_dic[test_suite.test_suite_id]['test_job_id'].append(test_suite.job_id)
 
     def package_compare_data(self, compare_groups, data_dic, test_type):
         for compare_group in compare_groups:
-            self._package_compare_data(data_dic, test_type, compare_group)
+            self._package_compare_data(data_dic, compare_group)
 
-    def _package_compare_data(self, data_dic, test_type, compare_group):
+    def _package_compare_data(self, data_dic, obj_id):
+        compare_obj_li = list()
         job_obj_dict = dict()
+        if obj_id not in job_obj_dict:
+            job_data = self.get_obj(obj_id, 1)
+            job_obj_dict.setdefault(obj_id, job_data)
+        else:
+            job_data = job_obj_dict.get(obj_id)
+        compare_obj_li.append(job_data)
         for suite_key, suite_value in data_dic.items():
             for conf_key, conf_value in suite_value.get('conf_dic', dict()).items():
-                compare_obj_li = list()
-                for compare_obj in compare_group:
-                    obj_id = compare_obj.get('obj_id')
-                    is_job = compare_obj.get('is_job')
-                    if obj_id not in job_obj_dict:
-                        job_data = self.get_obj(obj_id, is_job)
-                        job_obj_dict.setdefault(obj_id, job_data)
-                    else:
-                        job_data = job_obj_dict.get(obj_id)
-                    if is_job:
-                        if TestJobCase.objects.filter(job_id=obj_id, test_suite_id=int(suite_key),
-                                                      test_case_id=int(conf_key)).exists():
-                            compare_obj_li.append(job_data)
                 conf_value.get('compare_groups', list()).append(compare_obj_li)
 
     def get_red_dot_count(self, func_suite_dic, perf_suite_dic, group_num):
@@ -152,6 +100,31 @@ class CompareSuiteInfoService(CommonService):
             obj_data['name'] = name
             obj_data['creator'] = creator_name
         return obj_data
+
+
+class CompareConfInfoService(CommonService):
+    def filter(self, data):
+        suite_id = data.get('suite_id')
+        test_job_list = data.get('test_job_id')
+        res_data = {}
+        for test_job_id in test_job_list:
+            res_data = {
+                'conf_dic': self.package_conf_data(test_job_id, suite_id)
+            }
+        return res_data
+
+    def package_conf_data(self, test_job_id, suite_id):
+        test_case_data = dict()
+        case_id_list = TestJobCase.objects.filter(job_id=test_job_id, test_suite_id=suite_id).\
+            values_list('test_case_id', flat=True)
+        all_test_cases = list(TestCase.objects.filter(id__in=case_id_list).values_list('id', 'name'))
+        for job_case in all_test_cases:
+            case_id = job_case[0]
+            test_case_data[case_id] = {
+                'conf_name': job_case[1],
+                'conf_id': job_case[0]
+            }
+        return test_case_data
 
 
 class CompareEnvInfoService(CommonService):
@@ -238,6 +211,61 @@ class CompareListService(CommonService):
             result_data = get_suite_conf_sub_case(suite_id, suite_info)
         else:
             result_data = get_suite_conf_metric(suite_id, suite_info)
+        result_data = result_data if data.get('show_type', 1) == 1 else self.regroup_data(result_data)
+        return result_data
+
+    @staticmethod
+    def regroup_data(data):
+        res = data['conf_list']
+        metric_dic = dict()
+        for conf in res:
+            for metric in conf['metric_list']:
+                res_data = {
+                    'conf_name': conf['conf_name'],
+                    'conf_id': conf['conf_id'],
+                    "test_value": metric['test_value'],
+                    "unit": metric['unit'],
+                    "direction": metric['direction'],
+                    "compare_data": metric['compare_data']
+                }
+                if metric['metric'] in metric_dic:
+                    metric_dic[metric['metric']].append(res_data)
+                else:
+                    metric_dic[metric['metric']] = [res_data]
+        del data['conf_list']
+        data['metric_dic'] = metric_dic
+        return data
+
+    def get_suite_compare_data_v1(self, data):
+        suite_id = data.get('suite_id')
+        suite_name = data.get('suite_name')
+        base_index = data.get('base_index')
+        group_job_list = data.get('group_jobs')
+        res_group_job = copy.deepcopy(group_job_list)
+        duplicate_data = data.get('duplicate_data')
+        if duplicate_data and (type(duplicate_data) is list and len(duplicate_data) > 0):
+            for group_job in group_job_list:
+                group_job['duplicate_conf'] = list()
+                group_job['duplicate_conf']. \
+                    extend([d for d in duplicate_data if d['job_id'] in group_job.get('job_list')])
+        is_all = data.get('is_all')
+        suite_info = data.get('conf_info')
+        test_suite = TestSuite.objects.filter(id=suite_id).first()
+        if not test_suite:
+            return dict()
+        test_type = test_suite.test_type
+        if test_type == 'functional':
+            result_data = \
+                get_suite_conf_sub_case_v1(suite_id, suite_name, base_index, group_job_list, suite_info, is_all)
+        else:
+            result_data = get_suite_conf_metric_v1(suite_id, suite_name, base_index, group_job_list, suite_info, is_all)
+        result_data['test_type'] = test_type
+        result_data = result_data if data.get('show_type', 1) == 1 else self.regroup_data(result_data)
+        result_data['group_jobs'] = res_group_job
+        if len(res_group_job) > 0 and len(res_group_job[0]['job_list']) > 0:
+            job = TestJob.objects.filter(id=res_group_job[0]['job_list'][0]).first()
+            if job:
+                result_data['ws_id'] = job.ws_id
         return result_data
 
     def filter(self, data):
@@ -369,9 +397,194 @@ class CompareFormService(CommonService):
         if CompareForm.objects.filter(hash_key=hash_key).exists():
             obj_id = CompareForm.objects.filter(hash_key=hash_key).first().id
         else:
+            CompareFormService.__fetch_job_ids(form_data)
             compare_form_obj = CompareForm.objects.create(
                 req_form=form_data,
                 hash_key=hash_key,
             )
             obj_id = compare_form_obj.id
         return obj_id, hash_key
+
+    @staticmethod
+    def __fetch_job_ids(data):
+        job_id_list = list()
+        for group_data in data['allGroupData']:
+            if 'members' in group_data:
+                job_id_list.extend(group_data.get('members'))
+        result = CompareFormService.__get_job_infos(job_id_list)
+        for group_data in data['allGroupData']:
+            member_list = list()
+            if 'members' not in group_data:
+                group_data['members'] = member_list
+                continue
+            for job_id in group_data.get('members'):
+                member_list.append(result[job_id])
+            group_data['members'] = member_list
+
+    @staticmethod
+    def __get_job_infos(ids):
+        job_dict = dict()
+        if not ids:
+            return job_dict
+        test_type_map = {
+            'functional': '功能测试',
+            'performance': '性能测试',
+            'business': '业务测试',
+            'stability': '稳定性测试'
+        }
+        name_list, project_list, product_list = list(), list(), list()
+        jobs = TestJob.objects.filter(id__in=ids)
+        fun_result = FuncResult.objects.filter(test_job_id__in=ids)
+        test_job_case = TestJobCase.objects.filter(job_id__in=ids)
+        # report_obj = ReportObjectRelation.objects.filter(object_id__in=ids)
+        test_server_shot = TestServerSnapshot.objects.filter(job_id__in=ids)
+        cloud_server_shot = CloudServerSnapshot.objects.filter(job_id__in=ids)
+        for job in jobs:
+            name_list.append(job.creator)
+            project_list.append(job.project_id)
+            product_list.append(job.product_id)
+        create_name_map = CompareFormService.__get_objects_name_map(User, name_list)
+        project_name_map = CompareFormService.__get_objects_name_map(Project, project_list)
+        product_name_map = CompareFormService.__get_objects_name_map(Product, product_list)
+        for job in jobs:
+            job_data = job.to_dict()
+            func_view_config = BaseConfig.objects.filter(config_type='ws', ws_id=job_data.get('ws_id'),
+                                                         config_key='FUNC_RESULT_VIEW_TYPE').first()
+            job_data.update({
+                'state': JobTestService().get_job_state(fun_result, test_job_case, job.id, job.test_type, job.state,
+                                                        func_view_config),
+                'test_type': test_type_map.get(job.test_type),
+                'creator_name': create_name_map[job.creator],
+                'start_time': datetime.strftime(job.start_time, "%Y-%m-%d %H:%M:%S") if job.start_time else None,
+                'end_time': datetime.strftime(job.end_time, "%Y-%m-%d %H:%M:%S") if job.end_time else None,
+                'gmt_created': datetime.strftime(job.gmt_created, "%Y-%m-%d %H:%M:%S") if job.gmt_created else None,
+                # 'report_li': JobTestService().get_report_li(report_obj, job.id, create_name_map),
+                'project_name': project_name_map[job.project_id],
+                'product_name': product_name_map[job.product_id],
+                'server': JobTestService().get_job_server(test_server_shot, cloud_server_shot, job.server_provider,
+                                                          job.id)
+            })
+            job_dict[job.id] = job_data
+        return job_dict
+
+    @staticmethod
+    def __get_objects_name_map(target_model, ids):
+        target_dict = dict()
+        targets = target_model.objects.filter(id__in=ids)
+        for target in targets:
+            if target_model == User:
+                target_dict[target.id] = target.first_name if target.first_name else target.last_name
+            else:
+                target_dict[target.id] = target.name
+        return target_dict
+
+
+class CompareDuplicateService(CommonService):
+    def get(self, data):
+        suite_list = data.get('suite_list')
+        group_jobs = data.get('group_jobs')
+        job_id_list = list()
+        for group in group_jobs:
+            group['suite_list'] = list()
+            job_id_list.extend(group.get('test_job_id'))
+        conf_list = list()
+        suite_id_list = list()
+        if len(suite_list) == 0:
+            return dict()
+        for suite_info in suite_list:
+            if not suite_info.get('is_all'):
+                conf_list.extend(suite_info['conf_list'])
+            else:
+                suite_id_list.append(suite_info['suite_id'])
+        test_suite = TestSuite.objects.filter(id=suite_list[0]['suite_id']).first()
+        if not test_suite:
+            return dict()
+        test_type = test_suite.test_type
+        model_result = FuncResult
+        model_table = 'func_result'
+        if test_type == 'functional':
+            pass
+        else:
+            model_result = PerfResult
+            model_table = 'perf_result'
+        q = Q(test_job_id__in=job_id_list)
+        if len(suite_id_list) > 0:
+            q &= Q(test_suite_id__in=suite_id_list)
+        if len(conf_list) > 0:
+            q &= Q(test_case_id__in=conf_list)
+        if len(conf_list) == 0 and len(suite_id_list) == 0:
+            job_case_list = list()
+            duplicate_case_id_list = list()
+        else:
+            job_case_list = model_result.objects.filter(q).values_list('test_job_id', 'test_suite_id', 'test_case_id').distinct()
+            duplicate_case_id_list = model_result.objects.filter(q). \
+                extra(select={'test_suite_name': 'test_suite.name',
+                              'test_case_name': 'test_case.name'},
+                      tables=['test_suite', 'test_case'],
+                      where=["test_suite.id = " + model_table + ".test_suite_id",
+                             "test_case.id = " + model_table + ".test_case_id"]). \
+                values_list('test_suite_id', 'test_case_id', 'test_suite_name', 'test_case_name'). \
+                annotate(dcount=Count('test_case_id')).filter(dcount__gt=1)
+        job_list = TestJob.objects.filter(id__in=job_id_list). \
+            extra(select={'user_name': 'user.username'},
+                  tables=['user'],
+                  where=["user.id = test_job.creator"])
+        job_list_obj = dict()
+        for test_job in job_list:
+            job_res = dict(
+                job_id=test_job.id,
+                job_name=test_job.name,
+                create_user=test_job.user_name
+            )
+            job_list_obj[test_job.id] = job_res
+        for duplicate_data in duplicate_case_id_list:
+            test_suite_id = duplicate_data[0]
+            test_case_id = duplicate_data[1]
+            test_suite_name = duplicate_data[2]
+            test_case_name = duplicate_data[3]
+            suite_job_id_list = list()
+            [suite_job_id_list.append(job_case[0]) for job_case in job_case_list
+             if job_case[1] == test_suite_id and job_case[2] == test_case_id and
+             job_case[0] not in suite_job_id_list]
+            groups = [g for g in group_jobs if len(self.get_sub_list(suite_job_id_list, g['test_job_id'])) > 1]
+            if len(groups) == 0:
+                continue
+            for group in groups:
+                suite_res_job_id_list = [job_id for job_id in group['test_job_id'] if job_id in suite_job_id_list]
+                suite_res_list = group['suite_list']
+                job_res_list = list()
+                for job_id in suite_res_job_id_list:
+                    job_info = job_list_obj.get(job_id)
+                    if job_info:
+                        job_res_list.append(job_info)
+                suite_res_li = [s for s in suite_res_list if s['suite_id'] == test_suite_id]
+                conf_info = dict()
+                conf_info['conf_id'] = test_case_id
+                conf_info['conf_name'] = test_case_name
+                conf_info['job_list'] = job_res_list
+                suite_res = dict()
+                if len(suite_res_li) > 0:
+                    suite_res = suite_res_li[0]
+                    suite_res['conf_list'].append(conf_info)
+                else:
+                    suite_res['suite_id'] = test_suite_id
+                    suite_res['suite_name'] = test_suite_name
+                    conf_list = list()
+                    conf_list.append(conf_info)
+                    suite_res['conf_list'] = conf_list
+                    suite_res_list.append(suite_res)
+        for group in group_jobs:
+            duplicate_count = 0
+            for suite_res in group['suite_list']:
+                duplicate_count += len(suite_res['conf_list'])
+            group['desc'] = '注：%s个conf有重复job数据' % duplicate_count
+            del group['test_job_id']
+        return {'duplicate_data': group_jobs}
+
+    def get_sub_list(self, source, dest):
+        res = list()
+        for m in source:
+            for n in dest:
+                if n == m:
+                    res.append(n)
+        return res

@@ -5,6 +5,7 @@ from tone.core.utils.helper import CommResp
 from tone.core.common.verify_token import token_required
 from tone.core.common.expection_handler.error_catch import api_catch_error
 from datetime import datetime
+from tone.core.handle.report_handle import ReportHandle
 
 
 @api_catch_error
@@ -57,3 +58,8 @@ def get_suite_increase(request):
         values_list('id', flat=True)
     resp.data = {'increase': suite_data_list, 'deleted': list(queryset_deleted)}
     return resp.json_resp()
+
+
+def reset_report(request):
+    job_id = request.GET['job_id']
+    ReportHandle(job_id).save_report()
