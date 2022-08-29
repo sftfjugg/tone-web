@@ -621,7 +621,20 @@ def get_perf_suite_list_v1(report_item_id, base_index):
               'LEFT JOIN test_track_metric e ON c.test_metric=e.name AND e.object_id=b.test_conf_id ' \
               'WHERE e.object_type="case" AND a.report_item_id=%s AND a.is_deleted=0 AND b.is_deleted=0 ' \
               'AND c.is_deleted=0 AND d.is_deleted=0 AND e.is_deleted=0'
-    test_suite_objs = query_all_dict(raw_sql, [report_item_id])
+    raw_sql += " union "
+    raw_sql += 'SELECT a.id AS item_suite_id, a.test_suite_id AS suite_id, a.test_suite_name AS suite_name,' \
+               'a.show_type, a.test_env, a.test_description, a.test_conclusion, ' \
+               'b.id AS item_conf_id, b.test_conf_id AS conf_id,b.test_conf_name AS conf_name, b.conf_source,' \
+               'b.compare_conf_list, c.test_metric,c.test_value,c.cv_value,d.doc AS test_suite_description,' \
+               'c.compare_data,e.cv_threshold,e.cmp_threshold,e.unit,e.direction' \
+               ' FROM report_item_suite a ' \
+               'LEFT JOIN report_item_conf b ON b.report_item_suite_id=a.id ' \
+               'LEFT JOIN report_item_metric c ON c.report_item_conf_id=b.id ' \
+               'LEFT JOIN test_suite d ON a.test_suite_name=d.name ' \
+               'LEFT JOIN test_track_metric e ON c.test_metric=e.name AND e.object_id=a.test_suite_id ' \
+               'WHERE e.object_type="suite" AND a.report_item_id=%s AND a.is_deleted=0 AND b.is_deleted=0 ' \
+               'AND c.is_deleted=0 AND d.is_deleted=0 AND e.is_deleted=0'
+    test_suite_objs = query_all_dict(raw_sql, [report_item_id, report_item_id])
     for test_suite_obj in test_suite_objs:
         exist_suite = [suite for suite in suite_list if suite['item_suite_id'] == test_suite_obj['item_suite_id']]
         if len(exist_suite) > 0:
