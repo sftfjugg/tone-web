@@ -6,6 +6,7 @@ Author: Yfh
 """
 import json
 import requests
+from django.db.models import Count, Case, When, Q
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
@@ -679,3 +680,365 @@ def get_conf_compare_data(compare_objs, suite_id, conf_id, compare_count):
 
 def splice_job_link(job):
     return f'{settings.APP_DOMAIN}/ws/{job.ws_id}/test_result/{job.id}'
+
+
+def get_suite_conf_metric_v1(suite_id, suite_name, base_index, group_list, suite_value, is_all):
+    conf_list = list()
+    suite_obj = {
+        'suite_name': suite_name,
+        'suite_id': suite_id,
+        'compare_count': list(),
+        'base_count': list()
+    }
+    thread_tasks = []
+    base_job_list = group_list.pop(base_index)
+    duplicate_conf = base_job_list.get('duplicate_conf')
+    if is_all:
+        for job_id in base_job_list.get('job_list'):
+            case_list = PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id).\
+                extra(select={'test_case_name': 'test_case.name'},
+                      tables=['test_case'],
+                      where=["perf_result.test_case_id = test_case.id"]).\
+                values_list('test_job_id', 'test_case_id', 'test_case_name').distinct()
+            for case_info in case_list:
+                thread_tasks.append(
+                    ToneThread(_get_suite_conf_metric_v1, (suite_id, case_info[1], case_info[2], suite_obj, group_list,
+                                                           case_info[0], base_index))
+                )
+                thread_tasks[-1].start()
+    else:
+        for job_id in base_job_list.get('job_list'):
+            for case_info in suite_value:
+                thread_tasks.append(
+                    ToneThread(_get_suite_conf_metric_v1, (suite_id, case_info['conf_id'], case_info['conf_name'],
+                                                           suite_obj, group_list, job_id, base_index))
+                )
+                thread_tasks[-1].start()
+    for thread_task in thread_tasks:
+        thread_task.join()
+        conf_obj = thread_task.get_result()
+        if conf_obj:
+            if _check_has_duplicate(duplicate_conf, conf_obj['conf_id']):
+                if _check_duplicate_hit(duplicate_conf, conf_obj['conf_id'], conf_obj['obj_id']):
+                    conf_list.append(conf_obj)
+            else:
+                exist_list = [conf for conf in conf_list if conf['conf_id'] == conf_obj['conf_id']]
+                if len(exist_list) == 0:
+                    conf_list.append(conf_obj)
+    suite_obj['conf_list'] = conf_list
+    return suite_obj
+
+
+def _check_has_duplicate(duplicate_conf, conf_id):
+    if duplicate_conf:
+        d_conf = [d for d in duplicate_conf if conf_id == d['conf_id']]
+        if len(d_conf) > 0:
+            return True
+    return False
+
+
+def _check_duplicate_hit(duplicate_conf, conf_id, test_job_id):
+    d_conf = [d for d in duplicate_conf if conf_id == d['conf_id'] and test_job_id == d['job_id']]
+    if len(d_conf) > 0:
+        return True
+    return False
+
+
+def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_list, base_job_id, base_index):
+    perf_results = PerfResult.objects.all().\
+        extra(select={'cv_threshold': 'test_track_metric.cv_threshold',
+                      'cmp_threshold': 'test_track_metric.cmp_threshold',
+                      'direction': 'test_track_metric.direction'},
+              tables=['test_track_metric'],
+              where=["perf_result.test_job_id=%s", "perf_result.test_suite_id=%s",
+                     "perf_result.test_case_id=%s",
+                     "test_track_metric.name = perf_result.metric",
+                     "test_track_metric.cv_threshold > 0",
+                     "test_track_metric.is_deleted = 0",
+                     "(object_type='case' AND object_id=%s) or (object_type='suite' AND object_id=%s)"],
+              params=[base_job_id, suite_id, conf_id, conf_id, suite_id]).distinct()
+    if not perf_results.exists():
+        return
+    if not suite_obj.get('compare_count'):
+        suite_obj['compare_count'] = [{'all': 0, 'increase': 0, 'decline': 0} for _ in range(len(group_list))]
+    if not suite_obj.get('base_count'):
+        suite_obj['base_count'] = {'all': perf_results.count(), 'increase': 0, 'decline': 0}
+    compare_job_list = list()
+    compare_result_li = list()
+    for compare_job in group_list:
+        duplicate_conf = compare_job.get('duplicate_conf')
+        has_duplicate = _check_has_duplicate(duplicate_conf, conf_id)
+        job_list = compare_job.get('job_list')
+        if not has_duplicate and len(compare_job.get('job_list')) > 0:
+            for job_id in compare_job.get('job_list'):
+                if PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id, test_case_id=conf_id).exists():
+                    job_list= [job_id]
+                    compare_job_list.append(job_id)
+                    break
+        for job_id in job_list:
+            compare_result = None
+            if has_duplicate:
+                if _check_duplicate_hit(duplicate_conf, conf_id, job_id):
+                    compare_job_list.append(job_id)
+                    compare_result = PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id,
+                                                               test_case_id=conf_id)
+            else:
+                compare_result = PerfResult.objects.\
+                    filter(test_job_id=job_id, test_suite_id=suite_id, test_case_id=conf_id)
+            if compare_result:
+                compare_result_li.append(compare_result)
+    conf_compare_data = list()
+    for compare_job in compare_job_list:
+        conf_compare_data.append(dict({
+            'is_job': 1,
+            'obj_id': compare_job
+        }))
+    conf_compare_data.insert(base_index, dict({
+            'is_job': 1,
+            'obj_id': base_job_id
+        }))
+    conf_obj = {
+        'conf_id': conf_id,
+        'conf_name': conf_name,
+        'is_job': 1,
+        'obj_id': base_job_id,
+        'conf_compare_data': conf_compare_data,
+        'metric_list': get_metric_list_v1(perf_results, compare_result_li, suite_obj['compare_count'], base_index),
+    }
+    if not conf_obj['metric_list']:
+        return
+    return conf_obj
+
+
+def get_metric_list_v1(perf_results, compare_result_li, compare_count, base_index):
+    metric_list = list()
+    for perf_result in perf_results:
+        metric = perf_result.metric
+        unit = perf_result.unit
+        test_value = round(float(perf_result.test_value), 2)
+        cv_value = perf_result.cv_value
+        base_metric = {
+                'test_value': test_value,
+                'cv_value': cv_value.split('±')[-1] if cv_value else None,
+                'max_value': perf_result.max_value,
+                'min_value': perf_result.min_value,
+                'value_list': perf_result.value_list
+            }
+        compare_data = get_compare_data_v1(metric, test_value, perf_result, compare_result_li, compare_count)
+        compare_data.insert(base_index, base_metric)
+        metric_list.append({
+            'metric': metric,
+            'test_value': test_value,
+            'cv_threshold': perf_result.cv_threshold,
+            'cmp_threshold': perf_result.cmp_threshold,
+            'unit': unit,
+            'direction': perf_result.direction,
+            'compare_data': compare_data
+        })
+    return metric_list
+
+
+def get_compare_data_v1(metric, test_value, base_perf_result, compare_result_li, compare_count):
+    compare_data = list()
+    compare_job_index = 0
+    for compare_result in compare_result_li:
+        group_data = dict()
+        if compare_result:
+            _count = compare_count[compare_job_index]
+            perf_results = compare_result.filter(metric=metric)
+            if perf_results.exists():
+                perf_result = perf_results.first()
+                value = round(float(perf_result.test_value), 2)
+                group_data['test_value'] = value
+                group_data['cv_value'] = perf_result.cv_value.split('±')[-1]
+                group_data['max_value'] = perf_result.max_value
+                group_data['min_value'] = perf_result.min_value
+                group_data['compare_value'], group_data['compare_result'] = \
+                    get_compare_result(test_value, value, base_perf_result.direction, base_perf_result.cmp_threshold,
+                                       group_data['cv_value'], base_perf_result.cv_threshold)
+                group_data['value_list'] = perf_result.value_list
+                _count['all'] += 1
+                if group_data['compare_result'] == 'increase':
+                    _count['increase'] += 1
+                if group_data['compare_result'] == 'decline':
+                    _count['decline'] += 1
+        compare_data.append(group_data)
+        compare_job_index += 1
+    return compare_data
+
+
+def get_suite_conf_sub_case_v1(suite_id, suite_name, base_index, group_job_list, suite_info, is_all):
+    suite_obj = {
+        'suite_name': suite_name,
+        'suite_id': suite_id,
+        'base_count': {
+            'all_case': 0,
+            'success_case': 0,
+            'fail_case': 0,
+        },
+        'compare_count': list(),
+    }
+    if len(group_job_list) == 1:
+        base_job_list = group_job_list[0]
+    else:
+        base_job_list = group_job_list.pop(base_index)
+    duplicate_conf = base_job_list.get('duplicate_conf', [])
+    conf_list = list()
+    q = Q(test_job_id__in=base_job_list.get('job_list'), test_suite_id=suite_id)
+    if not is_all:
+        conf_id_list = list()
+        for conf in suite_info:
+            conf_id_list.append(conf.get('conf_id'))
+        q &= Q(test_case_id__in=conf_id_list)
+    case_list = FuncResult.objects.filter(q).extra(select={'test_case_name': 'test_case.name'},
+                                                   tables=['test_case'],
+                                                   where=["func_result.test_case_id = test_case.id"]). \
+        values_list('test_job_id', 'test_case_id', 'test_case_name').distinct(). \
+        annotate(success_case=Count(Case(When(sub_case_result=1, then=0))),
+                 fail_case=Count(Case(When(sub_case_result=2, then=0))),
+                 total_count=Count('test_case_id'))
+    for test_job_id in base_job_list.get('job_list'):
+        for case_info in case_list.filter(test_job_id=test_job_id):
+            all_case = case_info[5]
+            success_case = case_info[3]
+            fail_case = case_info[4]
+            conf_id = case_info[1]
+            conf_name = case_info[2]
+            duplicate_jobs = [duplicate_data for duplicate_data in duplicate_conf
+                              if duplicate_data['conf_id'] == conf_id]
+            duplicate_job_id = test_job_id
+            if len(duplicate_jobs) == 1:
+                duplicate_job_id = duplicate_jobs[0]['job_id']
+            func_results = FuncResult.objects.filter(Q(test_job_id=duplicate_job_id) & Q(test_case_id=conf_id)).\
+                values_list('sub_case_name', 'sub_case_result').distinct()
+            exist_conf = [conf for conf in conf_list if conf['conf_id'] == conf_id]
+            if exist_conf and len(exist_conf) > 0:
+                continue
+            base_data = {
+                'all_case': all_case,
+                'obj_id': duplicate_job_id,
+                'success_case': success_case,
+                'fail_case': fail_case,
+            }
+            compare_data = list()
+            conf_compare_data = get_conf_compare_data_v1(group_job_list, suite_id, conf_id, suite_obj['compare_count'])
+            compare_data.extend(conf_compare_data),
+            compare_data.insert(base_index, base_data)
+            conf_obj = {
+                'conf_name': conf_name,
+                'conf_id': conf_id,
+                'conf_compare_data': compare_data,
+                # 'conf_compare_data': [compare for compare in compare_data if compare['obj_id'] == duplicate_job_id],
+                'sub_case_list': get_sub_case_list_v1(func_results[:200], suite_id, conf_id, group_job_list, base_index)
+            }
+            suite_obj['base_count']['all_case'] += all_case
+            suite_obj['base_count']['success_case'] += success_case
+            suite_obj['base_count']['fail_case'] += fail_case
+            if _check_has_duplicate(duplicate_conf, case_info[0]):
+                d_conf = [d for d in duplicate_conf if case_info[0] == d['conf_id']]
+                if len(d_conf) > 0 and case_info.filter(test_job_id=d_conf[0]['job_id']).count() > 0:
+                    conf_list.append(conf_obj)
+            else:
+                conf_list.append(conf_obj)
+    suite_obj['conf_list'] = conf_list
+    return suite_obj
+
+
+def get_sub_case_list_v1(func_results, suite, conf, compare_job_li, base_index):
+    sub_case_list = list()
+    q = Queue()
+    with ThreadPoolExecutor(max_workers=8) as t:
+        for func_result in func_results:
+            t.submit(concurrent_calc_v1, func_result, suite, conf, compare_job_li, base_index, q)
+    while not q.empty():
+        sub_case_list.append(q.get())
+    return sub_case_list
+
+
+def concurrent_calc_v1(func_result, suite, conf, compare_job_li, base_index, q):
+    sub_case_name = func_result[0]
+    result = FUNC_CASE_RESULT_TYPE_MAP.get(func_result[1])
+    compare_data = get_func_compare_data_v1(suite, conf, sub_case_name, compare_job_li)
+    compare_data.insert(base_index, result)
+    q.put(
+        {
+            'sub_case_name': sub_case_name,
+            # 'result': result,
+            'compare_data': compare_data,
+        }
+    )
+
+
+def get_func_compare_data_v1(suite, conf, sub_case_name, compare_job_li):
+    compare_data = list()
+    for compare_job in compare_job_li:
+        group_data = None
+        duplicate_conf = compare_job.get('duplicate_conf', list())
+        has_duplicate = False
+        if len(duplicate_conf) > 0:
+            has_duplicate = True
+        func_results = FuncResult.objects.filter(test_job_id__in=compare_job.get('job_list'), test_suite_id=suite,
+                                                 test_case_id=conf, sub_case_name=sub_case_name)
+        if func_results.exists():
+            func_result = func_results.first()
+            group_data = FUNC_CASE_RESULT_TYPE_MAP.get(func_result.sub_case_result)
+        if has_duplicate > 0:
+            d_conf = [d for d in duplicate_conf if conf == d['conf_id']]
+            if len(d_conf) > 0 and func_results.filter(test_job_id=d_conf[0]['job_id']).count() > 0:
+                compare_data.append(group_data)
+        else:
+            compare_data.append(group_data)
+    return compare_data
+
+
+def get_conf_compare_data_v1(compare_objs, suite_id, conf_id, compare_count):
+    compare_data = list()
+    for idx, group_obj in enumerate(compare_objs):
+        _compare_count = {
+            'all_case': 0,
+            'success_case': 0,
+            'fail_case': 0,
+        }
+        group_data = {
+            'all_case': 0,
+            'success_case': 0,
+            'fail_case': 0,
+        }
+        if not group_obj:
+            compare_data.append(group_data)
+            compare_count.append(_compare_count)
+            continue
+        duplicate_conf = group_obj.get('duplicate_conf')
+        has_duplicate = False
+        if duplicate_conf and len(duplicate_conf) > 0:
+            has_duplicate = True
+        func_results = FuncResult.objects.filter(test_job_id__in=group_obj.get('job_list'), test_suite_id=suite_id,
+                                                 test_case_id=conf_id). \
+            values_list('test_job_id', 'test_case_id'). \
+            annotate(success_case=Count(Case(When(sub_case_result=1, then=0))),
+                     fail_case=Count(Case(When(sub_case_result=2, then=0))),
+                     total_count=Count('test_case_id'))
+        all_case = 0
+        success_case = 0
+        fail_case = 0
+        for compare_info in func_results:
+            all_case += compare_info[4]
+            success_case += compare_info[2]
+            fail_case += compare_info[3]
+        if len(compare_count) < len(compare_objs):
+            compare_count.append(_compare_count)
+        compare_count[idx]['all_case'] += all_case
+        compare_count[idx]['success_case'] += success_case
+        compare_count[idx]['fail_case'] += fail_case
+        group_data['all_case'] = all_case
+        group_data['success_case'] = success_case
+        group_data['fail_case'] = fail_case
+        if has_duplicate > 0:
+            d_conf = [d for d in duplicate_conf if conf_id == d['conf_id']]
+            if len(d_conf) > 0 and func_results.filter(test_job_id=d_conf[0]['job_id']).count() > 0:
+                group_data['obj_id'] = d_conf[0]['job_id']
+                compare_data.append(group_data)
+        else:
+            group_data['obj_id'] = group_obj.get('job_list')[0]
+            compare_data.append(group_data)
+    return compare_data

@@ -23,5 +23,6 @@ urlpatterns = [
     path('workspace/project/', query_job.get_project, name='project_query'),
     path('workspace/job_type/', query_job.get_job_type, name='job_type_query'),
     path('job/server_list/', create_job.get_server_list, name='server_list'),
-    path('job/server_tag/', create_job.get_server_tag_list, name='server_tag')
+    path('job/server_tag/', create_job.get_server_tag_list, name='server_tag'),
+    path('case/re_auto_report/', get_suite_info.reset_report, name='reset_report'),
 ]

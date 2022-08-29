@@ -149,7 +149,7 @@ def get_template(template, ws_id):
 
 def get_job_type_for_name(job_type, ws_id):
     if not JobType.objects.filter(name=job_type, ws_id=ws_id).exists():
-        raise ValueError(ErrorCode.TEMPLATE_DUPLICATION)
+        raise ValueError(ErrorCode.TYPE_NONEXISTENT)
     return JobType.objects.get(name=job_type, ws_id=ws_id)
 
 
