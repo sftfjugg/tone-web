@@ -481,7 +481,7 @@ class CompareFormService(CommonService):
 
 class CompareDuplicateService(CommonService):
     def get(self, data):
-        base_index = data.get('base_index',1)
+        base_index = data.get('base_index', 0)
         suite_list = data.get('suite_list')
         group_jobs = data.get('group_jobs')
         job_id_list = list()
