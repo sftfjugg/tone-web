@@ -322,8 +322,8 @@ class ReportService(CommonService):
 
     def package_server_li(self, job):
         server_li = None
-        snap_shot_objs = TestServerSnapshot.objects.filter(
-            job_id=job.id) if job.server_provider == 'aligroup' else CloudServerSnapshot.objects.filter(job_id=job.id)
+        snap_shot_objs = TestServerSnapshot.objects.filter(job_id=job.id).distinct() \
+            if job.server_provider == 'aligroup' else CloudServerSnapshot.objects.filter(job_id=job.id).distinct()
         for snap_shot_obj in snap_shot_objs:
             ip = snap_shot_obj.ip if job.server_provider == 'aligroup' else snap_shot_obj.private_ip
             if not (snap_shot_obj.distro or snap_shot_obj.rpm_list or snap_shot_obj.gcc):
