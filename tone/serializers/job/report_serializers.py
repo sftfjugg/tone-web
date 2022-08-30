@@ -377,12 +377,12 @@ class ReportDetailSerializer(CommonSerializer):
     def get_test_item(self, obj):
         base_index = obj.test_env.get('base_index', 0) if obj.test_env else 0
         is_old_report = 1 if obj.gmt_created < datetime.strptime('2022-08-11', '%Y-%m-%d') else 0
-        perf_data = self.get_perf_data(obj.id, base_index, is_old_report)
-        func_data = self.get_func_data(obj.id, base_index, is_old_report)
+        perf_data = self.get_perf_data(obj.id, base_index, is_old_report, obj.is_automatic)
+        func_data = self.get_func_data(obj.id, base_index, is_old_report, obj.is_automatic)
         return {'perf_data': perf_data, 'func_data': func_data}
 
     @staticmethod
-    def get_perf_data(report_id, base_index, is_old_report):
+    def get_perf_data(report_id, base_index, is_old_report, is_automatic):
         item_map = dict()
         item_objs = ReportItem.objects.filter(report_id=report_id, test_type='performance')
         for item in item_objs:
@@ -391,11 +391,11 @@ class ReportDetailSerializer(CommonSerializer):
             if is_old_report:
                 package_name(0, item_map, name_li, item.id, 'performance', base_index)
             else:
-                package_name_v1(0, item_map, name_li, item.id, 'performance', base_index)
+                package_name_v1(0, item_map, name_li, item.id, 'performance', base_index, is_automatic)
         return item_map
 
     @staticmethod
-    def get_func_data(report_id, base_index, is_old_report):
+    def get_func_data(report_id, base_index, is_old_report, is_automatic):
         item_map = dict()
         item_objs = ReportItem.objects.filter(report_id=report_id, test_type='functional')
         for item in item_objs:
@@ -404,7 +404,7 @@ class ReportDetailSerializer(CommonSerializer):
             if is_old_report:
                 package_name(0, item_map, name_li, item.id, 'functional', base_index)
             else:
-                package_name_v1(0, item_map, name_li, item.id, 'functional', base_index)
+                package_name_v1(0, item_map, name_li, item.id, 'functional', base_index, is_automatic)
         return item_map
 
     @staticmethod
@@ -436,17 +436,17 @@ def package_name(index, _data, name_li, report_item_id, test_type, base_index):
             package_name(index + 1, _data[name_li[index]], name_li, report_item_id, test_type, base_index)
 
 
-def package_name_v1(index, _data, name_li, report_item_id, test_type, base_index):
+def package_name_v1(index, _data, name_li, report_item_id, test_type, base_index, is_automatic):
     if index == len(name_li) - 1:
         _data[name_li[index]] = get_func_suite_list_v1(
             report_item_id, base_index) if test_type == 'functional' else \
-            get_perf_suite_list_v1(report_item_id, base_index)
+            get_perf_suite_list_v1(report_item_id, base_index, is_automatic)
     else:
         if name_li[index] in _data:
-            package_name_v1(index + 1, _data[name_li[index]], name_li, report_item_id, test_type, base_index)
+            package_name_v1(index + 1, _data[name_li[index]], name_li, report_item_id, test_type, base_index, is_automatic)
         else:
             _data[name_li[index]] = dict()
-            package_name_v1(index + 1, _data[name_li[index]], name_li, report_item_id, test_type, base_index)
+            package_name_v1(index + 1, _data[name_li[index]], name_li, report_item_id, test_type, base_index, is_automatic)
 
 
 def get_func_suite_list(report_item_id, base_index):
@@ -556,7 +556,7 @@ def _get_compare_data(metric_obj):
     return compare_data
 
 
-def get_perf_suite_list(report_item_id, base_index):
+def get_perf_suite_list(report_item_id):
     suite_list = list()
     test_suite_objs = ReportItemSuite.objects.filter(report_item_id=report_item_id)
     for test_suite_obj in test_suite_objs:
@@ -607,7 +607,7 @@ def get_perf_suite_list(report_item_id, base_index):
     return suite_list
 
 
-def get_perf_suite_list_v1(report_item_id, base_index):
+def get_perf_suite_list_v1(report_item_id, base_index, is_automatic):
     suite_list = list()
     raw_sql = 'SELECT a.id AS item_suite_id, a.test_suite_id AS suite_id, a.test_suite_name AS suite_name,' \
               'a.show_type, a.test_env, a.test_description, a.test_conclusion, ' \
@@ -683,8 +683,12 @@ def get_perf_suite_list_v1(report_item_id, base_index):
             compare_data = _get_compare_data(suite_compare_data)
         metric_base_data = dict()
         metric_base_data['test_value'] = format(float(test_suite_obj['test_value']), '.2f')
-        metric_base_data['cv_value'] = test_suite_obj['cv_value'].split('±')[-1] if test_suite_obj['cv_value'] else None,
-        compare_data.insert(base_index, metric_base_data)
+        metric_base_data['cv_value'] = test_suite_obj['cv_value'].split('±')[-1] if test_suite_obj[
+            'cv_value'] else None,
+        if is_automatic:
+            compare_data.append(metric_base_data)
+        else:
+            compare_data.insert(base_index, metric_base_data)
         metric_data = dict()
         metric_data['metric'] = test_suite_obj['test_metric']
         metric_data['cv_threshold'] = test_suite_obj['cv_threshold']
@@ -696,6 +700,8 @@ def get_perf_suite_list_v1(report_item_id, base_index):
         conf_data['metric_list'] = metric_list
         suite_data['conf_list'] = conf_list
     return suite_list
+
+
 def query_all_dict(sql, params=None):
     '''
     查询所有结果返回字典类型数据
