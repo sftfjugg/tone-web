@@ -51,7 +51,8 @@ class ReportHandle(object):
                 ''.join(random.sample(string.ascii_letters + string.digits, 18))
             report = Report.objects.create(name=report_name, product_version=self.job_obj.product_version,
                                            project_id=self.job_obj.project_id, ws_id=self.job_obj.ws_id,
-                                           tmpl_id=self.report_template_obj.id, creator=self.job_obj.creator)
+                                           tmpl_id=self.report_template_obj.id, creator=self.job_obj.creator,
+                                           is_automatic=1)
             # test_env = self.get_test_env()
             before_name = report.name
             report.test_env = self.get_test_env()
@@ -262,6 +263,7 @@ class ReportHandle(object):
                                             direction=metric_obj.direction if metric_obj else 'na',
                                             compare_data=compare_data)
         else:
+            compare_data.append(dict())
             ReportItemMetric.objects.create(report_item_conf_id=report_item_conf.id,
                                             test_metric=perf_result.metric,
                                             test_value=perf_result.test_value,
