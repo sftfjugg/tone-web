@@ -106,17 +106,15 @@ class CompareConfInfoService(CommonService):
     def filter(self, data):
         suite_id = data.get('suite_id')
         test_job_list = data.get('test_job_id')
-        res_data = {}
-        for test_job_id in test_job_list:
-            res_data = {
-                'conf_dic': self.package_conf_data(test_job_id, suite_id)
-            }
+        res_data = {
+            'conf_dic': self.package_conf_data(test_job_list, suite_id)
+        }
         return res_data
 
-    def package_conf_data(self, test_job_id, suite_id):
+    def package_conf_data(self, test_job_list, suite_id):
         test_case_data = dict()
-        case_id_list = TestJobCase.objects.filter(job_id=test_job_id, test_suite_id=suite_id).\
-            values_list('test_case_id', flat=True)
+        case_id_list = TestJobCase.objects.filter(job_id__in=test_job_list, test_suite_id=suite_id).\
+            values_list('test_case_id', flat=True).distinct()
         all_test_cases = list(TestCase.objects.filter(id__in=case_id_list).values_list('id', 'name'))
         for job_case in all_test_cases:
             case_id = job_case[0]
@@ -175,8 +173,9 @@ class CompareEnvInfoService(CommonService):
 
     @staticmethod
     def package_li(server_li, ip_li, job):
-        snap_shot_objs = TestServerSnapshot.objects.filter(
-            job_id=job.id) if job.server_provider == 'aligroup' else CloudServerSnapshot.objects.filter(job_id=job.id)
+        snap_shot_objs = TestServerSnapshot.objects.filter(job_id=job.id, distro__isnull=False).distinct() \
+            if job.server_provider == 'aligroup' else CloudServerSnapshot.objects. \
+            filter(job_id=job.id, distro__isnull=False).distinct()
         for snap_shot_obj in snap_shot_objs:
             ip = snap_shot_obj.ip if job.server_provider == 'aligroup' else snap_shot_obj.private_ip
             if ip not in ip_li:
