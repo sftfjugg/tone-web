@@ -12,7 +12,7 @@ from django.db.models import Q, Count
 from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestJob, PerfResult, TestJobCase, TestSuite, TestCase, FuncBaselineDetail, PerfBaselineDetail, \
     TestServerSnapshot, CloudServerSnapshot, User, CompareForm, FuncResult, Project, BaseConfig, Product, \
-    ReportObjectRelation
+    TestJobSuite
 from tone.core.common.job_result_helper import get_suite_conf_metric, get_suite_conf_sub_case, \
     get_metric_list, get_suite_conf_metric_v1, get_suite_conf_sub_case_v1
 from tone.core.common.services import CommonService
@@ -479,6 +479,7 @@ class CompareFormService(CommonService):
 
 class CompareDuplicateService(CommonService):
     def get(self, data):
+        base_index = data.get('base_index', 0)
         suite_list = data.get('suite_list')
         group_jobs = data.get('group_jobs')
         job_id_list = list()
@@ -487,6 +488,19 @@ class CompareDuplicateService(CommonService):
             job_id_list.extend(group.get('test_job_id'))
         conf_list = list()
         suite_id_list = list()
+        job_index = 0
+        compare_job_list = list()
+        for group in group_jobs:
+            if job_index != base_index:
+                compare_job_list.extend(group.get('test_job_id'))
+            job_index += 1
+        compare_suite_list = TestJobSuite.objects.filter(job_id__in=compare_job_list).\
+            values_list('test_suite_id', flat=True).distinct()
+        for compare_suite in compare_suite_list:
+            suite_list.append(dict({
+                "suite_id": compare_suite,
+                "is_all": 1
+            }))
         if len(suite_list) == 0:
             return dict()
         for suite_info in suite_list:
