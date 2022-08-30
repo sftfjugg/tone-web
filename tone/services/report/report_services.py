@@ -288,11 +288,17 @@ class ReportService(CommonService):
             test_env['base_group']['is_job'] = 1
             if not test_env['base_group'].get('server_info'):
                 test_env['base_group']['server_info'] = list()
+            base_job_list = list()
+            server_provider = None
             for base_obj in test_env['base_group']['base_objs']:
-                test_job = TestJob.objects.filter(id=base_obj.get('obj_id')).first()
-                if test_job:
-                    test_env['base_group']['server_info'].append(self.package_server_li(test_job))
+                base_job_list.append(base_obj.get('obj_id'))
+                if not server_provider:
+                    test_job = TestJob.objects.filter(id=base_obj.get('obj_id')).first()
+                    if test_job:
+                        server_provider = test_job.server_provider
+            test_env['base_group']['server_info'] = self.package_server_li(base_job_list, server_provider)
             count = len(test_env['base_group']['base_objs'])
+            compare_job_list = list()
             for group in test_env['compare_groups']:
                 group['is_job'] = 1
                 if not group.get('server_info'):
@@ -300,9 +306,8 @@ class ReportService(CommonService):
                 for base_obj in group['base_objs']:
                     if len(group['base_objs']) > count:
                         count = len(group['base_objs'])
-                    test_job = TestJob.objects.filter(id=base_obj.get('obj_id')).first()
-                    if test_job:
-                        group['server_info'].append(self.package_server_li(test_job))
+                    compare_job_list.append(base_obj.get('obj_id'))
+                group['server_info'] = self.package_server_li(compare_job_list, server_provider)
             test_env['count'] = count
             report = Report.objects.create(name=name, product_version=product_version, project_id=project_id,
                                            ws_id=ws_id, test_method=test_method, test_conclusion=test_conclusion,
@@ -320,17 +325,22 @@ class ReportService(CommonService):
             self.save_test_item_v1(func_data, report_id, 'functional', base_index)
         return report
 
-    def package_server_li(self, job):
-        server_li = None
-        snap_shot_objs = TestServerSnapshot.objects.filter(job_id=job.id).distinct() \
-            if job.server_provider == 'aligroup' else CloudServerSnapshot.objects.filter(job_id=job.id).distinct()
+    def package_server_li(self, job_list, server_provider):
+        server_li = list()
+        ip_list = list()
+        snap_shot_objs = TestServerSnapshot.objects.filter(job_id__in=job_list, distro__isnull=False).distinct() \
+            if server_provider == 'aligroup' else CloudServerSnapshot.objects.\
+            filter(job_id__in=job_list, distro__isnull=False).distinct()
         for snap_shot_obj in snap_shot_objs:
-            ip = snap_shot_obj.ip if job.server_provider == 'aligroup' else snap_shot_obj.private_ip
+            ip = snap_shot_obj.ip if server_provider == 'aligroup' else snap_shot_obj.private_ip
+            if ip in ip_list:
+                continue
+            ip_list.append(ip)
             if not (snap_shot_obj.distro or snap_shot_obj.rpm_list or snap_shot_obj.gcc):
                 continue
-            server_li = ({
+            server = ({
                 'ip/sn': ip,
-                'distro': snap_shot_obj.sm_name if job.server_provider == 'aligroup' else
+                'distro': snap_shot_obj.sm_name if server_provider == 'aligroup' else
                 snap_shot_obj.instance_type,
                 'os': snap_shot_obj.distro,
                 'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
@@ -342,6 +352,7 @@ class ReportService(CommonService):
                 'cpu_info': snap_shot_obj.cpu_info,
                 'ether': snap_shot_obj.ether,
             })
+            server_li.append(server)
         return server_li
 
     def save_test_item_v1(self, data, report_id, test_type, base_index):
@@ -647,6 +658,27 @@ class ReportService(CommonService):
             if test_conclusion:
                 report_item_suite.test_conclusion = test_conclusion
             report_item_suite.save()
+
+    @staticmethod
+    def update_report_desc(data):
+        description = data.get('description')
+        test_background = data.get('test_background')
+        test_method = data.get('test_method')
+        test_conclusion = data.get('test_conclusion')
+        report_id = data.get('report_id')
+        report = Report.objects.filter(id=report_id).first()
+        if report:
+            if description:
+                report.description = description
+            if test_background:
+                report.test_background = test_background
+            if test_method:
+                report.test_method = test_method
+            if data.get('test_conclusion') and data.get('test_conclusion').get('custom'):
+                report.test_conclusion['custom'] = data.get('test_conclusion').get('custom')
+            if data.get('test_env') and data.get('test_env').get('text'):
+                report.test_env['text'] = data.get('test_env').get('text')
+            report.save()
 
 
 class ReportDetailService(CommonService):

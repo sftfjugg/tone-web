@@ -173,8 +173,9 @@ class CompareEnvInfoService(CommonService):
 
     @staticmethod
     def package_li(server_li, ip_li, job):
-        snap_shot_objs = TestServerSnapshot.objects.filter(
-            job_id=job.id) if job.server_provider == 'aligroup' else CloudServerSnapshot.objects.filter(job_id=job.id)
+        snap_shot_objs = TestServerSnapshot.objects.filter(job_id=job.id, distro__isnull=False).distinct() \
+            if job.server_provider == 'aligroup' else CloudServerSnapshot.objects. \
+            filter(job_id=job.id, distro__isnull=False).distinct()
         for snap_shot_obj in snap_shot_objs:
             ip = snap_shot_obj.ip if job.server_provider == 'aligroup' else snap_shot_obj.private_ip
             if ip not in ip_li:
