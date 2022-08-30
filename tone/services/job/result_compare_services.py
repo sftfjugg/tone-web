@@ -106,17 +106,15 @@ class CompareConfInfoService(CommonService):
     def filter(self, data):
         suite_id = data.get('suite_id')
         test_job_list = data.get('test_job_id')
-        res_data = {}
-        for test_job_id in test_job_list:
-            res_data = {
-                'conf_dic': self.package_conf_data(test_job_id, suite_id)
-            }
+        res_data = {
+            'conf_dic': self.package_conf_data(test_job_list, suite_id)
+        }
         return res_data
 
-    def package_conf_data(self, test_job_id, suite_id):
+    def package_conf_data(self, test_job_list, suite_id):
         test_case_data = dict()
-        case_id_list = TestJobCase.objects.filter(job_id=test_job_id, test_suite_id=suite_id).\
-            values_list('test_case_id', flat=True)
+        case_id_list = TestJobCase.objects.filter(job_id__in=test_job_list, test_suite_id=suite_id).\
+            values_list('test_case_id', flat=True).distinct()
         all_test_cases = list(TestCase.objects.filter(id__in=case_id_list).values_list('id', 'name'))
         for job_case in all_test_cases:
             case_id = job_case[0]

@@ -878,10 +878,7 @@ def get_suite_conf_sub_case_v1(suite_id, suite_name, base_index, group_job_list,
         },
         'compare_count': list(),
     }
-    if len(group_job_list) == 1:
-        base_job_list = group_job_list[0]
-    else:
-        base_job_list = group_job_list.pop(base_index)
+    base_job_list = group_job_list.pop(base_index)
     duplicate_conf = base_job_list.get('duplicate_conf', [])
     conf_list = list()
     q = Q(test_job_id__in=base_job_list.get('job_list'), test_suite_id=suite_id)
@@ -921,8 +918,10 @@ def get_suite_conf_sub_case_v1(suite_id, suite_name, base_index, group_job_list,
                 'fail_case': fail_case,
             }
             compare_data = list()
-            conf_compare_data = get_conf_compare_data_v1(group_job_list, suite_id, conf_id, suite_obj['compare_count'])
-            compare_data.extend(conf_compare_data),
+            if len(group_job_list) > 0:
+                conf_compare_data = get_conf_compare_data_v1(group_job_list, suite_id, conf_id,
+                                                             suite_obj['compare_count'])
+                compare_data.extend(conf_compare_data)
             compare_data.insert(base_index, base_data)
             conf_obj = {
                 'conf_name': conf_name,
