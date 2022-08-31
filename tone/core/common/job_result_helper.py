@@ -726,6 +726,11 @@ def get_suite_conf_metric_v1(suite_id, suite_name, base_index, group_list, suite
                 if len(exist_list) == 0:
                     conf_list.append(conf_obj)
     suite_obj['conf_list'] = conf_list
+    base_metric_count = 0
+    for metric in conf_list:
+        base_metric_count += len(metric['metric_list'])
+    if 'all' in suite_obj['base_count']:
+        suite_obj['base_count']['all'] = base_metric_count
     return suite_obj
 
 
@@ -763,8 +768,11 @@ def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_lis
         suite_obj['compare_count'] = [{'all': 0, 'increase': 0, 'decline': 0} for _ in range(len(group_list))]
     if not suite_obj.get('base_count'):
         suite_obj['base_count'] = {'all': perf_results.count(), 'increase': 0, 'decline': 0}
+    else:
+        suite_obj['base_count']['all'] += perf_results.count()
     compare_job_list = list()
     compare_result_li = list()
+    conf_compare_data = list()
     for compare_job in group_list:
         duplicate_conf = compare_job.get('duplicate_conf')
         has_duplicate = _check_has_duplicate(duplicate_conf, conf_id)
@@ -775,23 +783,26 @@ def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_lis
                     job_list= [job_id]
                     compare_job_list.append(job_id)
                     break
+        group_compare = None
         for job_id in job_list:
             compare_result = None
             if has_duplicate:
                 if _check_duplicate_hit(duplicate_conf, conf_id, job_id):
                     compare_job_list.append(job_id)
-                    compare_result = PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id,
-                                                               test_case_id=conf_id)
+                    group_compare = compare_result = PerfResult.objects.filter(test_job_id=job_id,
+                                                                               test_suite_id=suite_id,
+                                                                               test_case_id=conf_id)
             else:
-                compare_result = PerfResult.objects.\
+                group_compare = compare_result = PerfResult.objects.\
                     filter(test_job_id=job_id, test_suite_id=suite_id, test_case_id=conf_id)
             if compare_result:
                 compare_result_li.append(compare_result)
-    conf_compare_data = list()
-    for compare_job in compare_job_list:
+        if not group_compare:
+            compare_result_li.append(dict())
+        compare_job_id = list(set(compare_job.get('job_list')) & set(compare_job_list))
         conf_compare_data.append(dict({
             'is_job': 1,
-            'obj_id': compare_job
+            'obj_id': compare_job_id[0] if len(compare_job_id) > 0 else compare_job.get('job_list')[0]
         }))
     conf_compare_data.insert(base_index, dict({
             'is_job': 1,
