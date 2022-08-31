@@ -19,6 +19,7 @@ from tone.core.common.enums.ts_enums import TestServerState
 from tone.core.common.services import CommonService
 from tone.core.common.constant import MonitorType
 from tone.core.utils.permission_manage import check_operator_permission
+from tone.core.utils.tone_thread import ToneThread
 from tone.core.utils.verify_tools import check_contains_chinese
 from tone.models import TestJob, TestJobCase, TestJobSuite, JobCollection, TestServerSnapshot, CloudServerSnapshot, \
     PerfResult, TestServer, CloudServer, BaseConfig
@@ -442,10 +443,9 @@ class JobTestService(CommonService):
             job_id_li.append(job_id)
         if not self.check_delete_permission(operator, job_id_li):
             return False, '无权限删除非自己创建的job'
-        with transaction.atomic():
-            TestJob.objects.filter(id__in=job_id_li).delete()
-            for job_id in job_id_li:
-                release_server(job_id)
+        TestJob.objects.filter(id__in=job_id_li).delete()
+        for job_id in job_id_li:
+            ToneThread(release_server, (job_id,)).start()
         return True, '删除成功'
 
     @staticmethod
