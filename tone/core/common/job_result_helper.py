@@ -726,6 +726,11 @@ def get_suite_conf_metric_v1(suite_id, suite_name, base_index, group_list, suite
                 if len(exist_list) == 0:
                     conf_list.append(conf_obj)
     suite_obj['conf_list'] = conf_list
+    base_metric_count = 0
+    for metric in conf_list:
+        base_metric_count += len(metric['metric_list'])
+    if 'all' in suite_obj['base_count']:
+        suite_obj['base_count']['all'] = base_metric_count
     return suite_obj
 
 
@@ -763,6 +768,8 @@ def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_lis
         suite_obj['compare_count'] = [{'all': 0, 'increase': 0, 'decline': 0} for _ in range(len(group_list))]
     if not suite_obj.get('base_count'):
         suite_obj['base_count'] = {'all': perf_results.count(), 'increase': 0, 'decline': 0}
+    else:
+        suite_obj['base_count']['all'] += perf_results.count()
     compare_job_list = list()
     compare_result_li = list()
     conf_compare_data = list()
