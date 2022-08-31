@@ -599,7 +599,7 @@ class ReportService(CommonService):
                 continue
             if hasattr(report, key):
                 setattr(report, key, value)
-        if data.get('test_env').get('text'):
+        if data.get('test_env') and data.get('test_env').get('text'):
             report.test_env['text'] = data.get('test_env').get('text')
         test_item = data.get('test_item', None)
         with transaction.atomic():
