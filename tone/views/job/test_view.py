@@ -308,7 +308,7 @@ class JobTestCaseFileView(CommonAPIView):
     queryset = ResultFile.objects.all()
     service_class = JobTestCaseFileService
     permission_classes = []
-    order_by = ['gmt_created']
+    order_by = []
 
     @method_decorator(views_catch_error)
     def get(self, request):
