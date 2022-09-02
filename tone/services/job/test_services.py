@@ -123,18 +123,18 @@ class JobTestService(CommonService):
             else:
                 query_sql.append('AND state IN {}'.format(tuple(state_list)))
         if data.get('search'):
+            # 模糊搜索只包含以下维度：job_id, job_name, 创建人名字，job类型
             search = data.get('search')
             users = User.objects.filter(Q(first_name__icontains=search) | Q(last_name__icontains=search)).values('id')
             user_ids = [user['id'] for user in users]
             job_types = JobType.objects.filter(name=search).values('id')
             job_type_ids = [job_type['id'] for job_type in job_types]
-            query_sql.append(
-                'AND (name LIKE "%{0}%" OR id like "%{0}%")'.format(
-                    search, job_type_ids, user_ids))
+            search_sql = 'name LIKE "%{0}%" OR id like "%{0}%" '.format(search)
             if user_ids:
-                query_sql.append('OR creator IN ({})'.format(','.join(str(user_id) for user_id in user_ids)))
+                search_sql += 'OR creator IN ({}) '.format(','.join(str(user_id) for user_id in user_ids))
             if job_type_ids:
-                query_sql.append('OR job_type_id IN ({})'.format(','.join(str(type_id) for type_id in job_type_ids)))
+                search_sql += 'OR job_type_id IN ({})'.format(','.join(str(type_id) for type_id in job_type_ids))
+            query_sql.append(f'AND ({search_sql})')
         if data.get('test_suite'):
             test_suite = json.loads(data.get('test_suite'))
             test_suites = TestJobSuite.objects.filter(test_suite_id__in=test_suite).values('job_id')
