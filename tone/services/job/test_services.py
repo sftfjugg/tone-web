@@ -658,7 +658,24 @@ class JobTestCaseResultService(CommonService):
         q &= Q(test_suite_id=suite_id)
         q &= Q(test_case_id=case_id)
         q &= Q(sub_case_result=data.get('sub_case_result')) if data.get('sub_case_result') else q
-        return sorted(queryset.filter(q), key=lambda x: (0 if x.sub_case_result == 2 else 1, x.id))
+        queryset = queryset.filter(q)
+        sub_case_name_list = [query.sub_case_name for query in queryset]
+        if len(sub_case_name_list) > len(set(sub_case_name_list)):
+            id_list = JobTestCaseResultService._get_sub_case_id_list(queryset)
+            queryset = queryset.filter(id__in=id_list)
+        return sorted(queryset, key=lambda x: (0 if x.sub_case_result == 2 else 1, x.id))
+
+    @staticmethod
+    def _get_sub_case_id_list(queryset):
+        # 获取FuncResult表中指标去重后的id_list
+        id_list = []
+        sub_case_name_list = []
+        queryset = queryset.order_by('-id')
+        for query in queryset:
+            if query.sub_case_name not in sub_case_name_list:
+                id_list.append(query.id)
+                sub_case_name_list.append(query.sub_case_name)
+        return id_list
 
 
 class JobTestCasePerResultService(CommonService):
