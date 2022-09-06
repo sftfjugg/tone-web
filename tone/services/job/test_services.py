@@ -724,7 +724,25 @@ class JobTestCaseFileService(CommonService):
         q &= Q(test_job_id=job_id)
         q &= Q(test_suite_id=suite_id)
         q &= Q(test_case_id=case_id)
-        return queryset.filter(q)
+        querysets = queryset.filter(q).order_by('gmt_created')
+        repeat = JobTestCaseFileService._get_case_repeat(case_id, job_id, suite_id)
+        return list(filter(lambda x: JobTestCaseFileService._repeat_result_folder(x, repeat), querysets))
+
+    @staticmethod
+    def _repeat_result_folder(result, repeat):
+        folder_name = result.result_file.split("/")[0]
+        if folder_name.isdigit() and int(folder_name) > repeat:
+            return False
+        return True
+
+    @staticmethod
+    def _get_case_repeat(case_id, job_id, suite_id):
+        test_case_result = TestJobCase.objects.filter(job_id=job_id, test_suite_id=suite_id,
+                                                      test_case_id=case_id).first()
+        repeat = 1
+        if test_case_result:
+            repeat = test_case_result.repeat
+        return repeat
 
 
 class EditorNoteService(CommonService):
