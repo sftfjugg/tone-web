@@ -406,10 +406,10 @@ RESULT_INFO_MAP = {
                               "directory."
     },
     "test_prepare": {
-        "tone make install error": "tone make install error, please enter the machine to check the tone_prepare.log "
+        "tone make install error": "tone make install error, please enter the machine to check the prepare_tone.log "
                                    "in the /tmp directory.",
         "clone tone from *** failed": "Failed to clone tone repo, please check machine network and proxy, or enter "
-                                      "the machine to check the tone_prepare.log in the /tmp directory.",
+                                      "the machine to check the prepare_tone.log in the /tmp directory.",
         "Failed to ***": "%s, please enter the machine to check the relevant log in the /tmp directory.",
         "/tmp/ostest_staragent_plugin/scripts/tone/TONE_CLEANUP': No such file or directory exit 127":
             "The plugin script does not exist. Please delete the /tmp/ostest_staragent_plugin directroy and restart "
@@ -419,6 +419,7 @@ RESULT_INFO_MAP = {
         "***permission denied for host***": "无staragent控制权限，请联系T-One开发处理。",
         "***/home/staragent/plugins/ostest_exec/ostest_wrapper.sh: No such file or directory exit 127***":
             "机器没有安装staragent插件，请执行安装命令后重新发起任务："
-            "sudo /home/staragent/bin/pluginctl -p ostest_exec -r 0.2.20"
+            "sudo /home/staragent/bin/pluginctl -p ostest_exec -r 0.2.20",
+        "***No space left on device***": "磁盘空间不足，请清理磁盘空间后重新添加。"
     }
 }
