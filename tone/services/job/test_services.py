@@ -680,7 +680,24 @@ class JobTestCasePerResultService(CommonService):
                 q &= ~Q(track_result__in=['increase', 'decline', 'normal', 'invalid'])
             else:
                 q &= Q(track_result=data.get('compare_result'))
-        return queryset.filter(q)
+        queryset = queryset.filter(q)
+        metric_list = [query.metric for query in queryset]
+        if len(metric_list) > len(set(metric_list)):
+            id_list = JobTestCasePerResultService._get_metric_id_list(queryset)
+            return queryset.filter(id__in=id_list)
+        return queryset
+
+    @staticmethod
+    def _get_metric_id_list(queryset):
+        # 获取PerResult表中指标去重后的id_list
+        id_list = []
+        metric_list = []
+        queryset = queryset.order_by('-id')
+        for query in queryset:
+            if query.metric not in metric_list:
+                id_list.append(query.id)
+                metric_list.append(query.metric)
+        return id_list
 
 
 class JobTestCaseVersionService(CommonService):
