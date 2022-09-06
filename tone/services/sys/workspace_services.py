@@ -854,20 +854,18 @@ class DashboardListService(CommonService):
         product_list = list()
         for tmp_product in product_queryset:
             tmp_product_data = dict()
-            product_id = tmp_product.id
-            product_name = tmp_product.name
-            product_description = tmp_product.description
-            product_is_default = tmp_product.is_default
             project_list = list()
-            tmp_product_data = product_project(product_id, data, product_name, product_description, product_is_default,
-                                               tmp_product, tmp_product_data, project_list)
+            tmp_product_data = product_project(data, tmp_product, tmp_product_data, project_list)
             product_list.append(tmp_product_data)
         ws_data.update({'product_list': product_list})
         return ws_data
 
 
-def product_project(product_id, data, product_name, product_description, product_is_default, tmp_product,
-                    tmp_product_data, project_list):
+def product_project(data, tmp_product, tmp_product_data, project_list):
+    product_id = tmp_product.id
+    product_name = tmp_product.name
+    product_description = tmp_product.description
+    product_is_default = tmp_product.is_default
     if Project.objects.filter(product_id=product_id):
         func_view_config = BaseConfig.objects.filter(config_type='ws', ws_id=data.get('ws_id'),
                                                      config_key='FUNC_RESULT_VIEW_TYPE').first()
@@ -885,48 +883,8 @@ def product_project(product_id, data, product_name, product_description, product
                 now = datetime.now()
                 hours_24_ago = (now - timedelta(days=1))
                 day_querys = get_day_querys(data, now, product_id, project_id, hours_24_ago)
-                day_query_fail = day_querys.filter(state='fail')
-                day_query_pending = day_querys.filter(state__in=['running', 'pending_q'])
-                if day_query_fail:
-                    state = "fail"
-                elif day_query_pending:
-                    state = "pending"
-                else:
-                    state = "success"
-                today_query_list = []
-                if day_querys:
-                    for day_query in day_querys:
-                        if day_query.test_result:
-                            today_query_list.append({
-                                'today_job_id': day_query.id,
-                                'today_query_name': day_query.name,
-                                'today_query_state':
-                                    get_job_state(day_query.id, day_query.test_type, day_query.state, func_view_config),
-                                'today_query_pass': json.loads(day_query.test_result)['pass'],
-                                'today_query_fail': json.loads(day_query.test_result)['fail'],
-                            })
-                        elif day_query.state in ['pending_q', 'pending']:
-                            today_query_list.append({
-                                'today_job_id': day_query.id,
-                                'today_query_name': day_query.name,
-                                'today_query_job_start_time': datetime.strftime(day_query.start_time,
-                                                                                '%Y-%m-%d %H:%M:%S'),
-                                'today_query_state': 'pending',
-                                'today_query_pass': 0,
-                                'today_query_fail': 0,
-                            })
-                        else:
-                            today_query_list.append({
-                                'today_job_id': day_query.id,
-                                'today_query_name': day_query.name,
-                                'today_query_state': day_query.state,
-                                'today_query_job_start_time': datetime.strftime(day_query.start_time,
-                                                                                '%Y-%m-%d %H:%M:%S'),
-                                'today_query_pass': 0,
-                                'today_query_fail': 0,
-                            })
-                else:
-                    state = None
+                today_query_list = _get_today_query_list(day_querys, func_view_config)
+                state = _get_project_state(today_query_list)
                 today_job_all = day_querys.count()
                 today_job_fail = len(list(filter(lambda x: x.get('today_query_state') in ['fail'], today_query_list)))
                 today_job_success = len(list(
@@ -964,6 +922,55 @@ def product_project(product_id, data, product_name, product_description, product
             'project_list': [],
         })
     return tmp_product_data
+
+
+def _get_project_state(today_query_list):
+    state = None
+    state_list = [today_query.get('today_query_state') for today_query in today_query_list]
+    if state_list:
+        if 'pending' in state_list or 'pending_q' in state_list or 'running' in state_list:
+            state = 'pending'
+        elif 'fail' in state_list:
+            state = 'fail'
+        else:
+            state = 'success'
+    return state
+
+
+def _get_today_query_list(day_querys, func_view_config):
+    today_query_list = []
+    if day_querys:
+        for day_query in day_querys:
+            if day_query.test_result:
+                today_query_list.append({
+                    'today_job_id': day_query.id,
+                    'today_query_name': day_query.name,
+                    'today_query_state':
+                        get_job_state(day_query.id, day_query.test_type, day_query.state, func_view_config),
+                    'today_query_pass': json.loads(day_query.test_result)['pass'],
+                    'today_query_fail': json.loads(day_query.test_result)['fail'],
+                })
+            elif day_query.state in ['pending_q', 'pending']:
+                today_query_list.append({
+                    'today_job_id': day_query.id,
+                    'today_query_name': day_query.name,
+                    'today_query_job_start_time': datetime.strftime(day_query.start_time,
+                                                                    '%Y-%m-%d %H:%M:%S'),
+                    'today_query_state': 'pending',
+                    'today_query_pass': 0,
+                    'today_query_fail': 0,
+                })
+            else:
+                today_query_list.append({
+                    'today_job_id': day_query.id,
+                    'today_query_name': day_query.name,
+                    'today_query_state': day_query.state,
+                    'today_query_job_start_time': datetime.strftime(day_query.start_time,
+                                                                    '%Y-%m-%d %H:%M:%S'),
+                    'today_query_pass': 0,
+                    'today_query_fail': 0,
+                })
+    return today_query_list
 
 
 def get_job_state(test_job_id, test_type, state, func_view_config):
