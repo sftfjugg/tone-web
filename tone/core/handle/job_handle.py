@@ -168,9 +168,6 @@ class JobDataHandle(BaseHandle):
             self.data_dic['cleanup_info'] = self.data.get('cleanup_info')
             if self.data.get('tags') and isinstance(self.data.get('tags'), list):
                 [self.tag_list.append(tag) for tag in self.data.get('tags')]
-            else:
-                job_tags = JobTagRelation.objects.filter(job_id=job_id)
-                [self.tag_list.append(job_tag.tag_id) for job_tag in job_tags]
             self.data_dic['name'] = self.job_format(self.data)
             self.data_dic['job_type_id'] = job_type_id = self.data.get('job_type')
             if self.data.get('iclone_info'):
