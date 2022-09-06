@@ -166,8 +166,6 @@ class TestServerService(CommonService):
             return False, 'state is required'
         if 'owner' not in post_data:
             return False, 'owner is required'
-        if 'tags' not in post_data:
-            return False, 'tags is required'
         if 'ws_id' not in post_data:
             return False, 'ws_id is required'
         if 'description' not in post_data:
