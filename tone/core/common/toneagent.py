@@ -183,8 +183,8 @@ def tone_agent_info(ip='', tsn=''):
     return agent_url
 
 
-def server_check(ip):
-    agent_url = tone_agent_info(ip=ip)
+def server_check(ip, tsn=None):
+    agent_url = tone_agent_info(ip=ip, tsn=tsn)
     try:
         ssl._create_default_https_context = ssl._create_unverified_context
         req = urllib2.Request(agent_url)
