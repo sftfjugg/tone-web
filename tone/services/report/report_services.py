@@ -298,8 +298,8 @@ class ReportService(CommonService):
                         server_provider = test_job.server_provider
             test_env['base_group']['server_info'] = self.package_server_li(base_job_list, server_provider)
             count = len(test_env['base_group']['base_objs'])
-            compare_job_list = list()
             for group in test_env['compare_groups']:
+                compare_job_list = list()
                 group['is_job'] = 1
                 if not group.get('server_info'):
                     group['server_info'] = list()
