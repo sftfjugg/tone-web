@@ -742,8 +742,26 @@ class JobTestCaseFileService(CommonService):
         q &= Q(test_suite_id=suite_id)
         q &= Q(test_case_id=case_id)
         querysets = queryset.filter(q).order_by('gmt_created')
+        return JobTestCaseFileService._repeat_result(case_id, job_id, querysets, suite_id)
+
+    @staticmethod
+    def _repeat_result(case_id, job_id, querysets, suite_id):
         repeat = JobTestCaseFileService._get_case_repeat(case_id, job_id, suite_id)
-        return list(filter(lambda x: JobTestCaseFileService._repeat_result_folder(x, repeat), querysets))
+        # 结果文件夹去重
+        result = list(filter(lambda x: JobTestCaseFileService._repeat_result_folder(x, repeat), querysets))
+        # 结果文件去重
+        new_result = JobTestCaseFileService._repeat_file(result)
+        return new_result
+
+    @staticmethod
+    def _repeat_file(result):
+        new_result = []
+        files = []
+        for res in result:
+            if res.result_file not in files:
+                new_result.append(res)
+                files.append(res.result_file)
+        return new_result
 
     @staticmethod
     def _repeat_result_folder(result, repeat):
