@@ -810,17 +810,24 @@ class ContrastBaselineService(CommonService):
         suite_data_list = data.get('suite_data', [])
 
         perf_res_list = self.get_res_list(job_id, suite_id_list, suite_data_list)
+        thread_tasks = []
         for perf_res in perf_res_list:
-            # 获取性能基线详情信息
-            perf_detail = PerfBaselineDetail.objects.filter(baseline_id=baseline_id,
-                                                            test_suite_id=perf_res.test_suite_id,
-                                                            test_case_id=perf_res.test_case_id, metric=perf_res.metric
-                                                            ).first()
-            if perf_detail:
-                perf_res = self.modify_perf_res(perf_res, baseline_id, perf_detail)
-            else:
-                # 没有对比基线不应该有对比结果, 没有指定对比基线跟踪结果为 na
-                perf_res.track_result = 'na'
-                continue
-            perf_res.save()
+            thread_tasks.append(
+                ToneThread(self.save_compare_baseline, (baseline_id, perf_res))
+            )
+            thread_tasks[-1].start()
+        for thread_task in thread_tasks:
+            thread_task.join()
+            perf_res = thread_task.get_result()
+            if perf_res:
+                perf_res.save()
         return True, '对比基线完成'
+
+    def save_compare_baseline(self, baseline_id, perf_res):
+        # 获取性能基线详情信息
+        perf_detail = PerfBaselineDetail.objects.filter(baseline_id=baseline_id,
+                                                        test_suite_id=perf_res.test_suite_id,
+                                                        test_case_id=perf_res.test_case_id, metric=perf_res.metric
+                                                        ).first()
+        if perf_detail:
+            return self.modify_perf_res(perf_res, baseline_id, perf_detail)
