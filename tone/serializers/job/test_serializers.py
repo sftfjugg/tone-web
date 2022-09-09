@@ -658,14 +658,14 @@ class JobTestConfResultSerializer(CommonSerializer):
     def get_end_time(obj):
         return get_time(obj.end_time)
 
-    @staticmethod
-    def get_baseline(obj):
+    def get_baseline(self, obj):
         baseline = None
-        test_job_obj = TestJob.objects.get(id=obj.job_id)
+        test_job_obj = self.context.get('view').test_job_obj
         test_type = get_test_type(test_job_obj)
         if test_type == '性能测试':
-            per_result = PerfResult.objects.filter(test_job_id=obj.job_id, test_suite_id=obj.test_suite_id,
-                                                   test_case_id=obj.test_case_id)
+            # per_result = PerfResult.objects.filter(test_job_id=obj.job_id, test_suite_id=obj.test_suite_id,
+            #                                        test_case_id=obj.test_case_id)
+            per_result = self.context.get('view').suite_result.filter(test_case_id=obj.test_case_id)
             baseline_id = test_job_obj.baseline_id
             if per_result.exists() and per_result.first().compare_baseline:
                 baseline_id = per_result.first().compare_baseline
@@ -673,10 +673,8 @@ class JobTestConfResultSerializer(CommonSerializer):
                 baseline = Baseline.objects.get(id=baseline_id).name
         return baseline
 
-    @staticmethod
-    def get_baseline_job_id(obj):
-        test_job_obj = TestJob.objects.get(id=obj.job_id)
-        return test_job_obj.baseline_job_id
+    def get_baseline_job_id(self, obj):
+        test_job_obj = self.context.get('view').test_job_obj
 
     @staticmethod
     def get_conf_name(obj):
@@ -690,10 +688,10 @@ class JobTestConfResultSerializer(CommonSerializer):
     def get_server_id(obj):
         return get_job_case_run_server(obj.id, return_field='id')
 
-    @staticmethod
-    def get_result_data(obj):
+    def get_result_data(self, obj):
         calc_result = dict()
-        result, count_data = calc_job_case(obj.id)
+        result, count_data = calc_job_case(obj, self.context.get('view').suite_result,
+                                           self.context.get('view').test_type)
         if result:
             calc_result['result'] = result
         calc_result = {**calc_result, **count_data}

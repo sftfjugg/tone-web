@@ -17,7 +17,7 @@ from tone.core.common.callback import CallBackType, JobCallBack
 from tone.core.common.enums.job_enums import JobCaseState, JobState
 from tone.core.common.enums.ts_enums import TestServerState
 from tone.core.common.services import CommonService
-from tone.core.common.constant import MonitorType
+from tone.core.common.constant import MonitorType, PERFORMANCE
 from tone.core.utils.permission_manage import check_operator_permission
 from tone.core.utils.tone_thread import ToneThread
 from tone.core.utils.verify_tools import check_contains_chinese
@@ -622,22 +622,33 @@ class JobTestConfResultService(CommonService):
         return queryset.filter(q)
 
     @staticmethod
-    def filter_search(response, data):
-        result_data = response['data']
-        resp = []
-        for result in result_data:
+    def filter_search(result_data, data):
+        if data.get('state'):
             test_type = TestJob.objects.filter(id=data.get('job_id')).first().test_type
             if test_type == 'functional':
-                if not data.get('state'):
-                    resp.append(dict(result))
-                elif result['result_data']['case_{}'.format(data.get('state'))]:
-                    resp.append(dict(result))
+                result_data = list(
+                    filter(lambda x: x.get('result_data').get('case_{}'.format(data.get('state'))), result_data))
             else:
-                if not data.get('state'):
-                    resp.append(dict(result))
-                elif result['result_data']['{}'.format(data.get('state'))]:
-                    resp.append(dict(result))
-        return resp
+                result_data = list(
+                    filter(lambda x: x.get('result_data').get('{}'.format(data.get('state'))), result_data))
+        return result_data
+
+    @staticmethod
+    def get_test_job_obj(data):
+        job_id = data.get('job_id')
+        assert job_id, JobTestException(ErrorCode.JOB_NEED)
+        return TestJob.objects.get(id=job_id)
+
+    @staticmethod
+    def get_perfresult(data, test_type):
+        job_id = data.get('job_id')
+        suite_id = data.get('suite_id')
+        assert job_id, JobTestException(ErrorCode.JOB_NEED)
+        assert suite_id, JobTestException(ErrorCode.SUITE_NEED)
+        if test_type == PERFORMANCE:
+            return PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id)
+        else:
+            return FuncResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id)
 
 
 class JobTestCaseResultService(CommonService):
