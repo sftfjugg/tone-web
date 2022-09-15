@@ -1,6 +1,7 @@
 import re
 from rest_framework.response import Response
 
+from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.info_map import add_link_msg
 from tone.core.common.views import CommonAPIView, BaseView
 from tone.models import TestServer, CloudServer, ServerTag, TestCluster, TestClusterServer, CloudAk, CloudImage
@@ -10,7 +11,7 @@ from tone.serializers.sys.server_serializers import TestServerSerializer, CloudS
 from tone.serializers.sys.testcase_serializers import SysTemplateSerializer
 from tone.services.sys.server_services import TestServerService, CloudServerService, ServerTagService, \
     TestClusterService, TestClusterServerService, CloudAkService, CloudImageService, ToneAgentService, \
-    ServerSnapshotService
+    ServerSnapshotService, SyncServerStateService
 from tone.schemas.sys.server_schemas import ServerTagSchema, ServerTagDetailSchema, \
     TestServerCheckSchema, TestServerSchema, \
     TestServerDetailSchema, TestClusterSchema, TestClusterDetailSchema, TestClusterTestServerSchema, \
@@ -909,4 +910,22 @@ class ServerSnapshotView(CommonAPIView):
         """
         queryset = self.service.filter(request)
         response_data = self.get_response_only_for_data(queryset)
+        return Response(response_data)
+
+
+class SyncServerStateView(CommonAPIView):
+    service_class = SyncServerStateService
+
+    def post(self, request):
+        """
+        集团单机列表查询
+        """
+        success = self.service.sync_state(request.data)
+        if success:
+            response_data = self.get_response_code()
+        else:
+            response_data = self.get_response_code(
+                code=ErrorCode.SYNC_SERVER_STATE_ERROR[0],
+                msg=ErrorCode.SYNC_SERVER_STATE_ERROR[1]
+            )
         return Response(response_data)
