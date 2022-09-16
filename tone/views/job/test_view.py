@@ -221,7 +221,7 @@ class JobTestResultView(CommonAPIView):
     queryset = TestJob.objects.all()
     service_class = JobTestResultService
     permission_classes = []
-    order_by = ['gmt_created']
+    order_by = ['-id']
 
     @method_decorator(views_catch_error)
     def get(self, request):
@@ -265,7 +265,7 @@ class JobTestCaseResultView(CommonAPIView):
         获取JobCaseResult
         """
         queryset = self.service.filter(self.get_queryset(), request)
-        response_data = self.get_response_data(queryset, page=False)
+        response_data = self.get_response_data(queryset)
         return Response(response_data)
 
 
