@@ -27,17 +27,23 @@ class PerfAnalysisService(CommonService):
         test_suite = data.get('test_suite_id', None)
         test_case = data.get('test_case_id', None)
         project_id = data.get('project_id')
-        if not project_id:
-            assert project_id, AnalysisException(ErrorCode.PROJECT_ID_NEED)
-        test_job = TestJob.objects.filter(project_id=project_id)
-        if test_job:
-            perf_res = PerfResult.objects.filter(test_suite_id=test_suite, test_case_id=test_case,
-                                                 test_job_id__in=test_job.values_list('id', flat=True)).last()
-            if not perf_res:
-                return None
-            metrics = PerfResult.objects.filter(test_job_id=perf_res.test_job_id, test_suite_id=test_suite,
-                                                test_case_id=test_case).values_list('metric', flat=True)
-            metric_list = sorted(list(set(metrics)))
+        assert project_id, AnalysisException(ErrorCode.PROJECT_ID_NEED)
+        with connection.cursor() as cursor:
+            search_sql = '''SELECT metric FROM perf_result 
+                    WHERE test_job_id=(SELECT id FROM test_job
+                                       where project_id = {} AND id 
+                                       IN (SELECT test_job.id FROM test_job 
+                                            join perf_result on perf_result.test_job_id=test_job.id 
+                                            WHERE test_suite_id={} AND test_case_id={}) 
+                                       ORDER BY id DESC LIMIT 1) 
+                    AND test_suite_id={} 
+                    AND test_case_id={};'''.format(project_id, test_suite, test_case, test_suite, test_case)
+            cursor.execute(search_sql)
+            metrics = cursor.fetchall()
+            metric_list = []
+            for metric in metrics:
+                metric_list.append(metric[0])
+            metric_list = sorted(set(metric_list))
             return metric_list
 
     def filter(self, data):
