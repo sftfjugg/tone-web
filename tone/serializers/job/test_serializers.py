@@ -867,11 +867,19 @@ class JobTestCasePerResultSerializer(CommonSerializer):
     @staticmethod
     def get_threshold(obj):
         threshold = None
+        object_id = None
+        object_type = ""
         if TestMetric.objects.filter(object_id=obj.test_case_id, object_type='case', name=obj.metric).exists():
-            cmp_threshold = TestMetric.objects.get(object_id=obj.test_case_id, name=obj.metric,
-                                                   object_type='case').cmp_threshold
-            cv_threshold = TestMetric.objects.get(object_id=obj.test_case_id, name=obj.metric,
-                                                  object_type='case').cv_threshold
+            object_id = obj.test_case_id
+            object_type = 'case'
+        elif TestMetric.objects.filter(object_id=obj.test_suite_id, object_type='suite', name=obj.metric).exists():
+            object_id = obj.test_suite_id
+            object_type = 'suite'
+        if object_id and object_type:
+            cmp_threshold = TestMetric.objects.get(object_id=object_id, name=obj.metric,
+                                                   object_type=object_type).cmp_threshold
+            cv_threshold = TestMetric.objects.get(object_id=object_id, name=obj.metric,
+                                                  object_type=object_type).cv_threshold
             threshold = '{}%/{}%'.format(str(cmp_threshold * 100), str(cv_threshold * 100))
         return threshold
 
