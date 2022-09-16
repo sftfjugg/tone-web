@@ -550,7 +550,8 @@ class JobTestResultSerializer(CommonSerializer):
         for thread_task in thread_tasks:
             thread_task.join()
             suite_item_data = thread_task.get_result()
-            suite_list.append(suite_item_data)
+            if suite_item_data:
+                suite_list.append(suite_item_data)
         return suite_list
 
     @staticmethod
