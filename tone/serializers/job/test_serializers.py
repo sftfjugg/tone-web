@@ -550,7 +550,8 @@ class JobTestResultSerializer(CommonSerializer):
         for thread_task in thread_tasks:
             thread_task.join()
             suite_item_data = thread_task.get_result()
-            suite_list.append(suite_item_data)
+            if suite_item_data:
+                suite_list.append(suite_item_data)
         return suite_list
 
     @staticmethod
@@ -582,15 +583,20 @@ class JobTestResultSerializer(CommonSerializer):
                 baseline = None
                 if per_result.exists() and per_result.first().compare_baseline:
                     baseline_id = per_result.first().compare_baseline
-                if Baseline.objects.filter(id=baseline_id).exists():
-                    baseline = Baseline.objects.get(id=baseline_id).name
+                baseline_obj = Baseline.objects.filter(id=baseline_id)
+                if baseline_obj.exists():
+                    baseline = baseline_obj.first().name
                 suite_data['baseline'] = baseline
-                _, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
+                _, count_data = calc_job_suite(test_job.id, suite.test_suite_id, test_job.ws_id, test_job.test_type,
+                                               test_result=per_result)
             elif test_type == '业务测试':
-                result, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
+                result, count_data = calc_job_suite(test_job.id, suite.test_suite_id, test_job.ws_id,
+                                                    test_job.test_type)
                 suite_data['result'] = result
             else:
-                result, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
+                func_result = FuncResult.objects.filter(test_job_id=test_job.id, test_suite_id=suite.test_suite_id)
+                result, count_data = calc_job_suite(test_job.id, suite.test_suite_id, test_job.ws_id,
+                                                    test_job.test_type, test_result=func_result)
                 suite_data['result'] = result
             suite_data = {**suite_data, **count_data}
             suite_data['baseline_job_id'] = test_job.baseline_job_id
@@ -658,14 +664,14 @@ class JobTestConfResultSerializer(CommonSerializer):
     def get_end_time(obj):
         return get_time(obj.end_time)
 
-    @staticmethod
-    def get_baseline(obj):
+    def get_baseline(self, obj):
         baseline = None
-        test_job_obj = TestJob.objects.get(id=obj.job_id)
+        test_job_obj = self.context.get('view').test_job_obj
         test_type = get_test_type(test_job_obj)
         if test_type == '性能测试':
-            per_result = PerfResult.objects.filter(test_job_id=obj.job_id, test_suite_id=obj.test_suite_id,
-                                                   test_case_id=obj.test_case_id)
+            # per_result = PerfResult.objects.filter(test_job_id=obj.job_id, test_suite_id=obj.test_suite_id,
+            #                                        test_case_id=obj.test_case_id)
+            per_result = self.context.get('view').suite_result.filter(test_case_id=obj.test_case_id)
             baseline_id = test_job_obj.baseline_id
             if per_result.exists() and per_result.first().compare_baseline:
                 baseline_id = per_result.first().compare_baseline
@@ -673,10 +679,8 @@ class JobTestConfResultSerializer(CommonSerializer):
                 baseline = Baseline.objects.get(id=baseline_id).name
         return baseline
 
-    @staticmethod
-    def get_baseline_job_id(obj):
-        test_job_obj = TestJob.objects.get(id=obj.job_id)
-        return test_job_obj.baseline_job_id
+    def get_baseline_job_id(self, obj):
+        test_job_obj = self.context.get('view').test_job_obj
 
     @staticmethod
     def get_conf_name(obj):
@@ -690,10 +694,10 @@ class JobTestConfResultSerializer(CommonSerializer):
     def get_server_id(obj):
         return get_job_case_run_server(obj.id, return_field='id')
 
-    @staticmethod
-    def get_result_data(obj):
+    def get_result_data(self, obj):
         calc_result = dict()
-        result, count_data = calc_job_case(obj.id)
+        result, count_data = calc_job_case(obj, self.context.get('view').suite_result,
+                                           self.context.get('view').test_type)
         if result:
             calc_result['result'] = result
         calc_result = {**calc_result, **count_data}
@@ -867,11 +871,19 @@ class JobTestCasePerResultSerializer(CommonSerializer):
     @staticmethod
     def get_threshold(obj):
         threshold = None
+        object_id = None
+        object_type = ""
         if TestMetric.objects.filter(object_id=obj.test_case_id, object_type='case', name=obj.metric).exists():
-            cmp_threshold = TestMetric.objects.get(object_id=obj.test_case_id, name=obj.metric,
-                                                   object_type='case').cmp_threshold
-            cv_threshold = TestMetric.objects.get(object_id=obj.test_case_id, name=obj.metric,
-                                                  object_type='case').cv_threshold
+            object_id = obj.test_case_id
+            object_type = 'case'
+        elif TestMetric.objects.filter(object_id=obj.test_suite_id, object_type='suite', name=obj.metric).exists():
+            object_id = obj.test_suite_id
+            object_type = 'suite'
+        if object_id and object_type:
+            cmp_threshold = TestMetric.objects.get(object_id=object_id, name=obj.metric,
+                                                   object_type=object_type).cmp_threshold
+            cv_threshold = TestMetric.objects.get(object_id=object_id, name=obj.metric,
+                                                  object_type=object_type).cv_threshold
             threshold = '{}%/{}%'.format(str(cmp_threshold * 100), str(cv_threshold * 100))
         return threshold
 
