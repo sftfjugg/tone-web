@@ -120,22 +120,20 @@ def calc_job_suite(job_suite_id, ws_id, test_type):
     return result, count_data
 
 
-def calc_job_case(job_case_id, is_api=False):
+def calc_job_case(job_case, suite_result, test_type, is_api=False):
     """
     统计JobCase结果及数据
     """
-    job_case = TestJobCase.objects.get(id=job_case_id)
-    test_type = TestSuite.objects.filter(id=job_case.test_suite_id, query_scope='all').first().test_type
     count_data = dict()
     result = None
     if test_type == PERFORMANCE:
-        per_result = PerfResult.objects.filter(test_job_id=job_case.job_id, test_suite_id=job_case.test_suite_id,
-                                               test_case_id=job_case.test_case_id)
-        count = per_result.count()
-        increase = per_result.filter(track_result='increase').count()
-        decline = per_result.filter(track_result='decline').count()
-        normal = per_result.filter(track_result='normal').count()
-        invalid = per_result.filter(track_result='invalid').count()
+        per_result = suite_result.filter(test_case_id=job_case.test_case_id).values_list('track_result', flat=True)
+        per_result = list(per_result)
+        count = len(per_result)
+        increase = per_result.count('increase')
+        decline = per_result.count('decline')
+        normal = per_result.count('normal')
+        invalid = per_result.count('invalid')
         na = count - increase - decline - normal - invalid
         count_data['count'] = count
         count_data['increase'] = increase
@@ -144,7 +142,6 @@ def calc_job_case(job_case_id, is_api=False):
         count_data['invalid'] = invalid
         count_data['na'] = na
     elif test_type == BUSINESS:
-        job_case = TestJobCase.objects.filter(id=job_case_id).first()
         if job_case.state not in ['fail', 'success']:
             result = 'fail' if is_api else '-'
         else:
@@ -158,8 +155,7 @@ def calc_job_case(job_case_id, is_api=False):
             count_data['ci_result'] = business_result.ci_result
             count_data['ci_detail'] = business_result.ci_detail
     else:
-        func_result = FuncResult.objects.filter(test_job_id=job_case.job_id, test_suite_id=job_case.test_suite_id,
-                                                test_case_id=job_case.test_case_id)
+        func_result = suite_result.filter(test_case_id=job_case.test_case_id)
         case_count = func_result.count()
         baseline_id = TestJob.objects.get_value(id=job_case.job_id).baseline_id
         ws_id = TestJob.objects.get(id=job_case.job_id).ws_id

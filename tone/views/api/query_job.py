@@ -1,7 +1,7 @@
 # _*_ coding:utf-8 _*_
 import json
 from datetime import datetime
-from tone.core.common.constant import FUNC_CASE_RESULT_TYPE_MAP
+from tone.core.common.constant import FUNC_CASE_RESULT_TYPE_MAP, PERFORMANCE
 from tone.models import TestJob, TestJobCase, TestSuite, TestCase, PerfResult, FuncResult, JobType, Project, Workspace
 from tone.core.utils.helper import CommResp
 from tone.core.common.expection_handler.error_code import ErrorCode
@@ -48,12 +48,17 @@ def job_query(request):
     statics = calc_job(job_id)
     statics['total'] = statics.pop('count')
     result_data = list()
+    if job.test_type == PERFORMANCE:
+        suite_result = PerfResult.objects.filter(test_job_id=job_id)
+    else:
+        suite_result = FuncResult.objects.filter(test_job_id=job_id)
     job_cases = TestJobCase.objects.filter(job_id=job_id)
     for job_case in job_cases:
         test_suite = TestSuite.objects.get(id=job_case.test_suite_id)
         test_case = TestCase.objects.get(id=job_case.test_case_id)
         ip, is_instance, _, _ = get_job_case_server(job_case.id)
-        case_state, case_statics = calc_job_case(job_case.id, is_api=True)
+        suite_result = suite_result.filter(test_suite_id=job_case.test_suite_id)
+        case_state, case_statics = calc_job_case(job_case, suite_result, job.test_type, is_api=True)
         case_statics = _replace_statics_key(case_statics)
         start_time, end_time = '', ''
         if job_case.start_time:
