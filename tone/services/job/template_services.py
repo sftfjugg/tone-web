@@ -79,6 +79,8 @@ class TestTemplateService(CommonService):
                     TemplateTagRelation.objects.filter(template_id=template_id).delete()
                     for tag in tag_list:
                         TemplateTagRelation.objects.create(tag_id=tag, template_id=template_id)
+                if 'tags' not in data and not tag_list:
+                    TemplateTagRelation.objects.filter(template_id=template_id).delete()
                 obj.save()
         return True
 
