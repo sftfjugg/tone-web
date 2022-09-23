@@ -43,6 +43,8 @@ class ReportHandle(object):
 
     def save_report(self):  # noqa: C901
         logging.info(f'report: job_id {self.job_id}, report_template_id: {self.job_obj.report_template_id}')
+        self.job_obj.report_is_saved = True
+        self.job_obj.save()
         if not self.report_template_obj:
             logging.error(f'report save error: job_id {self.job_id}, report_template_id is null.')
             return
@@ -128,11 +130,17 @@ class ReportHandle(object):
                             test_env = self.get_suite_env(tmpl_suite.test_suite_id)
                             if not test_env:
                                 test_env = tmpl_suite.test_env_desc
+                            tmp_suite = TestSuite.objects.filter(id=tmpl_suite.test_suite_id).first()
+                            suite_doc = None
+                            if tmp_suite and tmp_suite.doc and tmp_suite.doc.find('Description') > -1 and \
+                                    tmp_suite.doc.find('## Homepage') > -1:
+                                suite_doc = tmp_suite.doc.split('Description')[1].split('## Homepage')[0]
                             report_item_suite = ReportItemSuite.objects.create(
                                 report_item_id=report_item.id, test_suite_id=tmpl_suite.test_suite_id,
                                 test_suite_name=tmpl_suite.test_suite_show_name, test_env=test_env,
                                 test_description=tmpl_suite.test_description_desc,
                                 test_conclusion=tmpl_suite.test_conclusion_desc,
+                                test_suite_description=suite_doc,
                                 show_type=0 if tmpl_suite.show_type == 'list' else 1)
                             for tmpl_conf in tmpl_suite.test_conf_list:
                                 if TestJobCase.objects.filter(job_id=self.job_id,
@@ -182,9 +190,13 @@ class ReportHandle(object):
             }
             report.test_conclusion = self.get_test_conclusion(report, perf_count, func_count)
             report.save()
-            self.job_obj.report_is_saved = True
-            ReportObjectRelation.objects.create(object_type='job', object_id=self.job_id, report_id=report.id)
-            self.job_obj.save()
+            report_object_relation = ReportObjectRelation.objects. \
+                filter(object_type='job', object_id=self.job_id).first()
+            if report_object_relation:
+                report_object_relation.report_id = report.id
+                report_object_relation.save()
+            else:
+                ReportObjectRelation.objects.create(object_type='job', object_id=self.job_id, report_id=report.id)
 
     def get_suite_env(self, test_suite_id):
         test_env = ''
@@ -211,9 +223,9 @@ class ReportHandle(object):
                     "is_job": 0,
                     "obj_id": self.job_obj.baseline_id,
                     "all_case": baseline.count(),
-                    "success_case": baseline.filter(sub_case_result=1).count(),
-                    "fail_case": baseline.filter(sub_case_result=2).count(),
-                    "warn_case": baseline.filter(sub_case_result=6).count()}))
+                    "success_case": 0,
+                    "fail_case": 0,
+                    "warn_case": 0}))
             else:
                 compare_conf_list.insert(0, dict({
                     "is_job": 0,
@@ -282,8 +294,6 @@ class ReportHandle(object):
         if self.job_obj.baseline_id:
             func_baseline = FuncBaselineDetail.objects. \
                 filter(baseline_id=self.job_obj.baseline_id, sub_case_name=func_result.sub_case_name).first()
-            if func_baseline:
-                compare_data.append(FUNC_CASE_RESULT_TYPE_MAP.get(func_baseline.sub_case_result))
             ReportItemSubCase.objects.create(report_item_conf_id=report_item_conf.id,
                                              sub_case_name=func_result.sub_case_name,
                                              result='Fail' if func_baseline else None,
