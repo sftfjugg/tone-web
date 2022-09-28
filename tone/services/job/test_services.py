@@ -591,21 +591,20 @@ class JobTestResultService(CommonService):
     @staticmethod
     def filter_search(response, data):
         test_suites = response['data'][0]['test_suite']
-        resp = []
-        for test_suite in test_suites:
-            if not test_suite:
-                continue
-            if test_suite['test_type'] == '功能测试':
-                if not data.get('state'):
-                    resp.append(test_suite)
-                elif test_suite['conf_{}'.format(data.get('state'))]:
-                    resp.append(test_suite)
-            else:
-                if not data.get('state'):
-                    resp.append(test_suite)
-                elif test_suite[data.get('state')]:
-                    resp.append(test_suite)
-        return resp
+        if not data.get('state'):
+            return test_suites
+        else:
+            resp = []
+            for test_suite in test_suites:
+                if not test_suite:
+                    continue
+                if test_suite['test_type'] == '功能测试':
+                    if test_suite['conf_{}'.format(data.get('state'))]:
+                        resp.append(test_suite)
+                else:
+                    if test_suite[data.get('state')]:
+                        resp.append(test_suite)
+            return resp
 
 
 class JobTestConfResultService(CommonService):
@@ -669,6 +668,7 @@ class JobTestCaseResultService(CommonService):
         q &= Q(test_suite_id=suite_id)
         q &= Q(test_case_id=case_id)
         q &= Q(sub_case_result=data.get('sub_case_result')) if data.get('sub_case_result') else q
+        q &= Q(sub_case_name__contains=data.get('sub_case_name')) if data.get('sub_case_name') else q
         queryset = queryset.filter(q)
         sub_case_name_list = [query.sub_case_name for query in queryset]
         if len(sub_case_name_list) > len(set(sub_case_name_list)):

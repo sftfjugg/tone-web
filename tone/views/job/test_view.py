@@ -222,7 +222,7 @@ class JobTestResultView(CommonAPIView):
     queryset = TestJob.objects.all()
     service_class = JobTestResultService
     permission_classes = []
-    order_by = ['gmt_created']
+    order_by = ['-id']
 
     @method_decorator(views_catch_error)
     def get(self, request):
@@ -285,26 +285,9 @@ class JobTestCaseResultView(CommonAPIView):
         """
         获取JobCaseResult
         """
-        querysets = self.service.filter(self.get_queryset(), request)
-        datas = self.get_func_result_data(querysets)
-        response_data = self.get_response_only_for_data(datas)
+        queryset = self.service.filter(self.get_queryset(), request)
+        response_data = self.get_response_data(queryset)
         return Response(response_data)
-
-    def get_func_result_data(self, querysets):
-        thread_tasks = []
-        func_result_list = []
-        for query in querysets:
-            func_result = FuncResult.objects.filter(id=query.id)
-            thread_tasks.append(
-                ToneThread(self.get_serializer_data, (func_result, True, False))
-            )
-            thread_tasks[-1].start()
-        for thread_task in thread_tasks:
-            thread_task.join()
-            func_result_data = thread_task.get_result()
-            func_result_list.append(func_result_data)
-        datas = [case.get('data')[0] for case in func_result_list if case.get('data')]
-        return datas
 
 
 class JobTestCasePerResultView(CommonAPIView):
