@@ -1317,3 +1317,33 @@ class MachineFaultService(CommonService):
                     return CloudServerSnapshot.objects.filter(q)
         else:
             raise JobTestException(ErrorCode.JOB_NEED)
+
+
+def package_server_list(job):
+    server_li = list()
+    ip_li = list()
+    if not job:
+        return server_li
+    snap_shot_objs = TestServerSnapshot.objects.filter(
+        job_id=job.id) if job.server_provider == 'aligroup' else CloudServerSnapshot.objects.filter(job_id=job.id)
+    for snap_shot_obj in snap_shot_objs:
+        ip = snap_shot_obj.ip if job.server_provider == 'aligroup' else snap_shot_obj.pub_ip
+        if ip not in ip_li:
+            if not (snap_shot_obj.distro or snap_shot_obj.rpm_list or snap_shot_obj.gcc):
+                continue
+            server_li.append({
+                'ip/sn': ip,
+                'distro': snap_shot_obj.sm_name if job.server_provider == 'aligroup' else
+                snap_shot_obj.instance_type,
+                'os': snap_shot_obj.distro,
+                'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
+                'kernel': snap_shot_obj.kernel_version,
+                'gcc': snap_shot_obj.gcc,
+                'glibc': snap_shot_obj.glibc,
+                'memory_info': snap_shot_obj.memory_info,
+                'disk': snap_shot_obj.disk,
+                'cpu_info': snap_shot_obj.cpu_info,
+                'ether': snap_shot_obj.ether,
+            })
+            ip_li.append(ip)
+    return server_li
