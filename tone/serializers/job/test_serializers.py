@@ -583,9 +583,9 @@ class JobTestResultSerializer(CommonSerializer):
                 baseline = None
                 if per_result.exists() and per_result.first().compare_baseline:
                     baseline_id = per_result.first().compare_baseline
-                baseline_obj = Baseline.objects.filter(id=baseline_id)
-                if baseline_obj.exists():
-                    baseline = baseline_obj.first().name
+                baseline_obj = Baseline.objects.filter(id=baseline_id).first()
+                if baseline_obj:
+                    baseline = baseline_obj.name
                 suite_data['baseline'] = baseline
                 _, count_data = calc_job_suite(test_job.id, suite.test_suite_id, test_job.ws_id, test_job.test_type,
                                                test_result=per_result)
