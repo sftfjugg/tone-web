@@ -317,7 +317,8 @@ class TestServerService(CommonService):
             test_server = TestServer.objects.filter(id=pk)
             if len(test_server) == 0:
                 return 201, '机器不存在'
-            if test_server.first().spec_use == 1:
+            if test_server.first().spec_use == 1 and TestClusterServer.objects.filter(server_id=pk,
+                                                                                      cluster_type='aligroup').exists():
                 return 201, '机器被集群使用'
             elif test_server.first().spec_use == 2:
                 return 201, '机器被job使用'
