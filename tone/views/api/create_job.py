@@ -126,6 +126,16 @@ def conversion_data(data):  # noqa: C901
                         raise ValueError(ErrorCode.SERVER_NOT_EXISTS)
                     case['server_object_id'] = server_obj.first().id
                     server_config.pop('config')
+                elif server_config.get('tsn'):
+                    server_model = TestServer if provider == 'aligroup' else CloudServer
+                    server_obj = server_model.objects.filter(
+                        tsn=server_config.get('tsn'),
+                        ws_id=ws_id
+                    )
+                    if not server_obj.exists():
+                        raise ValueError(ErrorCode.SERVER_NOT_EXISTS)
+                    case['server_object_id'] = server_obj.first().id
+                    server_config.pop('tsn')
                 else:
                     pass
     if data.get('kernel_id') and KernelInfo.objects.filter(id=data.get('kernel_id')).exists():
