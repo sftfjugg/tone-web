@@ -453,9 +453,12 @@ class ReportService(CommonService):
         for perf_result in perf_results:
             compare_data_list = list()
             if TestMetric.objects.filter(name=perf_result.metric, object_type='case', object_id=test_conf_id).exists():
-                test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='case', object_id=test_conf_id)
-            elif TestMetric.objects.filter(name=perf_result.metric, object_type='suite', object_id=test_suite_id).exists():
-                test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='suite', object_id=test_suite_id)
+                test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='case',
+                                                     object_id=test_conf_id)
+            elif TestMetric.objects.filter(name=perf_result.metric, object_type='suite', object_id=test_suite_id).\
+                    exists():
+                test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='suite',
+                                                     object_id=test_suite_id)
             else:
                 continue
             compare_data = PerfResult.objects. \
@@ -593,7 +596,7 @@ class ReportService(CommonService):
         report_id = data.get('report_id')
         report = Report.objects.get(id=report_id)
         base_index = report.test_env.get('base_index')
-        if data.get('test_env').get('text'):
+        if data.get('test_env') and data.get('test_env').get('text'):
             report.test_env['text'] = data.get('test_env').get('text')
         assert report_id, ReportException(ErrorCode.REPORT_ID_NEED)
         for key, value in data.items():
@@ -601,8 +604,6 @@ class ReportService(CommonService):
                 continue
             if hasattr(report, key):
                 setattr(report, key, value)
-        if data.get('test_env') and data.get('test_env').get('text'):
-            report.test_env['text'] = data.get('test_env').get('text')
         test_item = data.get('test_item', None)
         with transaction.atomic():
             if test_item:
