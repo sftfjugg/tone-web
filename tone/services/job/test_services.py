@@ -591,21 +591,20 @@ class JobTestResultService(CommonService):
     @staticmethod
     def filter_search(response, data):
         test_suites = response['data'][0]['test_suite']
-        resp = []
-        for test_suite in test_suites:
-            if not test_suite:
-                continue
-            if test_suite['test_type'] == '功能测试':
-                if not data.get('state'):
-                    resp.append(test_suite)
-                elif test_suite['conf_{}'.format(data.get('state'))]:
-                    resp.append(test_suite)
-            else:
-                if not data.get('state'):
-                    resp.append(test_suite)
-                elif test_suite[data.get('state')]:
-                    resp.append(test_suite)
-        return resp
+        if not data.get('state'):
+            return test_suites
+        else:
+            resp = []
+            for test_suite in test_suites:
+                if not test_suite:
+                    continue
+                if test_suite['test_type'] == '功能测试':
+                    if test_suite['conf_{}'.format(data.get('state'))]:
+                        resp.append(test_suite)
+                else:
+                    if test_suite[data.get('state')]:
+                        resp.append(test_suite)
+            return resp
 
 
 class JobTestConfResultService(CommonService):
@@ -669,6 +668,7 @@ class JobTestCaseResultService(CommonService):
         q &= Q(test_suite_id=suite_id)
         q &= Q(test_case_id=case_id)
         q &= Q(sub_case_result=data.get('sub_case_result')) if data.get('sub_case_result') else q
+        q &= Q(sub_case_name__contains=data.get('sub_case_name')) if data.get('sub_case_name') else q
         queryset = queryset.filter(q)
         sub_case_name_list = [query.sub_case_name for query in queryset]
         if len(sub_case_name_list) > len(set(sub_case_name_list)):
@@ -1317,3 +1317,33 @@ class MachineFaultService(CommonService):
                     return CloudServerSnapshot.objects.filter(q)
         else:
             raise JobTestException(ErrorCode.JOB_NEED)
+
+
+def package_server_list(job):
+    server_li = list()
+    ip_li = list()
+    if not job:
+        return server_li
+    snap_shot_objs = TestServerSnapshot.objects.filter(
+        job_id=job.id) if job.server_provider == 'aligroup' else CloudServerSnapshot.objects.filter(job_id=job.id)
+    for snap_shot_obj in snap_shot_objs:
+        ip = snap_shot_obj.ip if job.server_provider == 'aligroup' else snap_shot_obj.pub_ip
+        if ip not in ip_li:
+            if not (snap_shot_obj.distro or snap_shot_obj.rpm_list or snap_shot_obj.gcc):
+                continue
+            server_li.append({
+                'ip/sn': ip,
+                'distro': snap_shot_obj.sm_name if job.server_provider == 'aligroup' else
+                snap_shot_obj.instance_type,
+                'os': snap_shot_obj.distro,
+                'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
+                'kernel': snap_shot_obj.kernel_version,
+                'gcc': snap_shot_obj.gcc,
+                'glibc': snap_shot_obj.glibc,
+                'memory_info': snap_shot_obj.memory_info,
+                'disk': snap_shot_obj.disk,
+                'cpu_info': snap_shot_obj.cpu_info,
+                'ether': snap_shot_obj.ether,
+            })
+            ip_li.append(ip)
+    return server_li

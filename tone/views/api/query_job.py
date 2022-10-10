@@ -1,8 +1,14 @@
 # _*_ coding:utf-8 _*_
+"""
+Module Description:
+Date:
+Author: Yfh
+"""
 import json
 from datetime import datetime
 from tone.core.common.constant import FUNC_CASE_RESULT_TYPE_MAP, PERFORMANCE
-from tone.models import TestJob, TestJobCase, TestSuite, TestCase, PerfResult, FuncResult, JobType, Project, Workspace
+from tone.models import TestJob, TestJobCase, TestSuite, TestCase, PerfResult, FuncResult, JobType, Project, \
+    Workspace, ResultFile
 from tone.core.utils.helper import CommResp
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.error_catch import api_catch_error
@@ -10,6 +16,7 @@ from tone.core.common.verify_token import token_required
 from tone.core.common.job_result_helper import calc_job, get_job_case_server, get_job_case_run_server, calc_job_case, \
     splice_job_link
 from tone.services.sys.testcase_services import TestCaseInfoService
+from tone.services.job.test_services import package_server_list
 
 
 def _replace_statics_key(case_statics):
@@ -39,11 +46,17 @@ def job_query(request):
     assert job_id, ValueError(ErrorCode.JOB_NEED)
     job = TestJob.objects.get(id=job_id) if TestJob.objects.filter(id=job_id) else None
     assert job, ValueError(ErrorCode.TEST_JOB_NONEXISTENT)
+    machine_file = ''
+    machine_result = ResultFile.objects.filter(test_job_id=job_id, result_file='1/machine_info.json').first()
+    if machine_result:
+        machine_file = machine_result.result_path + machine_result.result_file
     resp_data = {
         'job_id': job_id,
         'job_link': splice_job_link(job),
         'job_state': 'pending' if job.state == 'pending_q' else job.state,
-        'test_type': job.test_type
+        'test_type': job.test_type,
+        'server_info': package_server_list(job),
+        'machine_file': machine_file
     }
     statics = calc_job(job_id)
     statics['total'] = statics.pop('count')
@@ -94,12 +107,20 @@ def job_query(request):
                         'value_list': metric_result.value_list,
                         'baseline_value': metric_result.baseline_value,
                         'compare_result': metric_result.compare_result,
-                        'track_result': metric_result.track_result
+                        'track_result': metric_result.track_result,
+                        'unit': metric_result.unit
                     }
                 )
             result_item['case_result'] = result_list
         elif job.test_type == 'functional':
             sub_case_results = FuncResult.objects.filter(test_job_id=job.id, test_case_id=job_case.test_case_id)
+            statistic_file = ''
+            statistic_result = ResultFile.objects.filter(test_job_id=job_id, test_suite_id=test_suite.id,
+                                                         test_case_id=job_case.test_case_id,
+                                                         result_file='statistic.json').first()
+            if statistic_result:
+                statistic_file = statistic_result.result_path + statistic_result.result_file
+            result_item['statistic_file'] = statistic_file
             result_list = list()
             for sub_case_result in sub_case_results:
                 result_list.append(
