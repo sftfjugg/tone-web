@@ -96,9 +96,12 @@ class TestServerService(CommonService):
             q &= Q(idc__icontains=data.get('idc'))
             flag = True
         if data.get('owner'):
-            user = User.objects.filter(Q(last_name__icontains=data.get('owner')) |
-                                       Q(first_name__icontains=data.get('owner'))).values_list('id', flat=True)
-            q &= Q(owner__in=user)
+            if data.get('owner').isdigit():
+                q &= Q(owner=data.get('owner'))
+            else:
+                user = User.objects.filter(Q(last_name__icontains=data.get('owner')) |
+                                           Q(first_name__icontains=data.get('owner'))).values_list('id', flat=True)
+                q &= Q(owner__in=user)
             flag = True
         for item in ['state', 'real_state', 'channel_type', 'device_type']:
             if data.get(item):
