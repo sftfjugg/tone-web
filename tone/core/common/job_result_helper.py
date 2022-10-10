@@ -33,28 +33,28 @@ def calc_job(job_id):
     test_type = TestJob.objects.get(id=job_id).test_type
     if test_type == 'performance':
         per_results = PerfResult.objects.filter(test_job_id=job_id)
-        count = per_results.count()
-        increase = per_results.filter(track_result='increase').count()
-        decline = per_results.filter(track_result='decline').count()
-        normal = per_results.filter(track_result='normal').count()
-        invalid = per_results.filter(track_result='invalid').count()
+        count = len(per_results)
+        increase = len(list(filter(lambda x: x.track_result == 'increase', per_results)))
+        decline = len(list(filter(lambda x: x.track_result == 'decline', per_results)))
+        normal = len(list(filter(lambda x: x.track_result == 'normal', per_results)))
+        invalid = len(list(filter(lambda x: x.track_result == 'invalid', per_results)))
         na = count - increase - decline - normal - invalid
         result = {'count': count, 'increase': increase, 'decline': decline, 'normal': normal, 'invalid': invalid,
                   'na': na}
     elif test_type == BUSINESS:
         job_case_queryset = TestJobCase.objects.filter(job_id=job_id)
-        count = job_case_queryset.count()
-        fail = job_case_queryset.filter(state='fail').count()
-        skip = job_case_queryset.filter(state='skip').count()
-        success = job_case_queryset.filter(state='success').count()
+        count = len(job_case_queryset)
+        fail = len(list(filter(lambda x: x.state == 'fail', job_case_queryset)))
+        skip = len(list(filter(lambda x: x.state == 'skip', job_case_queryset)))
+        success = len(list(filter(lambda x: x.state == 'success', job_case_queryset)))
         result = {'count': count, 'success': success, 'fail': fail, 'skip': skip}
     else:
         func_result = FuncResult.objects.filter(test_job_id=job_id)
-        success = func_result.filter(sub_case_result='1').count()
-        fail = func_result.filter(sub_case_result='2').count()
-        skip = func_result.filter(sub_case_result='5').count()
-        warn = func_result.filter(sub_case_result='6').count()
-        count = func_result.count()
+        success = len(list(filter(lambda x: x.sub_case_result == 1, func_result)))
+        fail = len(list(filter(lambda x: x.sub_case_result == 2, func_result)))
+        skip = len(list(filter(lambda x: x.sub_case_result == 5, func_result)))
+        warn = len(list(filter(lambda x: x.sub_case_result == 6, func_result)))
+        count = len(func_result)
         result = {'count': count, 'success': success, 'fail': fail, 'skip': skip, 'warn': warn}
     return result
 
@@ -67,11 +67,12 @@ def calc_job_suite(job_id, test_suite_id, ws_id, test_type, test_result=None):
     result = None
     if test_type == PERFORMANCE:
         per_result = test_result
-        count = per_result.count()
-        increase = per_result.filter(track_result='increase').count()
-        decline = per_result.filter(track_result='decline').count()
-        normal = per_result.filter(track_result='normal').count()
-        invalid = per_result.filter(track_result='invalid').count()
+        count = len(per_result)
+        increase = len(list(filter(lambda x: x.track_result == 'increase', per_result)))
+        decline = len(list(filter(lambda x: x.track_result == 'decline', per_result)))
+        normal = len(list(filter(lambda x: x.track_result == 'normal', per_result)))
+        invalid = len(list(filter(lambda x: x.track_result == 'invalid', per_result)))
+
         na = count - increase - decline - normal - invalid
         count_data['count'] = count
         count_data['increase'] = increase
@@ -81,9 +82,9 @@ def calc_job_suite(job_id, test_suite_id, ws_id, test_type, test_result=None):
         count_data['na'] = na
     elif test_type == BUSINESS:
         job_case_queryset = TestJobCase.objects.filter(job_id=job_id, test_suite_id=test_suite_id)
-        conf_count = job_case_queryset.count()
-        conf_fail = job_case_queryset.filter(state='fail').count()
-        conf_skip = job_case_queryset.filter(state='skip').count()
+        conf_count = len(job_case_queryset)
+        conf_fail = len(list(filter(lambda x: x.state == 'fail', job_case_queryset)))
+        conf_skip = len(list(filter(lambda x: x.state == 'skip', job_case_queryset)))
         if conf_fail > 0:
             result = 'fail'
         elif conf_count > 0 and conf_fail == 0:
@@ -91,18 +92,18 @@ def calc_job_suite(job_id, test_suite_id, ws_id, test_type, test_result=None):
         else:
             result = '-'
         count_data['conf_count'] = conf_count
-        count_data['conf_success'] = job_case_queryset.filter(state='success').count()
+        count_data['conf_success'] = len(list(filter(lambda x: x.state == 'success', job_case_queryset)))
         count_data['conf_fail'] = conf_fail
         count_data['conf_skip'] = conf_skip
     else:
         func_result = test_result
-        conf_count = func_result.count()
         baseline_id = TestJob.objects.get_value(id=job_id).baseline_id
         impact_baseline = calc_impact_baseline(func_result, baseline_id, ws_id, job_id)
-        # conf_success = func_result.filter(sub_case_result='1').count() + impact_baseline
-        conf_fail = func_result.filter(sub_case_result='2', match_baseline=False).count() + impact_baseline
-        conf_skip = func_result.filter(sub_case_result='5').count()
-        conf_warn = func_result.filter(sub_case_result='6').count()
+        conf_count = len(func_result)
+        conf_fail = len(list(
+            filter(lambda x: x.sub_case_result == 2 and not x.match_baseline, func_result))) + impact_baseline
+        conf_skip = len(list(filter(lambda x: x.sub_case_result == 5, func_result)))
+        conf_warn = len(list(filter(lambda x: x.sub_case_result == 6, func_result)))
         if conf_fail > 0:
             result = 'fail'
         elif conf_count > 0 and conf_fail == 0:
@@ -115,8 +116,8 @@ def calc_job_suite(job_id, test_suite_id, ws_id, test_type, test_result=None):
         else:
             result = '-'
         count_data['conf_count'] = conf_count
-        count_data['conf_success'] = func_result.filter(sub_case_result='1').count()
-        count_data['conf_fail'] = func_result.filter(sub_case_result='2').count()
+        count_data['conf_success'] = len(list(filter(lambda x: x.sub_case_result == 1, func_result)))
+        count_data['conf_fail'] = len(list(filter(lambda x: x.sub_case_result == 2, func_result)))
         count_data['conf_warn'] = conf_warn
         count_data['conf_skip'] = conf_skip
     return result, count_data
