@@ -298,7 +298,8 @@ class BaseHandle(metaclass=ABCMeta):
             case_dict['server_object_id'] = server_config.get('id')
         elif server_config.get('ip') or server_config.get('custom_ip'):
             custom_ip = server_config.get('ip') or server_config.get('custom_ip')
-            channel_type = server_config.get('channel_type') or server_config.get('custom_channel', 'staragent')
+            channel_type = server_config.get('channel_type', 'toneagent') or server_config.get('custom_channel',
+                                                                                               'staragent')
             if custom_ip:
                 self.package_customer_server(custom_ip, channel_type, provider, case_dict)
         elif server_config.get('tag'):

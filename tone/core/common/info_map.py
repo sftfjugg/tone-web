@@ -20,6 +20,8 @@ def get_result_map(step, msgs):
 
 def add_link_msg(msg):
     """返回信息中关键字增加超链接"""
+    if not msg:
+        return
     for info in LINK_INFO_LIST:
         if info in msg:
             return info
