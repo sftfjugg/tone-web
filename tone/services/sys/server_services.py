@@ -207,10 +207,11 @@ class TestServerService(CommonService):
         ip_list = []
         sn_list = []
         for ip in ips:
-            if re.match(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}', ip) is None:
-                sn_list.append(ip)
-            else:
-                ip_list.append(ip)
+            if ip:
+                if re.match(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}', ip) is None:
+                    sn_list.append(ip)
+                else:
+                    ip_list.append(ip)
         if len(ips) == 0:
             return False, '机器未找到'
         return self._mul_add_server(ips, post_data, in_pool, operator)
