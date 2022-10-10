@@ -43,8 +43,6 @@ class ReportHandle(object):
 
     def save_report(self):  # noqa: C901
         logging.info(f'report: job_id {self.job_id}, report_template_id: {self.job_obj.report_template_id}')
-        self.job_obj.report_is_saved = True
-        self.job_obj.save()
         if not self.report_template_obj:
             logging.error(f'report save error: job_id {self.job_id}, report_template_id is null.')
             return
@@ -197,6 +195,8 @@ class ReportHandle(object):
                 report_object_relation.save()
             else:
                 ReportObjectRelation.objects.create(object_type='job', object_id=self.job_id, report_id=report.id)
+            self.job_obj.report_is_saved = True
+            self.job_obj.save()
 
     def get_suite_env(self, test_suite_id):
         test_env = ''
