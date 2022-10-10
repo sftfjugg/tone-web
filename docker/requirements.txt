@@ -38,3 +38,4 @@ flower==0.9.5
 croniter
 pyyaml==5.4
 paramiko==2.8.1
+apscheduler
