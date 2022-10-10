@@ -849,6 +849,9 @@ def get_metric_list_v1(perf_results, compare_result_li, compare_count, base_inde
     metric_list = list()
     for perf_result in perf_results:
         metric = perf_result.metric
+        exist_metric_list = [m for m in metric_list if m['metric'] == metric]
+        if len(exist_metric_list) > 0:
+            continue
         unit = perf_result.unit
         test_value = round(float(perf_result.test_value), 2)
         cv_value = perf_result.cv_value

@@ -332,7 +332,7 @@ class ReportService(CommonService):
             if server_provider == 'aligroup' else CloudServerSnapshot.objects.\
             filter(job_id__in=job_list, distro__isnull=False).distinct()
         for snap_shot_obj in snap_shot_objs:
-            ip = snap_shot_obj.ip if server_provider == 'aligroup' else snap_shot_obj.private_ip
+            ip = snap_shot_obj.ip if server_provider == 'aligroup' else snap_shot_obj.pub_ip
             if ip in ip_list:
                 continue
             ip_list.append(ip)
