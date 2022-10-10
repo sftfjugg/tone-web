@@ -465,22 +465,26 @@ class ReportService(CommonService):
                 filter(test_job_id__in=job_list, metric=perf_result.metric, test_suite_id=test_suite_id,
                        test_case_id=test_conf_id).distinct()
             test_value = round(float(perf_result.test_value), 2)
-            for compare_metric in compare_data:
-                value = round(float(compare_metric.test_value), 2)
-                cv_value = compare_metric.cv_value.split('±')[-1]
-                compare_value, compare_result = get_compare_result(test_value, value, test_metric.direction,
-                                                                   test_metric.cmp_threshold, cv_value,
-                                                                   test_metric.cv_threshold)
-                compare = dict({
-                    'test_value': round(float(compare_metric.test_value), 2),
-                    'cv_value': compare_metric.cv_value.split('±')[-1],
-                    'max_value': compare_metric.max_value,
-                    'min_value': compare_metric.min_value,
-                    'compare_value': compare_value,
-                    'compare_result': compare_result,
-                    'value_list': compare_metric.value_list
-                })
-                compare_data_list.append(compare)
+            for job_id in job_list:
+                compare_metric = compare_data.filter(test_job_id=job_id).first()
+                if compare_metric:
+                    value = round(float(compare_metric.test_value), 2)
+                    cv_value = compare_metric.cv_value.split('±')[-1]
+                    compare_value, compare_result = get_compare_result(test_value, value, test_metric.direction,
+                                                                       test_metric.cmp_threshold, cv_value,
+                                                                       test_metric.cv_threshold)
+                    compare = dict({
+                        'test_value': round(float(compare_metric.test_value), 2),
+                        'cv_value': compare_metric.cv_value.split('±')[-1],
+                        'max_value': compare_metric.max_value,
+                        'min_value': compare_metric.min_value,
+                        'compare_value': compare_value,
+                        'compare_result': compare_result,
+                        'value_list': compare_metric.value_list
+                    })
+                    compare_data_list.append(compare)
+                else:
+                    compare_data_list.append(dict())
             report_metric = ReportItemMetric(
                 report_item_conf_id=item_conf_id,
                 test_metric=perf_result.metric,
