@@ -439,14 +439,16 @@ def package_name(index, _data, name_li, report_item_id, test_type, base_index):
 def package_name_v1(index, _data, name_li, report_item_id, test_type, base_index, is_automatic):
     if index == len(name_li) - 1:
         _data[name_li[index]] = get_func_suite_list_v1(
-            report_item_id, base_index) if test_type == 'functional' else \
+            report_item_id, base_index, is_automatic) if test_type == 'functional' else \
             get_perf_suite_list_v1(report_item_id, base_index, is_automatic)
     else:
         if name_li[index] in _data:
-            package_name_v1(index + 1, _data[name_li[index]], name_li, report_item_id, test_type, base_index, is_automatic)
+            package_name_v1(index + 1, _data[name_li[index]], name_li, report_item_id, test_type, base_index,
+                            is_automatic)
         else:
             _data[name_li[index]] = dict()
-            package_name_v1(index + 1, _data[name_li[index]], name_li, report_item_id, test_type, base_index, is_automatic)
+            package_name_v1(index + 1, _data[name_li[index]], name_li, report_item_id, test_type, base_index,
+                            is_automatic)
 
 
 def get_func_suite_list(report_item_id, base_index):
@@ -481,7 +483,7 @@ def get_func_suite_list(report_item_id, base_index):
     return suite_list
 
 
-def get_func_suite_list_v1(report_item_id, base_index):
+def get_func_suite_list_v1(report_item_id, base_index, is_automatic):
     suite_list = list()
     raw_sql = 'SELECT a.id AS item_suite_id, a.test_suite_id AS suite_id, a.test_suite_name AS suite_name, ' \
               'b.id AS item_conf_id, b.test_conf_id AS conf_id,b.test_conf_name AS conf_name, b.conf_source,' \
@@ -530,7 +532,8 @@ def get_func_suite_list_v1(report_item_id, base_index):
         compare_data = list()
         if test_suite_obj['compare_data']:
             compare_data = json.loads(test_suite_obj['compare_data'])
-            # compare_data.insert(base_index, test_suite_obj['result'])
+        if is_automatic:
+            compare_data.insert(0, '')
         sub_case_data = dict()
         sub_case_data['sub_case_name'] = test_suite_obj['sub_case_name']
         sub_case_data['compare_data'] = compare_data
