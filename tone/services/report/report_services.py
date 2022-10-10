@@ -453,9 +453,12 @@ class ReportService(CommonService):
         for perf_result in perf_results:
             compare_data_list = list()
             if TestMetric.objects.filter(name=perf_result.metric, object_type='case', object_id=test_conf_id).exists():
-                test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='case', object_id=test_conf_id)
-            elif TestMetric.objects.filter(name=perf_result.metric, object_type='suite', object_id=test_suite_id).exists():
-                test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='suite', object_id=test_suite_id)
+                test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='case',
+                                                     object_id=test_conf_id)
+            elif TestMetric.objects.filter(name=perf_result.metric, object_type='suite', object_id=test_suite_id).\
+                    exists():
+                test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='suite',
+                                                     object_id=test_suite_id)
             else:
                 continue
             compare_data = PerfResult.objects. \
