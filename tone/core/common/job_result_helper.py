@@ -59,16 +59,14 @@ def calc_job(job_id):
     return result
 
 
-def calc_job_suite(job_suite_id, ws_id, test_type):
+def calc_job_suite(job_id, test_suite_id, ws_id, test_type, test_result=None):
     """
     统计JobSuite结果及数据
     """
-    job_suite = TestJobSuite.objects.get(id=job_suite_id)
-    # test_type = TestJob.objects.get(id=job_suite.job_id).test_type
     count_data = dict()
     result = None
     if test_type == PERFORMANCE:
-        per_result = PerfResult.objects.filter(test_job_id=job_suite.job_id, test_suite_id=job_suite.test_suite_id)
+        per_result = test_result
         count = per_result.count()
         increase = per_result.filter(track_result='increase').count()
         decline = per_result.filter(track_result='decline').count()
@@ -82,8 +80,7 @@ def calc_job_suite(job_suite_id, ws_id, test_type):
         count_data['invalid'] = invalid
         count_data['na'] = na
     elif test_type == BUSINESS:
-        test_suite_id = job_suite.test_suite_id
-        job_case_queryset = TestJobCase.objects.filter(job_id=job_suite.job_id, test_suite_id=test_suite_id)
+        job_case_queryset = TestJobCase.objects.filter(job_id=job_id, test_suite_id=test_suite_id)
         conf_count = job_case_queryset.count()
         conf_fail = job_case_queryset.filter(state='fail').count()
         conf_skip = job_case_queryset.filter(state='skip').count()
@@ -98,10 +95,10 @@ def calc_job_suite(job_suite_id, ws_id, test_type):
         count_data['conf_fail'] = conf_fail
         count_data['conf_skip'] = conf_skip
     else:
-        func_result = FuncResult.objects.filter(test_job_id=job_suite.job_id, test_suite_id=job_suite.test_suite_id)
+        func_result = test_result
         conf_count = func_result.count()
-        baseline_id = TestJob.objects.get_value(id=job_suite.job_id).baseline_id
-        impact_baseline = calc_impact_baseline(func_result, baseline_id, ws_id, job_suite.job_id)
+        baseline_id = TestJob.objects.get_value(id=job_id).baseline_id
+        impact_baseline = calc_impact_baseline(func_result, baseline_id, ws_id, job_id)
         # conf_success = func_result.filter(sub_case_result='1').count() + impact_baseline
         conf_fail = func_result.filter(sub_case_result='2', match_baseline=False).count() + impact_baseline
         conf_skip = func_result.filter(sub_case_result='5').count()
@@ -120,22 +117,20 @@ def calc_job_suite(job_suite_id, ws_id, test_type):
     return result, count_data
 
 
-def calc_job_case(job_case_id, is_api=False):
+def calc_job_case(job_case, suite_result, test_type, is_api=False):
     """
     统计JobCase结果及数据
     """
-    job_case = TestJobCase.objects.get(id=job_case_id)
-    test_type = TestSuite.objects.filter(id=job_case.test_suite_id, query_scope='all').first().test_type
     count_data = dict()
     result = None
     if test_type == PERFORMANCE:
-        per_result = PerfResult.objects.filter(test_job_id=job_case.job_id, test_suite_id=job_case.test_suite_id,
-                                               test_case_id=job_case.test_case_id)
-        count = per_result.count()
-        increase = per_result.filter(track_result='increase').count()
-        decline = per_result.filter(track_result='decline').count()
-        normal = per_result.filter(track_result='normal').count()
-        invalid = per_result.filter(track_result='invalid').count()
+        per_result = suite_result.filter(test_case_id=job_case.test_case_id).values_list('track_result', flat=True)
+        per_result = list(per_result)
+        count = len(per_result)
+        increase = per_result.count('increase')
+        decline = per_result.count('decline')
+        normal = per_result.count('normal')
+        invalid = per_result.count('invalid')
         na = count - increase - decline - normal - invalid
         count_data['count'] = count
         count_data['increase'] = increase
@@ -144,7 +139,6 @@ def calc_job_case(job_case_id, is_api=False):
         count_data['invalid'] = invalid
         count_data['na'] = na
     elif test_type == BUSINESS:
-        job_case = TestJobCase.objects.filter(id=job_case_id).first()
         if job_case.state not in ['fail', 'success']:
             result = 'fail' if is_api else '-'
         else:
@@ -158,8 +152,7 @@ def calc_job_case(job_case_id, is_api=False):
             count_data['ci_result'] = business_result.ci_result
             count_data['ci_detail'] = business_result.ci_detail
     else:
-        func_result = FuncResult.objects.filter(test_job_id=job_case.job_id, test_suite_id=job_case.test_suite_id,
-                                                test_case_id=job_case.test_case_id)
+        func_result = suite_result.filter(test_case_id=job_case.test_case_id)
         case_count = func_result.count()
         baseline_id = TestJob.objects.get_value(id=job_case.job_id).baseline_id
         ws_id = TestJob.objects.get(id=job_case.job_id).ws_id

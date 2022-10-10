@@ -12,6 +12,7 @@ from django.utils.decorators import method_decorator
 from tone import settings
 from tone.core.common.exceptions import exception_code
 from tone.core.common.views import CommonAPIView, BaseView
+from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestJob, TestJobCase, FuncResult, ResultFile, PerfResult, \
     JobCollection, TestJobSuite, MonitorInfo
 from tone.serializers.job.test_serializers import JobTestSerializer, JobTestSummarySerializer, \
@@ -221,7 +222,7 @@ class JobTestResultView(CommonAPIView):
     queryset = TestJob.objects.all()
     service_class = JobTestResultService
     permission_classes = []
-    order_by = ['gmt_created']
+    order_by = ['-id']
 
     @method_decorator(views_catch_error)
     def get(self, request):
@@ -246,10 +247,30 @@ class JobTestConfResultView(CommonAPIView):
         """
         获取JobTestResult
         """
-        queryset = self.service.filter(self.get_queryset(), request.GET)
-        response = self.service.filter_search(self.get_response_data(queryset, page=False), request.GET)
+        self.test_job_obj = self.service.get_test_job_obj(request.GET)
+        self.test_type = self.test_job_obj.test_type
+        self.suite_result = self.service.get_perfresult(request.GET, self.test_type)
+        querysets = self.service.filter(self.get_queryset(), request.GET)
+        datas = self.get_test_job_case_data(querysets)
+        response = self.service.filter_search(datas, request.GET)
         response_data = self.get_response_only_for_data(response)
         return Response(response_data)
+
+    def get_test_job_case_data(self, querysets):
+        thread_tasks = []
+        test_job_case_list = []
+        for query in querysets:
+            test_job_case = TestJobCase.objects.filter(id=query.id)
+            thread_tasks.append(
+                ToneThread(self.get_serializer_data, (test_job_case, True, False))
+            )
+            thread_tasks[-1].start()
+        for thread_task in thread_tasks:
+            thread_task.join()
+            case_item_data = thread_task.get_result()
+            test_job_case_list.append(case_item_data)
+        datas = [case.get('data')[0] for case in test_job_case_list if case.get('data')]
+        return datas
 
 
 class JobTestCaseResultView(CommonAPIView):
@@ -265,7 +286,7 @@ class JobTestCaseResultView(CommonAPIView):
         获取JobCaseResult
         """
         queryset = self.service.filter(self.get_queryset(), request)
-        response_data = self.get_response_data(queryset, page=False)
+        response_data = self.get_response_data(queryset)
         return Response(response_data)
 
 
@@ -281,9 +302,26 @@ class JobTestCasePerResultView(CommonAPIView):
         """
         获取JobCaseResult
         """
-        queryset = self.service.filter(self.get_queryset(), request.GET)
-        response_data = self.get_response_data(queryset, page=False)
+        querysets = self.service.filter(self.get_queryset(), request.GET)
+        datas = self.get_per_result_data(querysets)
+        response_data = self.get_response_only_for_data(datas)
         return Response(response_data)
+
+    def get_per_result_data(self, querysets):
+        thread_tasks = []
+        per_result_list = []
+        for query in querysets:
+            per_result = PerfResult.objects.filter(id=query.id)
+            thread_tasks.append(
+                ToneThread(self.get_serializer_data, (per_result, True, False))
+            )
+            thread_tasks[-1].start()
+        for thread_task in thread_tasks:
+            thread_task.join()
+            per_result_data = thread_task.get_result()
+            per_result_list.append(per_result_data)
+        datas = [case.get('data')[0] for case in per_result_list if case.get('data')]
+        return datas
 
 
 class JobTestCaseVersionView(CommonAPIView):

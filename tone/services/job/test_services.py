@@ -17,7 +17,7 @@ from tone.core.common.callback import CallBackType, JobCallBack
 from tone.core.common.enums.job_enums import JobCaseState, JobState
 from tone.core.common.enums.ts_enums import TestServerState
 from tone.core.common.services import CommonService
-from tone.core.common.constant import MonitorType
+from tone.core.common.constant import MonitorType, PERFORMANCE
 from tone.core.utils.permission_manage import check_operator_permission
 from tone.core.utils.tone_thread import ToneThread
 from tone.core.utils.verify_tools import check_contains_chinese
@@ -591,21 +591,20 @@ class JobTestResultService(CommonService):
     @staticmethod
     def filter_search(response, data):
         test_suites = response['data'][0]['test_suite']
-        resp = []
-        for test_suite in test_suites:
-            if not test_suite:
-                continue
-            if test_suite['test_type'] == '功能测试':
-                if not data.get('state'):
-                    resp.append(test_suite)
-                elif test_suite['conf_{}'.format(data.get('state'))]:
-                    resp.append(test_suite)
-            else:
-                if not data.get('state'):
-                    resp.append(test_suite)
-                elif test_suite[data.get('state')]:
-                    resp.append(test_suite)
-        return resp
+        if not data.get('state'):
+            return test_suites
+        else:
+            resp = []
+            for test_suite in test_suites:
+                if not test_suite:
+                    continue
+                if test_suite['test_type'] == '功能测试':
+                    if test_suite['conf_{}'.format(data.get('state'))]:
+                        resp.append(test_suite)
+                else:
+                    if test_suite[data.get('state')]:
+                        resp.append(test_suite)
+            return resp
 
 
 class JobTestConfResultService(CommonService):
@@ -622,22 +621,33 @@ class JobTestConfResultService(CommonService):
         return queryset.filter(q)
 
     @staticmethod
-    def filter_search(response, data):
-        result_data = response['data']
-        resp = []
-        for result in result_data:
+    def filter_search(result_data, data):
+        if data.get('state'):
             test_type = TestJob.objects.filter(id=data.get('job_id')).first().test_type
             if test_type == 'functional':
-                if not data.get('state'):
-                    resp.append(dict(result))
-                elif result['result_data']['case_{}'.format(data.get('state'))]:
-                    resp.append(dict(result))
+                result_data = list(
+                    filter(lambda x: x.get('result_data').get('case_{}'.format(data.get('state'))), result_data))
             else:
-                if not data.get('state'):
-                    resp.append(dict(result))
-                elif result['result_data']['{}'.format(data.get('state'))]:
-                    resp.append(dict(result))
-        return resp
+                result_data = list(
+                    filter(lambda x: x.get('result_data').get('{}'.format(data.get('state'))), result_data))
+        return result_data
+
+    @staticmethod
+    def get_test_job_obj(data):
+        job_id = data.get('job_id')
+        assert job_id, JobTestException(ErrorCode.JOB_NEED)
+        return TestJob.objects.get(id=job_id)
+
+    @staticmethod
+    def get_perfresult(data, test_type):
+        job_id = data.get('job_id')
+        suite_id = data.get('suite_id')
+        assert job_id, JobTestException(ErrorCode.JOB_NEED)
+        assert suite_id, JobTestException(ErrorCode.SUITE_NEED)
+        if test_type == PERFORMANCE:
+            return PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id)
+        else:
+            return FuncResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id)
 
 
 class JobTestCaseResultService(CommonService):
@@ -658,6 +668,7 @@ class JobTestCaseResultService(CommonService):
         q &= Q(test_suite_id=suite_id)
         q &= Q(test_case_id=case_id)
         q &= Q(sub_case_result=data.get('sub_case_result')) if data.get('sub_case_result') else q
+        q &= Q(sub_case_name__contains=data.get('sub_case_name')) if data.get('sub_case_name') else q
         queryset = queryset.filter(q)
         sub_case_name_list = [query.sub_case_name for query in queryset]
         if len(sub_case_name_list) > len(set(sub_case_name_list)):
@@ -742,8 +753,26 @@ class JobTestCaseFileService(CommonService):
         q &= Q(test_suite_id=suite_id)
         q &= Q(test_case_id=case_id)
         querysets = queryset.filter(q).order_by('gmt_created')
+        return JobTestCaseFileService._repeat_result(case_id, job_id, querysets, suite_id)
+
+    @staticmethod
+    def _repeat_result(case_id, job_id, querysets, suite_id):
         repeat = JobTestCaseFileService._get_case_repeat(case_id, job_id, suite_id)
-        return list(filter(lambda x: JobTestCaseFileService._repeat_result_folder(x, repeat), querysets))
+        # 结果文件夹去重
+        result = list(filter(lambda x: JobTestCaseFileService._repeat_result_folder(x, repeat), querysets))
+        # 结果文件去重
+        new_result = JobTestCaseFileService._repeat_file(result)
+        return new_result
+
+    @staticmethod
+    def _repeat_file(result):
+        new_result = []
+        files = []
+        for res in result:
+            if res.result_file not in files:
+                new_result.append(res)
+                files.append(res.result_file)
+        return new_result
 
     @staticmethod
     def _repeat_result_folder(result, repeat):
@@ -1288,3 +1317,33 @@ class MachineFaultService(CommonService):
                     return CloudServerSnapshot.objects.filter(q)
         else:
             raise JobTestException(ErrorCode.JOB_NEED)
+
+
+def package_server_list(job):
+    server_li = list()
+    ip_li = list()
+    if not job:
+        return server_li
+    snap_shot_objs = TestServerSnapshot.objects.filter(
+        job_id=job.id) if job.server_provider == 'aligroup' else CloudServerSnapshot.objects.filter(job_id=job.id)
+    for snap_shot_obj in snap_shot_objs:
+        ip = snap_shot_obj.ip if job.server_provider == 'aligroup' else snap_shot_obj.pub_ip
+        if ip not in ip_li:
+            if not (snap_shot_obj.distro or snap_shot_obj.rpm_list or snap_shot_obj.gcc):
+                continue
+            server_li.append({
+                'ip/sn': ip,
+                'distro': snap_shot_obj.sm_name if job.server_provider == 'aligroup' else
+                snap_shot_obj.instance_type,
+                'os': snap_shot_obj.distro,
+                'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
+                'kernel': snap_shot_obj.kernel_version,
+                'gcc': snap_shot_obj.gcc,
+                'glibc': snap_shot_obj.glibc,
+                'memory_info': snap_shot_obj.memory_info,
+                'disk': snap_shot_obj.disk,
+                'cpu_info': snap_shot_obj.cpu_info,
+                'ether': snap_shot_obj.ether,
+            })
+            ip_li.append(ip)
+    return server_li

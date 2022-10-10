@@ -6,13 +6,14 @@ import re
 import requests
 from django.db.models import Q
 
+from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.info_map import get_result_map
 from tone.core.common.services import CommonService
 from tone.core.common.toneagent import server_check, remove_server_from_toneagent, deploy_agent_by_ecs_assistant, \
     add_server_to_toneagent
 from django.db import transaction
 from tone.core.common.operation_log import operation
-from tone.core.common.enums.ts_enums import TestServerEnums
+from tone.core.common.enums.ts_enums import TestServerEnums, TestServerState
 from tone.core.cloud.aliyun.ecs_driver import EcsDriver
 from tone.core.cloud.aliyun.eci_driver import EciDriver
 from tone.models import TestServer, CloudServer, ServerTag, ServerTagRelation, \
@@ -217,12 +218,9 @@ class TestServerService(CommonService):
     @staticmethod
     def get_channel_state(data):
         channel_state = False
-        if data.get('channel_type') == 'staragent':
-            pass
-        else:
-            code, _, agent_info = server_check(data.get('ip'))
-            if code == 200 and agent_info['RESULT']['STATUS'] == 'online':
-                channel_state = True
+        code, _, agent_info = server_check(data.get('ip'), tsn=data.get('tsn'))
+        if code == 200 and agent_info['RESULT']['STATUS'] == 'online':
+            channel_state = True
         return code, channel_state, agent_info
 
     def _set_attr_more(self, server, test_server):
@@ -1718,3 +1716,35 @@ class ServerSnapshotService(CommonService):
         cloud_server_sn_list = CloudServerSnapshot.objects.exclude(sn='').\
             filter(q & Q(pub_ip='') & Q(sn__isnull=False)).values_list('sn', flat=True).distinct()
         return list(test_server_list)+list(cloud_server_list)+list(test_server_sn_list)+list(cloud_server_sn_list)
+
+
+class SyncServerStateService(CommonService):
+    @staticmethod
+    def sync_state(data):
+        provider = data.get('server_provider')
+        server_id = data.get('server_id')
+        try:
+            if provider == TestServerEnums.RUN_ENV_CHOICES[1][0]:
+                server = CloudServer.objects.filter(id=server_id).first()
+                ip = server.private_ip
+            else:
+                server = TestServer.objects.filter(id=server_id).first()
+                ip = server.ip
+            tsn = server.tsn
+            _, channel_state, _ = TestServerService().get_channel_state(
+                {
+                    'ip': ip,
+                    'tsn': tsn
+                }
+            )
+            if channel_state:
+                server.state = server.history_state
+                server.real_state = server.history_state
+            else:
+                server.state = TestServerState.BROKEN
+                server.real_state = TestServerState.BROKEN
+            server.save()
+            return True
+        except Exception as e:
+            error_logger.error(f'sync server state error: {e}')
+            return False
