@@ -96,9 +96,12 @@ class TestServerService(CommonService):
             q &= Q(idc__icontains=data.get('idc'))
             flag = True
         if data.get('owner'):
-            user = User.objects.filter(Q(last_name__icontains=data.get('owner')) |
-                                       Q(first_name__icontains=data.get('owner'))).values_list('id', flat=True)
-            q &= Q(owner__in=user)
+            if data.get('owner').isdigit():
+                q &= Q(owner=data.get('owner'))
+            else:
+                user = User.objects.filter(Q(last_name__icontains=data.get('owner')) |
+                                           Q(first_name__icontains=data.get('owner'))).values_list('id', flat=True)
+                q &= Q(owner__in=user)
             flag = True
         for item in ['state', 'real_state', 'channel_type', 'device_type']:
             if data.get(item):
@@ -207,10 +210,11 @@ class TestServerService(CommonService):
         ip_list = []
         sn_list = []
         for ip in ips:
-            if re.match(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}', ip) is None:
-                sn_list.append(ip)
-            else:
-                ip_list.append(ip)
+            if ip:
+                if re.match(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}', ip) is None:
+                    sn_list.append(ip)
+                else:
+                    ip_list.append(ip)
         if len(ips) == 0:
             return False, '机器未找到'
         return self._mul_add_server(ips, post_data, in_pool, operator)
@@ -317,7 +321,8 @@ class TestServerService(CommonService):
             test_server = TestServer.objects.filter(id=pk)
             if len(test_server) == 0:
                 return 201, '机器不存在'
-            if test_server.first().spec_use == 1:
+            if test_server.first().spec_use == 1 and TestClusterServer.objects.filter(server_id=pk,
+                                                                                      cluster_type='aligroup').exists():
                 return 201, '机器被集群使用'
             elif test_server.first().spec_use == 2:
                 return 201, '机器被job使用'

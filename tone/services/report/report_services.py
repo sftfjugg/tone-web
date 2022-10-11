@@ -332,7 +332,7 @@ class ReportService(CommonService):
             if server_provider == 'aligroup' else CloudServerSnapshot.objects.\
             filter(job_id__in=job_list, distro__isnull=False).distinct()
         for snap_shot_obj in snap_shot_objs:
-            ip = snap_shot_obj.ip if server_provider == 'aligroup' else snap_shot_obj.private_ip
+            ip = snap_shot_obj.ip if server_provider == 'aligroup' else snap_shot_obj.pub_ip
             if ip in ip_list:
                 continue
             ip_list.append(ip)
@@ -453,31 +453,38 @@ class ReportService(CommonService):
         for perf_result in perf_results:
             compare_data_list = list()
             if TestMetric.objects.filter(name=perf_result.metric, object_type='case', object_id=test_conf_id).exists():
-                test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='case', object_id=test_conf_id)
-            elif TestMetric.objects.filter(name=perf_result.metric, object_type='suite', object_id=test_suite_id).exists():
-                test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='suite', object_id=test_suite_id)
+                test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='case',
+                                                     object_id=test_conf_id)
+            elif TestMetric.objects.filter(name=perf_result.metric, object_type='suite', object_id=test_suite_id).\
+                    exists():
+                test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='suite',
+                                                     object_id=test_suite_id)
             else:
                 continue
             compare_data = PerfResult.objects. \
                 filter(test_job_id__in=job_list, metric=perf_result.metric, test_suite_id=test_suite_id,
                        test_case_id=test_conf_id).distinct()
             test_value = round(float(perf_result.test_value), 2)
-            for compare_metric in compare_data:
-                value = round(float(compare_metric.test_value), 2)
-                cv_value = compare_metric.cv_value.split('±')[-1]
-                compare_value, compare_result = get_compare_result(test_value, value, test_metric.direction,
-                                                                   test_metric.cmp_threshold, cv_value,
-                                                                   test_metric.cv_threshold)
-                compare = dict({
-                    'test_value': round(float(compare_metric.test_value), 2),
-                    'cv_value': compare_metric.cv_value.split('±')[-1],
-                    'max_value': compare_metric.max_value,
-                    'min_value': compare_metric.min_value,
-                    'compare_value': compare_value,
-                    'compare_result': compare_result,
-                    'value_list': compare_metric.value_list
-                })
-                compare_data_list.append(compare)
+            for job_id in job_list:
+                compare_metric = compare_data.filter(test_job_id=job_id).first()
+                if compare_metric:
+                    value = round(float(compare_metric.test_value), 2)
+                    cv_value = compare_metric.cv_value.split('±')[-1]
+                    compare_value, compare_result = get_compare_result(test_value, value, test_metric.direction,
+                                                                       test_metric.cmp_threshold, cv_value,
+                                                                       test_metric.cv_threshold)
+                    compare = dict({
+                        'test_value': round(float(compare_metric.test_value), 2),
+                        'cv_value': compare_metric.cv_value.split('±')[-1],
+                        'max_value': compare_metric.max_value,
+                        'min_value': compare_metric.min_value,
+                        'compare_value': compare_value,
+                        'compare_result': compare_result,
+                        'value_list': compare_metric.value_list
+                    })
+                    compare_data_list.append(compare)
+                else:
+                    compare_data_list.append(dict())
             report_metric = ReportItemMetric(
                 report_item_conf_id=item_conf_id,
                 test_metric=perf_result.metric,
@@ -593,7 +600,7 @@ class ReportService(CommonService):
         report_id = data.get('report_id')
         report = Report.objects.get(id=report_id)
         base_index = report.test_env.get('base_index')
-        if data.get('test_env').get('text'):
+        if data.get('test_env') and data.get('test_env').get('text'):
             report.test_env['text'] = data.get('test_env').get('text')
         assert report_id, ReportException(ErrorCode.REPORT_ID_NEED)
         for key, value in data.items():
@@ -601,8 +608,6 @@ class ReportService(CommonService):
                 continue
             if hasattr(report, key):
                 setattr(report, key, value)
-        if data.get('test_env') and data.get('test_env').get('text'):
-            report.test_env['text'] = data.get('test_env').get('text')
         test_item = data.get('test_item', None)
         with transaction.atomic():
             if test_item:
