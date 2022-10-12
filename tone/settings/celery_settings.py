@@ -25,4 +25,8 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'tone.tasks.auto_dashboard_benchmark_task',
         'schedule': timedelta(seconds=3600),
     },
+    'auto_release_server_task': {
+        'task': 'tone.tasks.auto_release_server_task',
+        'schedule': timedelta(minutes=30),
+    }
 }

@@ -50,4 +50,5 @@ urlpatterns = [
     path('server_snapshot/', server_views.ServerSnapshotView.as_view(), name='server_snapshot'),
 
     path('sync_state/', server_views.SyncServerStateView.as_view(), name='sync_state'),
+    path('agent_task_info/', server_views.AgentTaskInfoView.as_view(), name='agent_task_info'),
 ]

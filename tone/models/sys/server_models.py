@@ -91,7 +91,8 @@ class CloudServer(BaseModel):
     extra_param = json.JSONField(default=dict(), help_text='扩展信息')
     sn = models.CharField(max_length=64, null=True, help_text='SN')
     tsn = models.CharField(max_length=64, null=True, help_text='TSN')
-    release_rule = models.BooleanField(default=1, help_text='用完释放')
+    release_rule = models.IntegerField(default=1, help_text='用完释放',
+                                       choices=TestServerEnums.RELEASE_RULE_CHOICES)
     # 模板
     template_name = models.CharField(max_length=64, help_text='模板名称')
 
@@ -262,7 +263,8 @@ class CloudServerSnapshot(BaseModel):
     extra_param = json.JSONField(default=dict(), help_text='扩展信息')
     sn = models.CharField(max_length=64, null=True, help_text='SN', blank=True)
     tsn = models.CharField(max_length=64, null=True, help_text='TSN')
-    release_rule = models.BooleanField(default=1, help_text='用完释放', null=True, blank=True)
+    release_rule = models.IntegerField(default=1, help_text='用完释放',
+                                       choices=TestServerEnums.RELEASE_RULE_CHOICES)
     # 模板
     template_name = models.CharField(max_length=64, help_text='模板名称', null=True, blank=True)
 
@@ -433,3 +435,13 @@ class ServerRecoverRecord(BaseModel):
 
     class Meta:
         db_table = 'server_recover_record'
+
+
+class ReleaseServerRecord(BaseModel):
+    server_id = models.IntegerField(unique=True, help_text='机器ID')
+    server_instance_id = models.CharField(max_length=128, help_text='机器实例ID')
+    estimated_release_at = models.DateTimeField(help_text='预计释放时间')
+    is_release = models.BooleanField(default=False, help_text='是否已释放')
+    release_at = models.DateTimeField(help_text='释放时间')
+    class Meta:
+        db_table = 'release_server_record'

@@ -985,6 +985,7 @@ def insert_cluster(server_step, provider, step, data_list):
                 'state': step.state,
                 'result': step.result,
                 'tid': step.tid,
+                'log_file': step.log_file,
                 'gmt_created': datetime.strftime(step.gmt_created, "%Y-%m-%d %H:%M:%S"),
                 'gmt_modified': datetime.strftime(step.gmt_modified, "%Y-%m-%d %H:%M:%S")
                 if step.state != JobState.RUNNING else None,
