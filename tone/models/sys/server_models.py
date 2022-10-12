@@ -91,7 +91,8 @@ class CloudServer(BaseModel):
     extra_param = json.JSONField(default=dict(), help_text='扩展信息')
     sn = models.CharField(max_length=64, null=True, help_text='SN')
     tsn = models.CharField(max_length=64, null=True, help_text='TSN')
-    release_rule = models.IntegerField(default=1, help_text='用完释放', choices=TestServerEnums.RELEASE_RULE_CHOICES)
+    release_rule = models.IntegerField(default=1, help_text='用完释放',
+                                       choices=TestServerEnums.RELEASE_RULE_CHOICES)
     # 模板
     template_name = models.CharField(max_length=64, help_text='模板名称')
 
@@ -262,7 +263,8 @@ class CloudServerSnapshot(BaseModel):
     extra_param = json.JSONField(default=dict(), help_text='扩展信息')
     sn = models.CharField(max_length=64, null=True, help_text='SN', blank=True)
     tsn = models.CharField(max_length=64, null=True, help_text='TSN')
-    release_rule = models.IntegerField(default=1, help_text='用完释放', choices=TestServerEnums.RELEASE_RULE_CHOICES)
+    release_rule = models.IntegerField(default=1, help_text='用完释放',
+                                       choices=TestServerEnums.RELEASE_RULE_CHOICES)
     # 模板
     template_name = models.CharField(max_length=64, help_text='模板名称', null=True, blank=True)
 
