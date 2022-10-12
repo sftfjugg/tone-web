@@ -47,6 +47,12 @@ class TestServerEnums:
         ('standalone', 'standalone')
     )
 
+    RELEASE_RULE_CHOICES = (
+        (0, '用完不释放'),
+        (1, '用完释放'),
+        (2, '有失败用例时不释放（保留24小时）')
+    )
+
 
 class TestServerState:
     AVAILABLE = 'Available'

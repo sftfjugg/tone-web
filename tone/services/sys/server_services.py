@@ -1,27 +1,31 @@
 # flake8: noqa
+import base64
 import logging
 import uuid
 import re
+from datetime import datetime
 
 import requests
 from django.db.models import Q
 
-from tone.core.common.expection_handler.error_code import ErrorCode
+from tone import settings
 from tone.core.common.info_map import get_result_map
 from tone.core.common.services import CommonService
 from tone.core.common.toneagent import server_check, remove_server_from_toneagent, deploy_agent_by_ecs_assistant, \
-    add_server_to_toneagent
+    add_server_to_toneagent, QueryTaskRequest
 from django.db import transaction
 from tone.core.common.operation_log import operation
 from tone.core.common.enums.ts_enums import TestServerEnums, TestServerState
 from tone.core.cloud.aliyun.ecs_driver import EcsDriver
 from tone.core.cloud.aliyun.eci_driver import EciDriver
+from tone.core.utils.common_utils import pack_env_infos
 from tone.models import TestServer, CloudServer, ServerTag, ServerTagRelation, \
-    TestCluster, TestClusterServer, CloudAk, CloudImage, User, Workspace, TestTmplCase, TestTemplate, Role, \
-    RoleMember, TestServerSnapshot, CloudServerSnapshot
+    TestCluster, TestClusterServer, CloudAk, CloudImage, User, Workspace, TestTmplCase, TestTemplate, \
+    TestServerSnapshot, CloudServerSnapshot, ReleaseServerRecord
 from tone.settings import TONEAGENT_DOMAIN
 
 error_logger = logging.getLogger('error')
+scheduler_logger = logging.getLogger('scheduler')
 
 
 def update_owner(data):
@@ -560,6 +564,8 @@ class CloudServerService(CommonService):
         for item in ['state', 'real_state']:
             if data.get(item):
                 q &= Q(**{'{}__in'.format(item): data.getlist(item)})
+        if data.get('release_rule'):
+            q &= Q(release_rule=data.get('release_rule'))
         return queryset.filter(q)
 
     @staticmethod
@@ -789,13 +795,7 @@ class CloudServerService(CommonService):
         cloud_server = cloud_server_queryset.first()
         try:
             if cloud_server.is_instance and is_release:
-                cloud_ak = CloudAk.objects.filter(id=cloud_server.ak_id, query_scope='all').first()
-                if cloud_ak.provider == TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES[0][0]:
-                    driver = EcsDriver(cloud_ak.access_id, cloud_ak.access_key, cloud_server.region,
-                                       cloud_server.zone, resource_group_id=cloud_ak.resource_group_id)
-                else:
-                    driver = EciDriver(cloud_ak.access_id, cloud_ak.access_key, cloud_server.region, cloud_server.zone)
-                success, msg = driver.destroy_instance(cloud_server.instance_id)
+                success, msg = release_cloud_server(cloud_server)
                 if success:
                     self.delete_cloud_server(pk, user_id)
                     # 调用接口，将机器从toneagent系统移除
@@ -1753,3 +1753,73 @@ class SyncServerStateService(CommonService):
         except Exception as e:
             error_logger.error(f'sync server state error: {e}')
             return False
+
+
+def release_cloud_server(cloud_server):
+    cloud_ak = CloudAk.objects.filter(id=cloud_server.ak_id, query_scope='all').first()
+    if cloud_ak.provider == TestServerEnums.CLOUD_SERVER_PROVIDER_CHOICES[0][0]:
+        driver = EcsDriver(
+            cloud_ak.access_id, cloud_ak.access_key, cloud_server.region,
+            cloud_server.zone, resource_group_id=cloud_ak.resource_group_id
+        )
+    else:
+        driver = EciDriver(
+            cloud_ak.access_id, cloud_ak.access_key,
+            cloud_server.region, cloud_server.zone
+        )
+    success, msg = driver.destroy_instance(cloud_server.instance_id)
+    return success, msg
+
+
+class AgentTaskInfoService(CommonService):
+    def get_agent_task_info(self, data):
+        request = QueryTaskRequest(
+            settings.TONEAGENT_ACCESS_KEY,
+            settings.TONEAGENT_SECRET_KEY
+        )
+        request.set_tid(data.get('tid'))
+        request.set_query_detail(True)
+        res = request.send_request()
+        task_info = res.get('data')
+        if task_info.get('env'):
+            new_env_info = self._parse_env_info(task_info.get('env'))
+            task_info['env'] = new_env_info
+        new_script = self._parse_script(task_info.get('script'))
+        task_info['script'] = new_script
+        return task_info
+
+    @staticmethod
+    def _parse_env_info(env_info):
+        env_info_dict = pack_env_infos(env_info)
+        new_info_data = []
+        for k, v in env_info_dict.items():
+            new_info_data.append(f'{k}={v}')
+        return '\n'.join(new_info_data)
+
+    @staticmethod
+    def _parse_script(script):
+        new_script = ''
+        sensitive_words = ['export', 'access_id', 'access_key']
+        script = base64.b64decode(script).decode()
+        for line in script.split('\n'):
+            for sensitive_word in sensitive_words:
+                if sensitive_word in line:
+                    continue
+            new_script += f'{line}\n'
+        return new_script
+
+
+def auto_release_server():
+    waiting_release_servers = ReleaseServerRecord.objects.filter(is_release=False)
+    for waiting_release_server in waiting_release_servers:
+        if waiting_release_server.estimated_release_at < datetime.now():
+            cloud_server = CloudServer.objects.filter(id=waiting_release_server.server_id)
+            if cloud_server.exists():
+                success, msg = release_cloud_server(cloud_server.first())
+                scheduler_logger.info(f'auto release server result: {success} | {msg}')
+            else:
+                scheduler_logger.info(f'cloud server({waiting_release_server.server_id}) not exists')
+            waiting_release_server.is_release = True
+            waiting_release_server.release_at = datetime.now()
+            waiting_release_server.save()
+            cloud_server.delete()
