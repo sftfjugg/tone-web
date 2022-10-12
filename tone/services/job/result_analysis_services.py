@@ -344,6 +344,7 @@ class FuncAnalysisService(CommonService):
                         {**value, **{
                             'server': get_job_case_run_server(job_case.id),
                             'server_id': get_job_case_run_server(job_case.id, return_field='id'),
+                            'server_description': get_job_case_run_server(job_case.id, return_field='description'),
                             'server_provider': job_case.server_provider,
                             'note': func_result.note
                         },

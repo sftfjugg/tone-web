@@ -108,8 +108,8 @@ def calc_job_suite(job_id, test_suite_id, ws_id, test_type, test_result=None):
             result = 'fail'
         elif conf_count > 0 and conf_fail == 0:
             result = 'success'
-            count_case = TestJobCase.objects.filter(job_id=job_suite.job_id,
-                                                    test_suite_id=job_suite.test_suite_id).count()
+            count_case = TestJobCase.objects.filter(job_id=job_id,
+                                                    test_suite_id=test_suite_id).count()
             if count_case > conf_count:
                 # 如果conf在FuncResult表中没有测试结果，则该suite状态也是fail
                 result = 'fail'
@@ -331,25 +331,37 @@ def get_job_case_run_server(job_case_id, return_field='ip'):
     if run_mode == 'standalone' and server_provider == 'aligroup':
         server = TestServerSnapshot.objects.filter(id=job_case.server_snapshot_id)
         if server.exists():
-            return server.first().ip if return_field == 'ip' else server.first().id
+            return __get_server_value(server, server_provider, return_field)
     elif run_mode == 'standalone' and server_provider == 'aliyun':
         server = CloudServerSnapshot.objects.filter(id=job_case.server_snapshot_id)
         if server.exists():
-            return server.first().private_ip if return_field == 'ip' else server.first().id
+            return __get_server_value(server, server_provider, return_field)
     elif run_mode == 'cluster' and server_provider == 'aligroup':
         test_step = TestStep.objects.filter(job_case_id=job_case_id, stage='run_case')
         if test_step.exists():
             server_snapshot_id = TestStep.objects.get(job_case_id=job_case_id, stage='run_case').server
             server = TestServerSnapshot.objects.filter(id=server_snapshot_id)
             if server.exists():
-                return server.first().ip if return_field == 'ip' else server.first().id
+                return __get_server_value(server, server_provider, return_field)
     elif run_mode == 'cluster' and server_provider == 'aliyun':
         test_step = TestStep.objects.filter(job_case_id=job_case_id, stage='run_case')
         if test_step.exists():
             server_snapshot_id = TestStep.objects.get(job_case_id=job_case_id, stage='run_case').server
             server = CloudServerSnapshot.objects.filter(id=server_snapshot_id)
             if server.exists():
-                return server.first().private_ip if return_field == 'ip' else server.first().id
+                return __get_server_value(server, server_provider, return_field)
+
+
+def __get_server_value(server, server_provider, return_field):
+    if return_field == 'ip':
+        if server_provider == 'aligroup':
+            return server.first().ip
+        elif server_provider == 'aliyun':
+            return server.first().private_ip
+    elif return_field == 'id':
+        return server.first().id
+    elif return_field == 'description':
+        return server.first().description
 
 
 def get_server_ip_sn(server, channel_type):
