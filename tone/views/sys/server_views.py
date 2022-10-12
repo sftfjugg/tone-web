@@ -11,7 +11,7 @@ from tone.serializers.sys.server_serializers import TestServerSerializer, CloudS
 from tone.serializers.sys.testcase_serializers import SysTemplateSerializer
 from tone.services.sys.server_services import TestServerService, CloudServerService, ServerTagService, \
     TestClusterService, TestClusterServerService, CloudAkService, CloudImageService, ToneAgentService, \
-    ServerSnapshotService, SyncServerStateService
+    ServerSnapshotService, SyncServerStateService, AgentTaskInfoService
 from tone.schemas.sys.server_schemas import ServerTagSchema, ServerTagDetailSchema, \
     TestServerCheckSchema, TestServerSchema, \
     TestServerDetailSchema, TestClusterSchema, TestClusterDetailSchema, TestClusterTestServerSchema, \
@@ -928,4 +928,17 @@ class SyncServerStateView(CommonAPIView):
                 code=ErrorCode.SYNC_SERVER_STATE_ERROR[0],
                 msg=ErrorCode.SYNC_SERVER_STATE_ERROR[1]
             )
+        return Response(response_data)
+
+
+class AgentTaskInfoView(CommonAPIView):
+    service_class = AgentTaskInfoService
+    permission_classes = []
+
+    def get(self, request):
+        """
+        集团单机列表查询
+        """
+        queryset = self.service.get_agent_task_info(request.GET)
+        response_data = self.get_response_only_for_data(queryset)
         return Response(response_data)
