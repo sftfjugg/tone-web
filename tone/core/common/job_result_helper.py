@@ -673,13 +673,6 @@ def calc_impact_baseline(result, baseline_id, ws_id, job_id):
                                                   test_case_id=match_result.test_case_id,
                                                   sub_case_name=match_result.sub_case_name, impact_result=1).exists()):
             count += 1
-    # baseline_id_list = Baseline.objects.filter(ws_id=ws_id, test_type='functional').values_list('id', flat=True)
-    # for match_result in match_results:
-    #     if not FuncBaselineDetail.objects.filter(baseline_id__in=baseline_id_list,
-    #                                              test_suite_id=match_result.test_suite_id,
-    #                                              test_case_id=match_result.test_case_id,
-    #                                              sub_case_name=match_result.sub_case_name, impact_result=1).exists():
-    #         count += 1
     return count
 
 
@@ -719,6 +712,13 @@ def get_conf_compare_data(compare_objs, suite_id, conf_id, compare_count):
 
 def joint_job_link(job):
     return f'{settings.APP_DOMAIN}/ws/{job.ws_id}/test_result/{job.id}'
+
+
+class ServerData:
+    is_instance = 0
+    server = None
+    server_is_deleted = False
+    server_deleted = []
 
 
 def get_suite_conf_metric_v1(suite_id, suite_name, base_index, group_list, suite_value, is_all):
