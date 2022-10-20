@@ -56,9 +56,13 @@ class JobDataHandle(BaseHandle):
             self.data_dic['console'] = self.data.get('console', False)
             self.data_dic['callback_api'] = self.data.get('callback_api')
             self.data_dic['report_name'], self.data_dic['report_template_id'] = self.get_report_info()
-            self.data_dic['notice_info'] = self.pack_notice_info(email=self.data.get('email', None),
-                                                                 ding=self.data.get('ding_token', None),
-                                                                 subject=self.data.get('notice_subject', None))
+            notice_info = self.data.get('notice_info', None)
+            if notice_info:
+                self.data_dic['notice_info'] = notice_info
+            else:
+                self.data_dic['notice_info'] = self.pack_notice_info(email=self.data.get('email', None),
+                                                                     ding=self.data.get('ding_token', None),
+                                                                     subject=self.data.get('notice_subject', None))
             self.data_dic['kernel_version'] = self.data_dic['show_kernel_version'] = self.data.get('kernel_version')
             self.data_dic['env_info'] = self.pack_env_info(self.data.get('env_info')) if self.data.get(
                 'env_info') else dict()
@@ -129,12 +133,16 @@ class JobDataHandle(BaseHandle):
                 'console', False)
             self.data_dic['report_name'] = self.data.get('report_name', template_obj.report_name)
             self.data_dic['report_template_id'] = self.data.get('report_template_id', template_obj.report_template_id)
-            if (self.data.get('email') or self.data.get('ding_token')) and api:
-                self.data_dic['notice_info'] = self.pack_notice_info(email=self.data.get('email', None),
-                                                                     ding=self.data.get('ding_token', None),
-                                                                     subject=self.data.get('notice_subject', None))
+            notice_info = self.data.get('notice_info', None)
+            if notice_info:
+                self.data_dic['notice_info'] = notice_info
             else:
-                self.data_dic['notice_info'] = template_obj.notice_info
+                if (self.data.get('email') or self.data.get('ding_token')) and api:
+                    self.data_dic['notice_info'] = self.pack_notice_info(email=self.data.get('email', None),
+                                                                         ding=self.data.get('ding_token', None),
+                                                                         subject=self.data.get('notice_subject', None))
+                else:
+                    self.data_dic['notice_info'] = template_obj.notice_info
             self.data_dic['kernel_version'] = self.data_dic['show_kernel_version'] = \
                 self.data.get('kernel_version', template_obj.kernel_version)
             if api:
