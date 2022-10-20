@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 from django.db import connection
 from tone.core.common.serializers import CommonSerializer
-from tone.models import User, TestCase, Project, TestSuite, TestMetric, CompareForm
+from tone.models import User, TestCase, Project, TestSuite, TestMetric, CompareForm, ReportDetail
 from tone.models.report.test_report import ReportTemplate, ReportTmplItem, ReportTmplItemSuite, Report, ReportItem, \
     ReportItemMetric, ReportItemSubCase, ReportItemConf, ReportItemSuite
 
@@ -375,10 +375,16 @@ class ReportDetailSerializer(CommonSerializer):
         return 1 if obj.gmt_created < datetime.strptime('2022-08-11', '%Y-%m-%d') else 0
 
     def get_test_item(self, obj):
-        base_index = obj.test_env.get('base_index', 0) if obj.test_env else 0
-        is_old_report = 1 if obj.gmt_created < datetime.strptime('2022-08-11', '%Y-%m-%d') else 0
-        perf_data = self.get_perf_data(obj.id, base_index, is_old_report, obj.is_automatic)
-        func_data = self.get_func_data(obj.id, base_index, is_old_report, obj.is_automatic)
+        report_detail = ReportDetail.objects.filter(report_id=obj.id).first()
+        if report_detail:
+            perf_data = report_detail.perf_data
+            func_data = report_detail.func_data
+        else:
+            base_index = obj.test_env.get('base_index', 0) if obj.test_env else 0
+            is_old_report = 1 if obj.gmt_created < datetime.strptime('2022-09-13', '%Y-%m-%d') else 0
+            perf_data = self.get_perf_data(obj.id, base_index, is_old_report, obj.is_automatic)
+            func_data = self.get_func_data(obj.id, base_index, is_old_report, obj.is_automatic)
+            ReportDetail.objects.create(report_id=obj.id, perf_data=perf_data, func_data=func_data)
         return {'perf_data': perf_data, 'func_data': func_data}
 
     @staticmethod
