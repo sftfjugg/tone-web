@@ -181,3 +181,11 @@ class ReportTmplItemSuite(BaseModel):
 
     class Meta:
         db_table = 'report_tmpl_item_suite'
+
+
+class ReportDetail(BaseModel):
+    report_id = models.IntegerField(help_text='关联报告ID')
+    perf_data = models.JSONField()
+    func_data = models.JSONField()
+    class Meta:
+        db_table = 'report_detail'
