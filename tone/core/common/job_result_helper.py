@@ -328,6 +328,7 @@ def get_job_case_run_server(job_case_id, return_field='ip'):
     job_case = TestJobCase.objects.get(id=job_case_id)
     run_mode = job_case.run_mode
     server_provider = job_case.server_provider
+    server = None
     if run_mode == 'standalone' and server_provider == 'aligroup':
         server = TestServerSnapshot.objects.filter(id=job_case.server_snapshot_id)
         if server.exists():
@@ -350,6 +351,9 @@ def get_job_case_run_server(job_case_id, return_field='ip'):
             server = CloudServerSnapshot.objects.filter(id=server_snapshot_id)
             if server.exists():
                 return __get_server_value(server, server_provider, return_field)
+    if not server:
+        server = None
+    return server
 
 
 def __get_server_value(server, server_provider, return_field):
