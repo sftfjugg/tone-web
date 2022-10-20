@@ -11,6 +11,8 @@ from tone.core.common.msg_notice import SimpleMsgHandle
 from tone.services.notice.conf.constant import JobMessage, PlanMessage, MachineMessage, ReportMessage
 from tone.services.notice.conf.constant import Topics
 from tone.services.notice.core.consumer import ToneConsumer
+from tone.core.schedule.schedule_job import auto_job_report, auto_plan_report
+from apscheduler.schedulers.background import BackgroundScheduler
 
 
 class MessageProcessor(object):
@@ -84,4 +86,10 @@ class MessageAcceptor(MessageDispatcher):
 
 
 if __name__ == '__main__':
+    scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
+    scheduler.add_job(func=auto_job_report, max_instances=1, trigger='interval', minutes=5, id='1',
+                      replace_existing=True)
+    scheduler.add_job(func=auto_plan_report, max_instances=1, trigger='interval', minutes=10, id='2',
+                      replace_existing=True)
+    scheduler.start()
     MessageAcceptor.run()
