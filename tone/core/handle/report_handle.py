@@ -291,6 +291,7 @@ class ReportHandle(object):
     def handle_func_result(self, func_result, report_item_conf):
         compare_data = list()
         compare_data.append(FUNC_CASE_RESULT_TYPE_MAP.get(func_result.sub_case_result))
+        compare_data.insert(0, '')
         if self.job_obj.baseline_id:
             func_baseline = FuncBaselineDetail.objects. \
                 filter(baseline_id=self.job_obj.baseline_id, sub_case_name=func_result.sub_case_name).first()
@@ -299,7 +300,6 @@ class ReportHandle(object):
                                              result='Fail' if func_baseline else None,
                                              compare_data=compare_data)
         else:
-            compare_data.insert(0, '')
             ReportItemSubCase.objects.create(report_item_conf_id=report_item_conf.id,
                                              sub_case_name=func_result.sub_case_name,
                                              result=FUNC_CASE_RESULT_TYPE_MAP.get(
