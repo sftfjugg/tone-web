@@ -5,7 +5,6 @@ import django_extensions.db.fields.json
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('tone', '0017_auto_20220819_1910'),
     ]
