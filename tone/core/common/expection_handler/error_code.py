@@ -258,6 +258,9 @@ class ErrorCode(object):
 
     JOB_CONF_NAME_NOT_EXISTS = (1378, "job_id对应的任务中没有该test_conf!")
 
+    ADD_SERVER_TO_TONEAGENT_FAILED = (1379, "添加机器至ToneAgent系统失败")
+    SERVER_TSN_ALREADY_EXIST = (1380, "该机器在系统中已存在")
+
     SUITE_DATA_NOT_EXISTS = (1379, '该suite不存在')
 
     GLOBAL_VARIABLES_ERROR = (1380, "全局变量填写不符合规范，请参考全局变量的使用规则")
