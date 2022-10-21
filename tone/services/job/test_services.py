@@ -17,8 +17,9 @@ from tone.core.common.callback import CallBackType, JobCallBack
 from tone.core.common.enums.job_enums import JobCaseState, JobState
 from tone.core.common.enums.ts_enums import TestServerState
 from tone.core.common.services import CommonService
-from tone.core.common.constant import MonitorType
+from tone.core.common.constant import MonitorType, PERFORMANCE
 from tone.core.utils.permission_manage import check_operator_permission
+from tone.core.utils.tone_thread import ToneThread
 from tone.core.utils.verify_tools import check_contains_chinese
 from tone.models import TestJob, TestJobCase, TestJobSuite, JobCollection, TestServerSnapshot, CloudServerSnapshot, \
     PerfResult, TestServer, CloudServer, BaseConfig
@@ -123,18 +124,18 @@ class JobTestService(CommonService):
             else:
                 query_sql.append('AND state IN {}'.format(tuple(state_list)))
         if data.get('search'):
+            # 模糊搜索只包含以下维度：job_id, job_name, 创建人名字，job类型
             search = data.get('search')
             users = User.objects.filter(Q(first_name__icontains=search) | Q(last_name__icontains=search)).values('id')
             user_ids = [user['id'] for user in users]
             job_types = JobType.objects.filter(name=search).values('id')
             job_type_ids = [job_type['id'] for job_type in job_types]
-            query_sql.append(
-                'AND (name LIKE "%{0}%" OR id like "%{0}%")'.format(
-                    search, job_type_ids, user_ids))
+            search_sql = 'name LIKE "%{0}%" OR id like "%{0}%" '.format(search)
             if user_ids:
-                query_sql.append('OR creator IN ({})'.format(','.join(str(user_id) for user_id in user_ids)))
+                search_sql += 'OR creator IN ({}) '.format(','.join(str(user_id) for user_id in user_ids))
             if job_type_ids:
-                query_sql.append('OR job_type_id IN ({})'.format(','.join(str(type_id) for type_id in job_type_ids)))
+                search_sql += 'OR job_type_id IN ({})'.format(','.join(str(type_id) for type_id in job_type_ids))
+            query_sql.append(f'AND ({search_sql})')
         if data.get('test_suite'):
             test_suite = json.loads(data.get('test_suite'))
             test_suites = TestJobSuite.objects.filter(test_suite_id__in=test_suite).values('job_id')
@@ -442,10 +443,9 @@ class JobTestService(CommonService):
             job_id_li.append(job_id)
         if not self.check_delete_permission(operator, job_id_li):
             return False, '无权限删除非自己创建的job'
-        with transaction.atomic():
-            TestJob.objects.filter(id__in=job_id_li).delete()
-            for job_id in job_id_li:
-                release_server(job_id)
+        TestJob.objects.filter(id__in=job_id_li).delete()
+        for job_id in job_id_li:
+            ToneThread(release_server, (job_id,)).start()
         return True, '删除成功'
 
     @staticmethod
@@ -591,21 +591,20 @@ class JobTestResultService(CommonService):
     @staticmethod
     def filter_search(response, data):
         test_suites = response['data'][0]['test_suite']
-        resp = []
-        for test_suite in test_suites:
-            if not test_suite:
-                continue
-            if test_suite['test_type'] == '功能测试':
-                if not data.get('state'):
-                    resp.append(test_suite)
-                elif test_suite['conf_{}'.format(data.get('state'))]:
-                    resp.append(test_suite)
-            else:
-                if not data.get('state'):
-                    resp.append(test_suite)
-                elif test_suite[data.get('state')]:
-                    resp.append(test_suite)
-        return resp
+        if not data.get('state'):
+            return test_suites
+        else:
+            resp = []
+            for test_suite in test_suites:
+                if not test_suite:
+                    continue
+                if test_suite['test_type'] == '功能测试':
+                    if test_suite['conf_{}'.format(data.get('state'))]:
+                        resp.append(test_suite)
+                else:
+                    if test_suite[data.get('state')]:
+                        resp.append(test_suite)
+            return resp
 
 
 class JobTestConfResultService(CommonService):
@@ -622,22 +621,33 @@ class JobTestConfResultService(CommonService):
         return queryset.filter(q)
 
     @staticmethod
-    def filter_search(response, data):
-        result_data = response['data']
-        resp = []
-        for result in result_data:
+    def filter_search(result_data, data):
+        if data.get('state'):
             test_type = TestJob.objects.filter(id=data.get('job_id')).first().test_type
             if test_type == 'functional':
-                if not data.get('state'):
-                    resp.append(dict(result))
-                elif result['result_data']['case_{}'.format(data.get('state'))]:
-                    resp.append(dict(result))
+                result_data = list(
+                    filter(lambda x: x.get('result_data').get('case_{}'.format(data.get('state'))), result_data))
             else:
-                if not data.get('state'):
-                    resp.append(dict(result))
-                elif result['result_data']['{}'.format(data.get('state'))]:
-                    resp.append(dict(result))
-        return resp
+                result_data = list(
+                    filter(lambda x: x.get('result_data').get('{}'.format(data.get('state'))), result_data))
+        return result_data
+
+    @staticmethod
+    def get_test_job_obj(data):
+        job_id = data.get('job_id')
+        assert job_id, JobTestException(ErrorCode.JOB_NEED)
+        return TestJob.objects.get(id=job_id)
+
+    @staticmethod
+    def get_perfresult(data, test_type):
+        job_id = data.get('job_id')
+        suite_id = data.get('suite_id')
+        assert job_id, JobTestException(ErrorCode.JOB_NEED)
+        assert suite_id, JobTestException(ErrorCode.SUITE_NEED)
+        if test_type == PERFORMANCE:
+            return PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id)
+        else:
+            return FuncResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id)
 
 
 class JobTestCaseResultService(CommonService):
@@ -658,7 +668,25 @@ class JobTestCaseResultService(CommonService):
         q &= Q(test_suite_id=suite_id)
         q &= Q(test_case_id=case_id)
         q &= Q(sub_case_result=data.get('sub_case_result')) if data.get('sub_case_result') else q
-        return sorted(queryset.filter(q), key=lambda x: (0 if x.sub_case_result == 2 else 1, x.id))
+        q &= Q(sub_case_name__contains=data.get('sub_case_name')) if data.get('sub_case_name') else q
+        queryset = queryset.filter(q)
+        sub_case_name_list = [query.sub_case_name for query in queryset]
+        if len(sub_case_name_list) > len(set(sub_case_name_list)):
+            id_list = JobTestCaseResultService._get_sub_case_id_list(queryset)
+            queryset = queryset.filter(id__in=id_list)
+        return sorted(queryset, key=lambda x: (0 if x.sub_case_result == 2 else 1, x.id))
+
+    @staticmethod
+    def _get_sub_case_id_list(queryset):
+        # 获取FuncResult表中指标去重后的id_list
+        id_list = []
+        sub_case_name_list = []
+        queryset = queryset.order_by('-id')
+        for query in queryset:
+            if query.sub_case_name not in sub_case_name_list:
+                id_list.append(query.id)
+                sub_case_name_list.append(query.sub_case_name)
+        return id_list
 
 
 class JobTestCasePerResultService(CommonService):
@@ -680,7 +708,24 @@ class JobTestCasePerResultService(CommonService):
                 q &= ~Q(track_result__in=['increase', 'decline', 'normal', 'invalid'])
             else:
                 q &= Q(track_result=data.get('compare_result'))
-        return queryset.filter(q)
+        queryset = queryset.filter(q)
+        metric_list = [query.metric for query in queryset]
+        if len(metric_list) > len(set(metric_list)):
+            id_list = JobTestCasePerResultService._get_metric_id_list(queryset)
+            return queryset.filter(id__in=id_list)
+        return queryset
+
+    @staticmethod
+    def _get_metric_id_list(queryset):
+        # 获取PerResult表中指标去重后的id_list
+        id_list = []
+        metric_list = []
+        queryset = queryset.order_by('-id')
+        for query in queryset:
+            if query.metric not in metric_list:
+                id_list.append(query.id)
+                metric_list.append(query.metric)
+        return id_list
 
 
 class JobTestCaseVersionService(CommonService):
@@ -707,7 +752,43 @@ class JobTestCaseFileService(CommonService):
         q &= Q(test_job_id=job_id)
         q &= Q(test_suite_id=suite_id)
         q &= Q(test_case_id=case_id)
-        return queryset.filter(q)
+        querysets = queryset.filter(q).order_by('gmt_created')
+        return JobTestCaseFileService._repeat_result(case_id, job_id, querysets, suite_id)
+
+    @staticmethod
+    def _repeat_result(case_id, job_id, querysets, suite_id):
+        repeat = JobTestCaseFileService._get_case_repeat(case_id, job_id, suite_id)
+        # 结果文件夹去重
+        result = list(filter(lambda x: JobTestCaseFileService._repeat_result_folder(x, repeat), querysets))
+        # 结果文件去重
+        new_result = JobTestCaseFileService._repeat_file(result)
+        return new_result
+
+    @staticmethod
+    def _repeat_file(result):
+        new_result = []
+        files = []
+        for res in result:
+            if res.result_file not in files:
+                new_result.append(res)
+                files.append(res.result_file)
+        return new_result
+
+    @staticmethod
+    def _repeat_result_folder(result, repeat):
+        folder_name = result.result_file.split("/")[0]
+        if folder_name.isdigit() and int(folder_name) > repeat:
+            return False
+        return True
+
+    @staticmethod
+    def _get_case_repeat(case_id, job_id, suite_id):
+        test_case_result = TestJobCase.objects.filter(job_id=job_id, test_suite_id=suite_id,
+                                                      test_case_id=case_id).first()
+        repeat = 1
+        if test_case_result:
+            repeat = test_case_result.repeat
+        return repeat
 
 
 class EditorNoteService(CommonService):
@@ -825,7 +906,7 @@ class UpdateStateService(CommonService):
             job_id=job_obj.id
         ).update(note=operation_note)
         # 4.释放机器
-        release_server(job_obj.id)
+        ToneThread(release_server, (job_obj.id,)).start()
         # 7.回调接口
         if job_obj.callback_api:
             JobCallBack(
@@ -1236,3 +1317,33 @@ class MachineFaultService(CommonService):
                     return CloudServerSnapshot.objects.filter(q)
         else:
             raise JobTestException(ErrorCode.JOB_NEED)
+
+
+def package_server_list(job):
+    server_li = list()
+    ip_li = list()
+    if not job:
+        return server_li
+    snap_shot_objs = TestServerSnapshot.objects.filter(
+        job_id=job.id) if job.server_provider == 'aligroup' else CloudServerSnapshot.objects.filter(job_id=job.id)
+    for snap_shot_obj in snap_shot_objs:
+        ip = snap_shot_obj.ip if job.server_provider == 'aligroup' else snap_shot_obj.pub_ip
+        if ip not in ip_li:
+            if not (snap_shot_obj.distro or snap_shot_obj.rpm_list or snap_shot_obj.gcc):
+                continue
+            server_li.append({
+                'ip/sn': ip,
+                'distro': snap_shot_obj.sm_name if job.server_provider == 'aligroup' else
+                snap_shot_obj.instance_type,
+                'os': snap_shot_obj.distro,
+                'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
+                'kernel': snap_shot_obj.kernel_version,
+                'gcc': snap_shot_obj.gcc,
+                'glibc': snap_shot_obj.glibc,
+                'memory_info': snap_shot_obj.memory_info,
+                'disk': snap_shot_obj.disk,
+                'cpu_info': snap_shot_obj.cpu_info,
+                'ether': snap_shot_obj.ether,
+            })
+            ip_li.append(ip)
+    return server_li

@@ -84,11 +84,8 @@ class JobDataHandle(BaseHandle):
             self.data_dic['baseline_id'] = self.data.get('baseline', template_obj.baseline_id)
             self.data_dic['baseline_job_id'] = self.data.get('baseline_job_id', template_obj.baseline_job_id)
             self.data_dic['cleanup_info'] = self.data.get('cleanup_info', template_obj.cleanup_info)
-            if self.data.get('tags') and isinstance(self.data.get('tags'), list) and api:
+            if self.data.get('tags') and isinstance(self.data.get('tags'), list):
                 [self.tag_list.append(tag) for tag in self.data.get('tags')]
-            else:
-                template_tags = TemplateTagRelation.objects.filter(template_id=template_obj.id)
-                [self.tag_list.append(template_tag.tag_id) for template_tag in template_tags]
             if self.data.get('name'):
                 if '{date}' in self.data.get('name'):
                     self.data_dic['name'] = self.data.get('name').replace('{date}', '_' + str(datetime.now().date()))
@@ -168,9 +165,6 @@ class JobDataHandle(BaseHandle):
             self.data_dic['cleanup_info'] = self.data.get('cleanup_info')
             if self.data.get('tags') and isinstance(self.data.get('tags'), list):
                 [self.tag_list.append(tag) for tag in self.data.get('tags')]
-            else:
-                job_tags = JobTagRelation.objects.filter(job_id=job_id)
-                [self.tag_list.append(job_tag.tag_id) for job_tag in job_tags]
             self.data_dic['name'] = self.job_format(self.data)
             self.data_dic['job_type_id'] = job_type_id = self.data.get('job_type')
             if self.data.get('iclone_info'):

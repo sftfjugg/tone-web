@@ -11,13 +11,16 @@ from django.db import transaction
 
 from tone.core.utils.permission_manage import check_operator_permission
 from tone.models import Report, ReportItem, ReportItemConf, ReportItemMetric, ReportItemSubCase, ReportObjectRelation, \
-    ReportItemSuite, TestJobCase, TestServerSnapshot, CloudServerSnapshot, PlanInstance, PlanInstanceTestRelation
+    ReportItemSuite, TestJobCase, TestServerSnapshot, CloudServerSnapshot, PlanInstance, PlanInstanceTestRelation, \
+    PerfResult, FuncResult, TestMetric, TestJob
+from tone.core.common.job_result_helper import get_compare_result, get_func_compare_data
 from tone.core.common.services import CommonService
 from tone.models.report.test_report import ReportTemplate, ReportTmplItem, ReportTmplItemSuite
 from tone.services.plan.plan_services import random_choice_str
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.custom_error import ReportException
 from tone.core.utils.date_util import DateUtil
+from tone.core.common.constant import FUNC_CASE_RESULT_TYPE_MAP
 
 
 class ReportTemplateService(CommonService):
@@ -281,6 +284,31 @@ class ReportService(CommonService):
         assert tmpl_id, ReportException(ErrorCode.TEMPLATE_NEED)
         assert test_item, ReportException(ErrorCode.TEST_ITEM_NEED)
         with transaction.atomic():
+            base_index = test_env.get('base_index')
+            test_env['base_group']['is_job'] = 1
+            if not test_env['base_group'].get('server_info'):
+                test_env['base_group']['server_info'] = list()
+            base_job_list = list()
+            server_provider = None
+            for base_obj in test_env['base_group']['base_objs']:
+                base_job_list.append(base_obj.get('obj_id'))
+                if not server_provider:
+                    test_job = TestJob.objects.filter(id=base_obj.get('obj_id')).first()
+                    if test_job:
+                        server_provider = test_job.server_provider
+            test_env['base_group']['server_info'] = self.package_server_li(base_job_list, server_provider)
+            count = len(test_env['base_group']['base_objs'])
+            for group in test_env['compare_groups']:
+                compare_job_list = list()
+                group['is_job'] = 1
+                if not group.get('server_info'):
+                    group['server_info'] = list()
+                for base_obj in group['base_objs']:
+                    if len(group['base_objs']) > count:
+                        count = len(group['base_objs'])
+                    compare_job_list.append(base_obj.get('obj_id'))
+                group['server_info'] = self.package_server_li(compare_job_list, server_provider)
+            test_env['count'] = count
             report = Report.objects.create(name=name, product_version=product_version, project_id=project_id,
                                            ws_id=ws_id, test_method=test_method, test_conclusion=test_conclusion,
                                            report_source=report_source, test_env=test_env, description=description,
@@ -293,9 +321,183 @@ class ReportService(CommonService):
             report_id = report.id
             perf_data = test_item.get('perf_data', list())
             func_data = test_item.get('func_data', list())
-            self.save_test_item(perf_data, report_id, 'performance', job_li, plan_li)
-            self.save_test_item(func_data, report_id, 'functional', job_li, plan_li)
+            self.save_test_item_v1(perf_data, report_id, 'performance', base_index)
+            self.save_test_item_v1(func_data, report_id, 'functional', base_index)
         return report
+
+    def package_server_li(self, job_list, server_provider):
+        server_li = list()
+        ip_list = list()
+        snap_shot_objs = TestServerSnapshot.objects.filter(job_id__in=job_list, distro__isnull=False).distinct() \
+            if server_provider == 'aligroup' else CloudServerSnapshot.objects.\
+            filter(job_id__in=job_list, distro__isnull=False).distinct()
+        for snap_shot_obj in snap_shot_objs:
+            ip = snap_shot_obj.ip if server_provider == 'aligroup' else snap_shot_obj.pub_ip
+            if ip in ip_list:
+                continue
+            ip_list.append(ip)
+            if not (snap_shot_obj.distro or snap_shot_obj.rpm_list or snap_shot_obj.gcc):
+                continue
+            server = ({
+                'ip/sn': ip,
+                'distro': snap_shot_obj.sm_name if server_provider == 'aligroup' else
+                snap_shot_obj.instance_type,
+                'os': snap_shot_obj.distro,
+                'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
+                'kernel': snap_shot_obj.kernel_version,
+                'gcc': snap_shot_obj.gcc,
+                'glibc': snap_shot_obj.glibc,
+                'memory_info': snap_shot_obj.memory_info,
+                'disk': snap_shot_obj.disk,
+                'cpu_info': snap_shot_obj.cpu_info,
+                'ether': snap_shot_obj.ether,
+            })
+            server_li.append(server)
+        return server_li
+
+    def save_test_item_v1(self, data, report_id, test_type, base_index):
+        for item in data:
+            name = item.get('name')
+            suite_list = item.get('suite_list', list())
+            assert name, ReportException(ErrorCode.ITEM_NAME_NEED)
+            report_item = ReportItem.objects.create(name=name, report_id=report_id, test_type=test_type)
+            report_item_id = report_item.id
+            for suite in suite_list:
+                self.save_item_suite_v1(suite, report_item_id, test_type, base_index)
+
+    def save_item_suite_v1(self, suite, report_item_id, test_type, base_index):
+        test_suite_id = suite.get('suite_id')
+        test_suite_name = suite.get('suite_name')
+        show_type = suite.get('show_type', 0)
+        conf_list = suite.get('conf_list', list())
+        assert test_suite_id, ReportException(ErrorCode.TEST_SUITE_NEED)
+        assert test_suite_name, ReportException(ErrorCode.TEST_SUITE_NAME_NEED)
+        if test_type == 'functional':
+            item_suite = ReportItemSuite.objects.create(report_item_id=report_item_id, test_suite_id=test_suite_id,
+                                                        test_suite_name=test_suite_name, show_type=show_type)
+        else:
+            test_suite_description = suite.get('test_suite_description')
+            test_env = suite.get('test_env')
+            test_description = suite.get('test_description')
+            test_conclusion = suite.get('test_conclusion')
+            item_suite = ReportItemSuite.objects.create(report_item_id=report_item_id, test_suite_id=test_suite_id,
+                                                        test_suite_name=test_suite_name, show_type=show_type,
+                                                        test_suite_description=test_suite_description,
+                                                        test_env=test_env, test_description=test_description,
+                                                        test_conclusion=test_conclusion)
+        item_suite_id = item_suite.id
+        for conf in conf_list:
+            self.save_item_conf_v1(conf, item_suite_id, test_suite_id, test_type, base_index)
+
+    def save_item_conf_v1(self, conf, item_suite_id, test_suite_id, test_type, base_index):
+        test_conf_id = conf.get('conf_id')
+        test_conf_name = conf.get('conf_name')
+        compare_conf_list = list()
+        conf_source = dict()
+        job_index = 0
+        for compare_job in conf.get('job_list'):
+            if test_type == 'functional':
+                func_results = FuncResult.objects. \
+                    filter(test_job_id=compare_job, test_suite_id=test_suite_id, test_case_id=test_conf_id)
+                compare_count = dict({
+                    'is_job': 1,
+                    'all_case': func_results.count(),
+                    'obj_id': compare_job,
+                    'success_case': func_results.filter(sub_case_result=1).count(),
+                    'fail_case': func_results.filter(sub_case_result=2).count(),
+                })
+            else:
+                compare_count = dict({
+                    'is_job': 1,
+                    'obj_id': compare_job,
+                })
+            if job_index == base_index:
+                conf_source = compare_count
+            else:
+                compare_conf_list.append(compare_count)
+            job_index += 1
+        compare_conf_list.insert(base_index, conf_source)
+        item_conf = ReportItemConf.objects.create(report_item_suite_id=item_suite_id, test_conf_id=test_conf_id,
+                                                  test_conf_name=test_conf_name, conf_source=conf_source,
+                                                  compare_conf_list=compare_conf_list)
+        item_conf_id = item_conf.id
+        if test_type == 'functional':
+            self.save_item_sub_case_v1(test_suite_id, test_conf_id, item_conf_id, conf.get('job_list'), base_index)
+        else:
+            self.save_item_metric_v1(test_suite_id, test_conf_id, item_conf_id, conf.get('job_list'), base_index)
+
+    @staticmethod
+    def save_item_sub_case_v1(test_suite_id, test_conf_id, item_conf_id, job_list, base_index):
+        base_job_id = job_list.pop(base_index)
+        func_results = FuncResult.objects. \
+            filter(test_job_id=base_job_id, test_suite_id=test_suite_id, test_case_id=test_conf_id).\
+            values_list('sub_case_name', 'sub_case_result')
+        item_sub_case_list = list()
+        for func_result in func_results:
+            compare_data = get_func_compare_data(test_suite_id, test_conf_id, func_result[0], job_list)
+            compare_data.insert(base_index, FUNC_CASE_RESULT_TYPE_MAP.get(func_result[1]))
+            report_sub_case = ReportItemSubCase(
+                report_item_conf_id=item_conf_id,
+                sub_case_name=func_result[0],
+                result=FUNC_CASE_RESULT_TYPE_MAP.get(func_result[1]),
+                compare_data=compare_data)
+            item_sub_case_list.append(report_sub_case)
+        ReportItemSubCase.objects.bulk_create(item_sub_case_list)
+
+    @staticmethod
+    def save_item_metric_v1(test_suite_id, test_conf_id, item_conf_id, job_list, base_index):
+        base_job_id = job_list.pop(base_index)
+        perf_results = PerfResult.objects. \
+            filter(test_job_id=base_job_id, test_suite_id=test_suite_id, test_case_id=test_conf_id)
+        item_metric_list = list()
+        for perf_result in perf_results:
+            compare_data_list = list()
+            if TestMetric.objects.filter(name=perf_result.metric, object_type='case', object_id=test_conf_id).exists():
+                test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='case',
+                                                     object_id=test_conf_id)
+            elif TestMetric.objects.filter(name=perf_result.metric, object_type='suite', object_id=test_suite_id).\
+                    exists():
+                test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='suite',
+                                                     object_id=test_suite_id)
+            else:
+                continue
+            compare_data = PerfResult.objects. \
+                filter(test_job_id__in=job_list, metric=perf_result.metric, test_suite_id=test_suite_id,
+                       test_case_id=test_conf_id).distinct()
+            test_value = round(float(perf_result.test_value), 2)
+            for job_id in job_list:
+                compare_metric = compare_data.filter(test_job_id=job_id).first()
+                if compare_metric:
+                    value = round(float(compare_metric.test_value), 2)
+                    cv_value = compare_metric.cv_value.split('±')[-1]
+                    compare_value, compare_result = get_compare_result(test_value, value, test_metric.direction,
+                                                                       test_metric.cmp_threshold, cv_value,
+                                                                       test_metric.cv_threshold)
+                    compare = dict({
+                        'test_value': round(float(compare_metric.test_value), 2),
+                        'cv_value': compare_metric.cv_value.split('±')[-1],
+                        'max_value': compare_metric.max_value,
+                        'min_value': compare_metric.min_value,
+                        'compare_value': compare_value,
+                        'compare_result': compare_result,
+                        'value_list': compare_metric.value_list
+                    })
+                    compare_data_list.append(compare)
+                else:
+                    compare_data_list.append(dict())
+            report_metric = ReportItemMetric(
+                report_item_conf_id=item_conf_id,
+                test_metric=perf_result.metric,
+                test_value=perf_result.test_value,
+                cv_value=perf_result.cv_value,
+                unit=perf_result.unit,
+                max_value=perf_result.max_value,
+                min_value=perf_result.min_value,
+                value_list=perf_result.value_list,
+                direction=test_metric.direction,
+                compare_data=compare_data_list)
+            item_metric_list.append(report_metric)
+            ReportItemMetric.objects.bulk_create(item_metric_list)
 
     def save_test_item(self, data, report_id, test_type, job_li, plan_li):
         for item in data:
@@ -394,23 +596,26 @@ class ReportService(CommonService):
                                         min_value=min_value, value_list=value_list, direction=direction,
                                         compare_data=compare_data)
 
-    def update(self, data, operator):
+    def update(self, data):
         report_id = data.get('report_id')
         report = Report.objects.get(id=report_id)
+        base_index = report.test_env.get('base_index')
+        if data.get('test_env') and data.get('test_env').get('text'):
+            report.test_env['text'] = data.get('test_env').get('text')
         assert report_id, ReportException(ErrorCode.REPORT_ID_NEED)
         for key, value in data.items():
+            if key == 'test_env':
+                continue
             if hasattr(report, key):
                 setattr(report, key, value)
         test_item = data.get('test_item', None)
-        job_li = list()
-        plan_li = list()
         with transaction.atomic():
             if test_item:
                 ReportItem.objects.filter(report_id=report_id).delete()
                 perf_data = test_item.get('perf_data', list())
                 func_data = test_item.get('func_data', list())
-                self.save_test_item(perf_data, report_id, 'performance', job_li, plan_li)
-                self.save_test_item(func_data, report_id, 'functional', job_li, plan_li)
+                self.save_test_item_v1(perf_data, report_id, 'performance', base_index)
+                self.save_test_item_v1(func_data, report_id, 'functional', base_index)
             report.save()
 
     @staticmethod
@@ -441,6 +646,46 @@ class ReportService(CommonService):
                         if suite_key == 'delete_conf':
                             ReportItemConf.objects.filter(id__in=suite_value).delete()
                     item_suite.save()
+
+    @staticmethod
+    def update_item_suite_desc(data):
+        test_suite_description = data.get('test_suite_description')
+        test_env = data.get('test_env')
+        test_description = data.get('test_description')
+        test_conclusion = data.get('test_conclusion')
+        item_suite_id = data.get('item_suite_id')
+        report_item_suite = ReportItemSuite.objects.filter(id=item_suite_id).first()
+        if report_item_suite:
+            if test_suite_description:
+                report_item_suite.test_suite_description = test_suite_description
+            if test_env:
+                report_item_suite.test_env = test_env
+            if test_description:
+                report_item_suite.test_description = test_description
+            if test_conclusion:
+                report_item_suite.test_conclusion = test_conclusion
+            report_item_suite.save()
+
+    @staticmethod
+    def update_report_desc(data):
+        description = data.get('description')
+        test_background = data.get('test_background')
+        test_method = data.get('test_method')
+        test_conclusion = data.get('test_conclusion')
+        report_id = data.get('report_id')
+        report = Report.objects.filter(id=report_id).first()
+        if report:
+            if description:
+                report.description = description
+            if test_background:
+                report.test_background = test_background
+            if test_method:
+                report.test_method = test_method
+            if data.get('test_conclusion') and data.get('test_conclusion').get('custom'):
+                report.test_conclusion['custom'] = data.get('test_conclusion').get('custom')
+            if data.get('test_env') and data.get('test_env').get('text'):
+                report.test_env['text'] = data.get('test_env').get('text')
+            report.save()
 
 
 class ReportDetailService(CommonService):

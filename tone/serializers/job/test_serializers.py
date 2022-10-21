@@ -166,6 +166,8 @@ class JobTestConfigSerializer(CommonSerializer):
                     'setup_info': case.setup_info,
                     'cleanup_info': case.cleanup_info,
                     'server_ip': ip,
+                    'server_id': get_job_case_run_server(case.id, return_field='id'),
+                    'server_description': get_job_case_run_server(case.id, return_field='description'),
                     'is_instance': is_instance,
                     'need_reboot': case.need_reboot,
                     'console': case.console,
@@ -412,6 +414,7 @@ class JobTestProcessCaseSerializer(CommonSerializer):
     step = serializers.SerializerMethodField()
     server = serializers.SerializerMethodField()
     server_id = serializers.SerializerMethodField()
+    server_description = serializers.SerializerMethodField()
     log_file = serializers.SerializerMethodField()
     start_time = serializers.SerializerMethodField()
     end_time = serializers.SerializerMethodField()
@@ -420,7 +423,7 @@ class JobTestProcessCaseSerializer(CommonSerializer):
         model = TestJobCase
         fields = ['id', 'state', 'test_case_name', 'need_reboot', 'setup_info', 'cleanup_info', 'start_time',
                   'console', 'monitor_info', 'note', 'end_time', 'tid', 'result', 'step', 'server',
-                  'log_file', 'server_id']
+                  'log_file', 'server_id', 'server_description']
 
     @staticmethod
     def get_start_time(obj):
@@ -453,6 +456,10 @@ class JobTestProcessCaseSerializer(CommonSerializer):
         if not step or not step.server:
             return None
         return step.server
+
+    @staticmethod
+    def get_server_description(obj):
+        return get_job_case_run_server(obj.id, return_field='description')
 
     @staticmethod
     def get_tid(obj):
@@ -550,7 +557,8 @@ class JobTestResultSerializer(CommonSerializer):
         for thread_task in thread_tasks:
             thread_task.join()
             suite_item_data = thread_task.get_result()
-            suite_list.append(suite_item_data)
+            if suite_item_data:
+                suite_list.append(suite_item_data)
         return suite_list
 
     @staticmethod
@@ -582,15 +590,20 @@ class JobTestResultSerializer(CommonSerializer):
                 baseline = None
                 if per_result.exists() and per_result.first().compare_baseline:
                     baseline_id = per_result.first().compare_baseline
-                if Baseline.objects.filter(id=baseline_id).exists():
-                    baseline = Baseline.objects.get(id=baseline_id).name
+                baseline_obj = Baseline.objects.filter(id=baseline_id).first()
+                if baseline_obj:
+                    baseline = baseline_obj.name
                 suite_data['baseline'] = baseline
-                _, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
+                _, count_data = calc_job_suite(test_job.id, suite.test_suite_id, test_job.ws_id, test_job.test_type,
+                                               test_result=per_result)
             elif test_type == '业务测试':
-                result, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
+                result, count_data = calc_job_suite(test_job.id, suite.test_suite_id, test_job.ws_id,
+                                                    test_job.test_type)
                 suite_data['result'] = result
             else:
-                result, count_data = calc_job_suite(suite.id, test_job.ws_id, test_job.test_type)
+                func_result = FuncResult.objects.filter(test_job_id=test_job.id, test_suite_id=suite.test_suite_id)
+                result, count_data = calc_job_suite(test_job.id, suite.test_suite_id, test_job.ws_id,
+                                                    test_job.test_type, test_result=func_result)
                 suite_data['result'] = result
             suite_data = {**suite_data, **count_data}
             suite_data['baseline_job_id'] = test_job.baseline_job_id
@@ -639,6 +652,7 @@ class JobTestConfResultSerializer(CommonSerializer):
     conf_name = serializers.SerializerMethodField()
     server_ip = serializers.SerializerMethodField()
     server_id = serializers.SerializerMethodField()
+    server_description = serializers.SerializerMethodField()
     result_data = serializers.SerializerMethodField()
     baseline = serializers.SerializerMethodField()
     start_time = serializers.SerializerMethodField()
@@ -648,7 +662,7 @@ class JobTestConfResultSerializer(CommonSerializer):
     class Meta:
         model = TestJobCase
         fields = ['id', 'conf_name', 'test_case_id', 'server_ip', 'result_data', 'start_time', 'end_time', 'note',
-                  'baseline', 'baseline_job_id', 'server_id']
+                  'baseline', 'baseline_job_id', 'server_id', 'server_description']
 
     @staticmethod
     def get_start_time(obj):
@@ -658,14 +672,14 @@ class JobTestConfResultSerializer(CommonSerializer):
     def get_end_time(obj):
         return get_time(obj.end_time)
 
-    @staticmethod
-    def get_baseline(obj):
+    def get_baseline(self, obj):
         baseline = None
-        test_job_obj = TestJob.objects.get(id=obj.job_id)
+        test_job_obj = self.context.get('view').test_job_obj
         test_type = get_test_type(test_job_obj)
         if test_type == '性能测试':
-            per_result = PerfResult.objects.filter(test_job_id=obj.job_id, test_suite_id=obj.test_suite_id,
-                                                   test_case_id=obj.test_case_id)
+            # per_result = PerfResult.objects.filter(test_job_id=obj.job_id, test_suite_id=obj.test_suite_id,
+            #                                        test_case_id=obj.test_case_id)
+            per_result = self.context.get('view').suite_result.filter(test_case_id=obj.test_case_id)
             baseline_id = test_job_obj.baseline_id
             if per_result.exists() and per_result.first().compare_baseline:
                 baseline_id = per_result.first().compare_baseline
@@ -673,10 +687,8 @@ class JobTestConfResultSerializer(CommonSerializer):
                 baseline = Baseline.objects.get(id=baseline_id).name
         return baseline
 
-    @staticmethod
-    def get_baseline_job_id(obj):
-        test_job_obj = TestJob.objects.get(id=obj.job_id)
-        return test_job_obj.baseline_job_id
+    def get_baseline_job_id(self, obj):
+        test_job_obj = self.context.get('view').test_job_obj
 
     @staticmethod
     def get_conf_name(obj):
@@ -691,9 +703,13 @@ class JobTestConfResultSerializer(CommonSerializer):
         return get_job_case_run_server(obj.id, return_field='id')
 
     @staticmethod
-    def get_result_data(obj):
+    def get_server_description(obj):
+        return get_job_case_run_server(obj.id, return_field='description')
+
+    def get_result_data(self, obj):
         calc_result = dict()
-        result, count_data = calc_job_case(obj.id)
+        result, count_data = calc_job_case(obj, self.context.get('view').suite_result,
+                                           self.context.get('view').test_type)
         if result:
             calc_result['result'] = result
         calc_result = {**calc_result, **count_data}
@@ -867,11 +883,19 @@ class JobTestCasePerResultSerializer(CommonSerializer):
     @staticmethod
     def get_threshold(obj):
         threshold = None
+        object_id = None
+        object_type = ""
         if TestMetric.objects.filter(object_id=obj.test_case_id, object_type='case', name=obj.metric).exists():
-            cmp_threshold = TestMetric.objects.get(object_id=obj.test_case_id, name=obj.metric,
-                                                   object_type='case').cmp_threshold
-            cv_threshold = TestMetric.objects.get(object_id=obj.test_case_id, name=obj.metric,
-                                                  object_type='case').cv_threshold
+            object_id = obj.test_case_id
+            object_type = 'case'
+        elif TestMetric.objects.filter(object_id=obj.test_suite_id, object_type='suite', name=obj.metric).exists():
+            object_id = obj.test_suite_id
+            object_type = 'suite'
+        if object_id and object_type:
+            cmp_threshold = TestMetric.objects.get(object_id=object_id, name=obj.metric,
+                                                   object_type=object_type).cmp_threshold
+            cv_threshold = TestMetric.objects.get(object_id=object_id, name=obj.metric,
+                                                  object_type=object_type).cv_threshold
             threshold = '{}%/{}%'.format(str(cmp_threshold * 100), str(cv_threshold * 100))
         return threshold
 
@@ -925,6 +949,8 @@ def insert_standalone(step, server_step, provider):
             'tid': step.tid,
             'server': server,
             'server_id': step.server,
+            'server_description': get_check_server_ip(step.server, provider,
+                                                      return_field='description') if step.server.isdigit() else "",
             'gmt_created': datetime.strftime(step.gmt_created, "%Y-%m-%d %H:%M:%S"),
             'gmt_modified': datetime.strftime(step.gmt_modified, "%Y-%m-%d %H:%M:%S")
             if step.state != 'running' else None
@@ -936,6 +962,8 @@ def insert_standalone(step, server_step, provider):
             'result': get_result_map("test_prepare", step.result),
             'server': server,
             'server_id': step.server,
+            'server_description': get_check_server_ip(step.server, provider,
+                                                      return_field='description') if step.server.isdigit() else "",
             'tid': step.tid,
             'gmt_created': datetime.strftime(step.gmt_created, "%Y-%m-%d %H:%M:%S"),
             'gmt_modified': datetime.strftime(step.gmt_modified, "%Y-%m-%d %H:%M:%S")
@@ -943,13 +971,17 @@ def insert_standalone(step, server_step, provider):
         }]
 
 
-def get_check_server_ip(server_id, provider):
+def get_check_server_ip(server_id, provider, return_field='ip'):
     server = None
     if provider == 'aligroup' and TestServerSnapshot.objects.filter(id=server_id).exists():
         server_snapshot = TestServerSnapshot.objects.get(id=server_id)
+        if return_field == 'description':
+            return server_snapshot.description
         server = server_snapshot.ip if server_snapshot.ip else server_snapshot.sn
     if provider == 'aliyun' and CloudServerSnapshot.objects.filter(id=server_id).exists():
         server_snapshot = CloudServerSnapshot.objects.get(id=server_id)
+        if return_field == 'description':
+            return server_snapshot.description
         server = server_snapshot.private_ip if server_snapshot.private_ip else server_snapshot.sn
     return server
 
@@ -973,6 +1005,7 @@ def insert_cluster(server_step, provider, step, data_list):
                 'state': step.state,
                 'result': step.result,
                 'tid': step.tid,
+                'log_file': step.log_file,
                 'gmt_created': datetime.strftime(step.gmt_created, "%Y-%m-%d %H:%M:%S"),
                 'gmt_modified': datetime.strftime(step.gmt_modified, "%Y-%m-%d %H:%M:%S")
                 if step.state != JobState.RUNNING else None,

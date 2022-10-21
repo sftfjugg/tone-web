@@ -109,6 +109,25 @@ class SendTaskRequest(ToneAgentRequest):
         return self.request(self._api, self._request_data)
 
 
+class QueryTaskRequest(ToneAgentRequest):
+    def __init__(self, access_key, secret_key):
+        self._api = 'api/query'
+        self._request_data = dict(
+            tid='',
+        )
+        super().__init__(access_key=access_key, secret_key=secret_key)
+
+    def set_tid(self, tid):
+        self._request_data['tid'] = tid
+
+    def set_query_detail(self, query_detail):
+        self._request_data['query_detail'] = query_detail
+
+    def send_request(self):
+        return self.request(self._api, self._request_data)
+
+
+
 class RemoveAgentRequest(ToneAgentRequest):
     def __init__(self, access_key, secret_key):
         self._api = 'api/agent/remove'
@@ -186,8 +205,8 @@ def tone_agent_info(ip='', tsn=''):
     return agent_url
 
 
-def server_check(ip):
-    agent_url = tone_agent_info(ip=ip)
+def server_check(ip, tsn=None):
+    agent_url = tone_agent_info(ip=ip, tsn=tsn)
     try:
         ssl._create_default_https_context = ssl._create_unverified_context
         req = urllib2.Request(agent_url)

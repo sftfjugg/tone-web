@@ -1,11 +1,13 @@
 import logging
 
-from django.db import transaction
+from django.db import transaction, connection
 
 from tone.core.common.redis_cache import redis_cache
 from tone.models import TestPlan, PlanInstance, PlanStageRelation, PlanStageTestRelation, PlanStagePrepareRelation, \
     PlanInstanceStageRelation, PlanInstanceTestRelation, PlanInstancePrepareRelation, BLOCKING_STATEGY_CHOICES, \
     TestTemplate, JobType, datetime, Workspace
+from tone.models.job.job_models import TestJob
+from tone.core.handle.report_handle import ReportHandle
 
 logger = logging.getLogger('test_plan')
 
@@ -19,6 +21,8 @@ class ScheduleJob(object):
 class TestPlanScheduleJob(ScheduleJob):
     @classmethod
     def run(cls, plan_id):
+        if not is_connection_usable():
+            connection.close()
         lock_name = 'aps_schedule_lock{}'.format(plan_id)
         identifier = redis_cache.acquire_lock(lock_name)
         if identifier:
@@ -120,3 +124,20 @@ class TestPlanScheduleJob(ScheduleJob):
                     script_info=stage_prepare.prepare_info.get('script'),
                     state='pending'
                 )
+
+
+def is_connection_usable():
+    try:
+        connection.connection.ping()
+    except Exception as ex:
+        logger.info("test plan check mysql is gone. ex is {}", ex)
+        return False
+    else:
+        return True
+
+
+def auto_job_report():
+    report_job = TestJob.objects.filter(state__in=['fail', 'success', 'stop'], report_is_saved=0,
+                                        report_name__isnull=False).order_by('-id').first()
+    if report_job:
+        ReportHandle(report_job.id).save_report()

@@ -18,4 +18,6 @@ urlpatterns = [
     path('domain/group/', get_domain_group.get_domain_info, name='domain_group'),
     path('test/report/detail/', report_views.ReportDetailView.as_view(), name='report_detail'),
     path('get_by_plan/<str:plan_name>/', report_views.ReportDailyView.as_view(), name='get_by_plan'),
+    path('test/report/item_suite/', report_views.ReportItemSuiteView.as_view(), name='report_item_suite'),
+    path('test/report/update_desc/', report_views.ReportDescView.as_view(), name='report_update_desc'),
 ]

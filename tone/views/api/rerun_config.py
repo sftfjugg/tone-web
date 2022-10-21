@@ -8,7 +8,7 @@ from tone.models import TestJob, TestJobSuite, TestJobCase, JobTagRelation, JobT
 from tone.core.utils.helper import CommResp
 from tone.core.common.expection_handler.error_catch import api_catch_error
 from tone.core.common.expection_handler.error_code import ErrorCode
-from tone.core.common.job_result_helper import get_job_case_server, get_custom_server
+from tone.core.common.job_result_helper import get_job_case_server, get_custom_server, get_server_object_id
 
 
 @api_catch_error
@@ -41,9 +41,7 @@ def config_query(request):
                     'test_case_id': job_case.test_case_id,
                     'repeat': job_case.repeat,
                     'customer_server': get_custom_server(job_case.id),
-                    'server_object_id': job_case.server_object_id if job_case.server_object_id else
-                    TestServerSnapshot.objects.filter(id=job_case.server_snapshot_id).first().source_server_id if
-                    job_case.server_snapshot_id else job_case.server_snapshot_id,
+                    'server_object_id': get_server_object_id(job_case),
                     'server_tag_id': list() if not job_case.server_tag_id else [
                         int(tag_id) for tag_id in job_case.server_tag_id.split(',') if tag_id.isdigit()],
                     'env_info': job_case.env_info,
@@ -53,10 +51,10 @@ def config_query(request):
                     'console': job_case.console,
                     'monitor_info': job_case.monitor_info,
                     'priority': job_case.priority,
-                    'ip': get_job_case_server(job_case.id, is_config=True, data=data)[0],
-                    'is_instance': get_job_case_server(job_case.id, is_config=True, data=data)[1],
-                    'server_is_deleted': get_job_case_server(job_case.id, is_config=True, data=data)[2],
-                    'server_deleted': get_job_case_server(job_case.id, is_config=True, data=data)[3]
+                    'ip': get_job_case_server(job_case.id, data=data)[0],
+                    'is_instance': get_job_case_server(job_case.id, data=data)[1],
+                    'server_is_deleted': get_job_case_server(job_case.id, data=data)[2],
+                    'server_deleted': get_job_case_server(job_case.id, data=data)[3]
                 })
             suite_config.append({
                 'id': job_suite.id,

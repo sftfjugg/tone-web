@@ -124,7 +124,7 @@ class ReportView(CommonAPIView):
         """
         编辑测试报告
         """
-        self.service.update(request.data, operator=request.user)
+        self.service.update(request.data)
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
@@ -169,3 +169,33 @@ class ReportDailyView(View):
         report = Report.objects.filter(id=report_relation_obj.report_id).first()
         url = f'{EnvType.cur_domain()}/ws/{report.ws_id}/test_report/{report.id}'
         return redirect(url)
+
+
+class ReportItemSuiteView(CommonAPIView):
+    serializer_class = ReportSerializer
+    queryset = Report.objects.all()
+    service_class = ReportService
+    permission_classes = []
+
+    @method_decorator(views_catch_error)
+    def post(self, request):
+        """
+        创建测试报告
+        """
+        self.service.update_item_suite_desc(request.data)
+        return Response(self.get_response_code())
+
+
+class ReportDescView(CommonAPIView):
+    serializer_class = ReportSerializer
+    queryset = Report.objects.all()
+    service_class = ReportService
+    permission_classes = []
+
+    @method_decorator(views_catch_error)
+    def post(self, request):
+        """
+        创建测试报告
+        """
+        self.service.update_report_desc(request.data)
+        return Response(self.get_response_code())
