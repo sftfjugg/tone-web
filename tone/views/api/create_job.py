@@ -43,8 +43,8 @@ def job_create(request):
             TestJobCase.objects.create(**case)
         for tag in tag_list:
             JobTagRelation.objects.create(tag_id=tag, job_id=test_job.id)
-        job_data = JobSerializerForAPI(test_job, many=False).data
-    resp.data = job_data
+        resp_data = {'job_id': test_job.id, 'job_name': test_job.name, 'test_type': test_job.test_type}
+    resp.data = resp_data
     return resp.json_resp()
 
 
