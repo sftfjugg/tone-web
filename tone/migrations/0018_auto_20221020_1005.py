@@ -19,8 +19,8 @@ class Migration(migrations.Migration):
                 ('gmt_modified', models.DateTimeField(auto_now=True, help_text='修改时间', verbose_name='modify_at')),
                 ('is_deleted', models.BooleanField(db_index=True, default=False, help_text='是否被删除')),
                 ('report_id', models.IntegerField(help_text='关联报告ID')),
-                ('perf_data', models.JSONField()),
-                ('func_data', models.JSONField()),
+                ('perf_data', django_extensions.db.fields.json.JSONField()),
+                ('func_data', django_extensions.db.fields.json.JSONField()),
             ],
             options={
                 'db_table': 'report_detail',
