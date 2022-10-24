@@ -23,7 +23,7 @@ class TestTemplateView(CommonAPIView):
     queryset = TestTemplate.objects.all()
     service_class = TestTemplateService
     permission_classes = []
-    order_by = ['gmt_created']
+    order_by = ['-gmt_created']
 
     @method_decorator(views_catch_error)
     def get(self, request):
