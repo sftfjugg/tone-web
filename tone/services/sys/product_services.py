@@ -369,6 +369,7 @@ class ProjectDragService(CommonService):
         q = Q()
         q &= Q(ws_id=data.get('ws_id')) if data.get('ws_id') else q
         q &= Q(product_id=data.get('product_id')) if data.get('product_id') else q
+        q &= Q(name__icontains=data.get('name')) if data.get('name') else q
         return queryset.filter(q).order_by('drag_modified')
 
     @staticmethod
