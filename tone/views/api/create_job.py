@@ -73,9 +73,9 @@ def conversion_data(data):  # noqa: C901
             raise ValueError(ErrorCode.PROJECT_NOT_EXISTS)
         data['project'] = Project.objects.get(name=data.get('project'), ws_id=ws_id).id
     if data.get('baseline'):
-        if not Baseline.objects.filter(name=data.get('baseline'), ws_id=ws_id).exists():
+        if not Baseline.objects.filter(name=data.get('baseline'), server_provider=provider, ws_id=ws_id).exists():
             raise ValueError(ErrorCode.BASELINE_NOT_EXISTS)
-        data['baseline'] = Baseline.objects.get(name=data.get('baseline'), ws_id=ws_id).id
+        data['baseline'] = Baseline.objects.get(name=data.get('baseline'), server_provider=provider, ws_id=ws_id).id
     if data.get('tags'):
         tags = list()
         tag_li = data.get('tags').split(',')
