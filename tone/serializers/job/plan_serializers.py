@@ -49,6 +49,7 @@ class TestPlanSerializer(CommonSerializer):
 class TestPlanDetailSerializer(CommonSerializer):
     rpm_info = serializers.SerializerMethodField()
     env_info = serializers.SerializerMethodField()
+    scripts = serializers.SerializerMethodField()
     env_prep = serializers.SerializerMethodField()
     test_config = serializers.SerializerMethodField()
     build_pkg_info = serializers.JSONField()
@@ -79,7 +80,7 @@ class TestPlanDetailSerializer(CommonSerializer):
                   'cron_schedule', 'cron_info', 'blocking_strategy', 'enable', 'env_prep', 'test_config', 'next_time',
                   'auto_report', 'report_name', 'report_description', 'report_template_id', 'report_template_name',
                   'group_method', 'base_group', 'base_group_info', 'func_baseline_aliyun', 'func_baseline_aliyun_name',
-                  'perf_baseline_aliyun', 'perf_baseline_aliyun_name', 'stage_id']
+                  'perf_baseline_aliyun', 'perf_baseline_aliyun_name', 'stage_id', 'scripts']
 
     @staticmethod
     def get_base_group_info(obj):
@@ -225,6 +226,10 @@ class TestPlanDetailSerializer(CommonSerializer):
         if isinstance(obj.env_info, dict):
             return ','.join(['{}={}'.format(key, value) for key, value in obj.env_info.items()])
         return obj.env_info
+
+    @staticmethod
+    def get_scripts(obj):
+        return obj.script_info
 
     @staticmethod
     def get_env_prep(obj):
