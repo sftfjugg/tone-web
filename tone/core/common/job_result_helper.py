@@ -714,7 +714,7 @@ def get_conf_compare_data(compare_objs, suite_id, conf_id, compare_count):
     return compare_data
 
 
-def joint_job_link(job):
+def splice_job_link(job):
     return f'{settings.APP_DOMAIN}/ws/{job.ws_id}/test_result/{job.id}'
 
 
