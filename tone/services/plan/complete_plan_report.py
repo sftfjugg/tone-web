@@ -245,12 +245,12 @@ def handler_stage_group(plan_instance, plan_inst_id):  # noqa: C901
             'tag': f'{tag_name}({idx})',
             'is_job': 1,
             'func_data': {
-                'all': tmp_func_all,
+                'funcAll': tmp_func_all,
                 'fail': tmp_func_fail,
                 'success': tmp_func_success,
             },
             'perf_data': {
-                'all': tmp_perf_all,
+                'perfAll': tmp_perf_all,
                 'decline': tmp_perf_decline,
                 'increase': tmp_perf_increase
             }
@@ -261,13 +261,13 @@ def handler_stage_group(plan_instance, plan_inst_id):  # noqa: C901
         'custom': custom,
         'summary': {
             'base_group': {
-                'all': func_base_all,
-                'all_case': 0,
-                'fail': func_base_fail,
-                'fail_case': 0,
                 'is_job': 1,
-                'success': func_base_success,
-                'success_case': 0,
+                'func_data': {
+                    'funcAll': func_base_all,
+                    'fail': func_base_fail,
+                    'success': func_base_success,
+                },
+                'perf_data': {},
                 'tag': f'{tag_name}(1)',
             },
             'compare_groups': compare_groups
@@ -475,13 +475,13 @@ def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
         'custom': custom,
         'summary': {
             'base_group': {
-                'all': 0 if not func_job_list else job_data[func_base_job].get('all', 0),
-                'all_case': 0,
-                'fail': 0 if not func_job_list else job_data[func_base_job].get('fail', 0),
-                'fail_case': 0,
                 'is_job': 1,
-                'success': 0 if not func_job_list else job_data[func_base_job].get('success', 0),
-                'success_case': 0,
+                'func_data': {
+                    'funcAll': 0 if not func_job_list else job_data[func_base_job].get('all', 0),
+                    'fail': 0 if not func_job_list else job_data[func_base_job].get('fail', 0),
+                    'success': 0 if not func_job_list else job_data[func_base_job].get('success', 0),
+                },
+                'perf_data': {},
                 'tag': f'{tag_name}(1)',
             },
             'compare_groups': [
@@ -489,12 +489,12 @@ def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
                     'tag': f'{tag_name}({idx})',
                     'is_job': 1,
                     'func_data': {
-                        'all': job_data.get(job_ids[0], {}).get('all', 0),
+                        'funcAll': job_data.get(job_ids[0], {}).get('all', 0),
                         'fail': job_data.get(job_ids[0], {}).get('fail', 0),
                         'success': job_data.get(job_ids[0], {}).get('success', 0),
                     },
                     'perf_data': {
-                        'all': job_data.get(job_ids[1], {}).get('all', 0),
+                        'perfAll': job_data.get(job_ids[1], {}).get('all', 0),
                         'decline': job_data.get(job_ids[1], {}).get('decline', 0),
                         'increase': job_data.get(job_ids[1], {}).get('increase', 0),
                     },
@@ -677,13 +677,13 @@ def handle_no_group(plan_instance, plan_inst_id):  # noqa: C901
         'custom': custom,
         'summary': {
             'base_group': {
-                'all': 0 if not func_job_list else job_data[func_base_job].get('all', 0),
-                'all_case': 0,
-                'fail': 0 if not func_job_list else job_data[func_base_job].get('fail', 0),
-                'fail_case': 0,
                 'is_job': 1,
-                'success': 0 if not func_job_list else job_data[func_base_job].get('success', 0),
-                'success_case': 0,
+                'func_data': {
+                    'funcAll': 0 if not func_job_list else job_data[func_base_job].get('all', 0),
+                    'fail': 0 if not func_job_list else job_data[func_base_job].get('fail', 0),
+                    'success': 0 if not func_job_list else job_data[func_base_job].get('success', 0),
+                },
+                'perf_data': {},
                 'tag': f'{tag_name}(1)',
             },
             'compare_groups': [
@@ -691,12 +691,12 @@ def handle_no_group(plan_instance, plan_inst_id):  # noqa: C901
                     'tag': f'{tag_name}({idx})',
                     'is_job': 1,
                     'func_data': {
-                        'all': job_data.get(job_ids[0], {}).get('all', 0),
+                        'funcAll': job_data.get(job_ids[0], {}).get('all', 0),
                         'fail': job_data.get(job_ids[0], {}).get('fail', 0),
                         'success': job_data.get(job_ids[0], {}).get('success', 0),
                     },
                     'perf_data': {
-                        'all': job_data.get(job_ids[1], {}).get('all', 0),
+                        'perfAll': job_data.get(job_ids[1], {}).get('all', 0),
                         'decline': job_data.get(job_ids[1], {}).get('decline', 0),
                         'increase': job_data.get(job_ids[1], {}).get('increase', 0),
                     },
