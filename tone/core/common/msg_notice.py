@@ -500,10 +500,6 @@ class OutSiteMsgHandle(object):
         </h3>
         %s
         <br />
-        <p>
-            处理建议： 确保可以登陆机器 {sn}/{ip} 并检查 staragent 
-            (命令：&nbsp;/home/staragent/bin/staragentctl status) 及uptime是否正常 .
-        </p>
         </p>
                 """ % (
             '' if not suite else '<h3><span>影响的Suite有: <span style="color:#E53333;">{suite_name}</span></span></h3>')

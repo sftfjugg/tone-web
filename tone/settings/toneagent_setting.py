@@ -1,3 +1,4 @@
+
 from tone.core.utils.config_parser import cp
 
 TONEAGENT_DOMAIN = cp.get('toneagent_domain')
