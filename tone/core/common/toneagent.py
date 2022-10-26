@@ -187,7 +187,7 @@ def tone_agent_info(ip='', tsn=''):
     }
     if ip:
         data.update({'ip': ip})
-    else:
+    if tsn:
         data.update({'tsn': tsn})
     sign_format = ''.join('{0}{{{0}}}'.format(_) for _ in sorted(data.keys()))
     sign_string = sign_format.format(**data)
