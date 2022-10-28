@@ -12,7 +12,7 @@ from datetime import datetime
 from tone.core.utils.verify_tools import check_ip
 from tone.models import Project, TestJob, JobType, TestTemplate, TestTmplCase, TestTmplSuite, \
     TemplateTagRelation, JobTagRelation, TestJobCase, TestJobSuite, TestServerSnapshot, CloudServerSnapshot, \
-    TestServer, CloudServer, TestCluster
+    TestServer, CloudServer, TestCluster, JobTag
 from tone.core.handle.base_handle import BaseHandle
 from tone.core.common.constant import MonitorType
 from tone.core.common.expection_handler.error_code import ErrorCode
@@ -90,6 +90,10 @@ class JobDataHandle(BaseHandle):
             self.data_dic['cleanup_info'] = self.data.get('cleanup_info', template_obj.cleanup_info)
             if self.data.get('tags') and isinstance(self.data.get('tags'), list):
                 [self.tag_list.append(tag) for tag in self.data.get('tags')]
+            else:
+                tag_id_list = [tag.tag_id for tag in TemplateTagRelation.objects.filter(template_id=template_id)]
+                tags = [tag_id for tag_id in tag_id_list if JobTag.objects.filter(id=tag_id).exists()]
+                self.tag_list.extend(tags)
             if self.data.get('name'):
                 if '{date}' in self.data.get('name'):
                     self.data_dic['name'] = self.data.get('name').replace('{date}', '_' + str(datetime.now().date()))
