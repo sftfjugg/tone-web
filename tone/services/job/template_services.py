@@ -28,6 +28,7 @@ class TestTemplateService(CommonService):
         q &= Q(creator=data.get('creator')) if data.get('creator') else q
         q &= Q(update_user=data.get('update_user')) if data.get('update_user') else q
         q &= Q(job_type_id__in=data.getlist('job_type_id')) if data.get('job_type_id') else q
+        q &= Q(description__icontains=data.get('description')) if data.get('description') else q
         return queryset.filter(q)
 
     def update(self, data, operator):  # noqa: C901
