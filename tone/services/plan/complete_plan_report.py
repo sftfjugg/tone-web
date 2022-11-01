@@ -2,12 +2,13 @@ import itertools
 import logging
 from tone.celery import app
 from tone.models import PlanInstance, PlanInstanceTestRelation, TestJob, ReportTemplate, Project, \
-    ReportObjectRelation, datetime, ReportTmplItem, ReportTmplItemSuite, PlanInstanceStageRelation
+    ReportObjectRelation, datetime, ReportTmplItem, ReportTmplItemSuite, PlanInstanceStageRelation, Report
 
-from tone.services.job.result_compare_services import CompareListService, CompareEnvInfoService
+from tone.services.job.result_compare_services import CompareEnvInfoService, \
+    CompareSuiteInfoOldService, CompareListOldService
 from tone.views.api.get_domain_group import get_domain_group
 
-logger = logging.getLogger('plan_create_report')
+logger = logging.getLogger('test_plan')
 
 
 @app.task
@@ -17,13 +18,16 @@ def plan_create_report(plan_inst_id):  # noqa: C901
         # 获取报告分组方式 和 基准组
         if plan_instance.group_method == 'job':
             handle_job_group(plan_instance, plan_inst_id)
-        else:
+        elif plan_instance.group_method == 'stage':
             # 按阶段对job进行分组, 几个阶段对应几个对比组
             handler_stage_group(plan_instance, plan_inst_id)
+        else:
+            handle_no_group(plan_instance, plan_inst_id)
+        plan_instance.report_is_saved = 1
+        plan_instance.save()
 
 
 def handler_stage_group(plan_instance, plan_inst_id):  # noqa: C901
-    from tone.services.job.result_compare_services import CompareSuiteInfoService
     from tone.services.report.report_services import ReportService
     base_stage_id = plan_instance.base_group
 
@@ -86,18 +90,15 @@ def handler_stage_group(plan_instance, plan_inst_id):  # noqa: C901
     comp_num = group_num - 1
     [func_compare_groups.append([]) for _ in range(comp_num - func_comp_num)]
     [perf_compare_groups.append([]) for _ in range(comp_num - perf_comp_num)]
-    func_compare_data = func_compare_groups[0] if len(func_compare_groups) > 0 else list()
-    perf_compare_data = perf_compare_groups[0] if len(perf_compare_groups) > 0 else list()
     data = {
-        'func_data': {'base_obj_li': func_base_obj_li if func_base_obj_li else func_compare_data,
+        'func_data': {'base_obj_li': func_base_obj_li,
                       'compare_groups': func_compare_groups
                       },
-        'group_num': group_num,
-        'perf_data': {'base_obj_li': perf_base_obj_li if perf_base_obj_li else perf_compare_data,
+        'perf_data': {'base_obj_li': perf_base_obj_li,
                       'compare_groups': perf_compare_groups}
     }
 
-    compare_suite_data = CompareSuiteInfoService().filter(data)
+    compare_suite_data = CompareSuiteInfoOldService().filter(data)
     func_suite_data = {suite_id: list(suite_data.get('conf_dic', {}).keys())
                        for suite_id, suite_data in compare_suite_data.get('func_suite_dic', {}).items()}
     perf_suite_data = {suite_id: list(suite_data.get('conf_dic', {}).keys())
@@ -113,7 +114,7 @@ def handler_stage_group(plan_instance, plan_inst_id):  # noqa: C901
 
     get_compare_date(origin_func_suite)
     get_compare_date(origin_perf_suite)
-    compare_list_data = CompareListService().filter(compare_suite_data)
+    compare_list_data = CompareListOldService().filter(compare_suite_data)
     func_data_result = compare_list_data.get('func_data_result')
     func_data_result = {} if not func_data_result else func_data_result
     perf_data_result = compare_list_data.get('perf_data_result')
@@ -244,12 +245,12 @@ def handler_stage_group(plan_instance, plan_inst_id):  # noqa: C901
             'tag': f'{tag_name}({idx})',
             'is_job': 1,
             'func_data': {
-                'all': tmp_func_all,
+                'funcAll': tmp_func_all,
                 'fail': tmp_func_fail,
                 'success': tmp_func_success,
             },
             'perf_data': {
-                'all': tmp_perf_all,
+                'perfAll': tmp_perf_all,
                 'decline': tmp_perf_decline,
                 'increase': tmp_perf_increase
             }
@@ -260,13 +261,13 @@ def handler_stage_group(plan_instance, plan_inst_id):  # noqa: C901
         'custom': custom,
         'summary': {
             'base_group': {
-                'all': func_base_all,
-                'all_case': 0,
-                'fail': func_base_fail,
-                'fail_case': 0,
                 'is_job': 1,
-                'success': func_base_success,
-                'success_case': 0,
+                'func_data': {
+                    'funcAll': func_base_all,
+                    'fail': func_base_fail,
+                    'success': func_base_success,
+                },
+                'perf_data': {},
                 'tag': f'{tag_name}(1)',
             },
             'compare_groups': compare_groups
@@ -277,7 +278,7 @@ def handler_stage_group(plan_instance, plan_inst_id):  # noqa: C901
         'perf_data': perf_data
     }
     data = {
-        'job_li': job_li,
+        # 'job_li': job_li,
         'name': before_name,
         'product_version': product_version,
         'project_id': project_id,
@@ -300,29 +301,30 @@ def handler_stage_group(plan_instance, plan_inst_id):  # noqa: C901
                                      report_seq_id=report_id + 1)
     report.save()
     plan_id = plan_instance.plan_id
-    ReportObjectRelation.objects.create(object_type='plan_instance', object_id=plan_inst_id, report_id=report_id)
-    ReportObjectRelation.objects.create(object_type='plan_', object_id=plan_id, report_id=report_id)
+    save_report_relation(plan_id, plan_inst_id, report_id)
 
 
 def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
-    from tone.services.job.result_compare_services import CompareSuiteInfoService
     from tone.services.report.report_services import ReportService
     base_tmpl_id = plan_instance.base_group
     stage_id = plan_instance.stage_id
     stage_instance = PlanInstanceStageRelation.objects.filter(plan_instance_id=plan_inst_id, stage_type='test_stage',
                                                               stage_index=stage_id).first()
     if not stage_instance:
+        logger.info(f'auto_plan_report error stage_instance not exist. plan_instance.id:{plan_inst_id}')
         return
     plan_instance_test = PlanInstanceTestRelation.objects.filter(
         plan_instance_id=plan_inst_id, tmpl_id=base_tmpl_id, instance_stage_id=stage_instance.id).first()
     if not plan_instance_test:
+        logger.info(f'auto_plan_report error plan_instance_test not exist. plan_instance.id:{plan_inst_id}')
         return
     base_job_id = plan_instance_test.job_id
     base_job_obj = TestJob.objects.filter(id=base_job_id).first()
     if not base_job_obj:
+        logger.info(f'auto_plan_report error plan_instance_job not exist. plan_instance.id:{plan_inst_id}')
         return
     job_list = PlanInstanceTestRelation.objects.filter(
-        plan_instance_id=plan_inst_id).values_list('job_id', flat=True)
+        plan_instance_id=plan_inst_id, job_id__isnull=False).values_list('job_id', flat=True)
     job_list = list(job_list)
     job_list.sort()
     func_job_list = [job for job in job_list if TestJob.objects.filter(id=job, test_type='functional')]
@@ -360,7 +362,7 @@ def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
                       'compare_groups': perf_compare_groups}
     }
 
-    compare_suite_data = CompareSuiteInfoService().filter(data)
+    compare_suite_data = CompareSuiteInfoOldService().filter(data)
 
     func_suite_data = {suite_id: list(suite_data.get('conf_dic', {}).keys())
                        for suite_id, suite_data in compare_suite_data.get('func_suite_dic', {}).items()}
@@ -377,7 +379,7 @@ def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
     origin_perf_suite = compare_suite_data.get('perf_suite_dic')
     get_compare_date(origin_func_suite)
     get_compare_date(origin_perf_suite)
-    compare_list_data = CompareListService().filter(compare_suite_data)
+    compare_list_data = CompareListOldService().filter(compare_suite_data)
     func_data_result = compare_list_data.get('func_data_result')
     func_data_result = {} if not func_data_result else func_data_result
     perf_data_result = compare_list_data.get('perf_data_result')
@@ -466,18 +468,20 @@ def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
     custom = '-'
     test_background = '-'
     test_method = '-'
+    if not job_data:
+        return
     # 测试结论
     test_conclusion = {
         'custom': custom,
         'summary': {
             'base_group': {
-                'all': 0 if not func_job_list else job_data[func_base_job].get('all', 0),
-                'all_case': 0,
-                'fail': 0 if not func_job_list else job_data[func_base_job].get('fail', 0),
-                'fail_case': 0,
                 'is_job': 1,
-                'success': 0 if not func_job_list else job_data[func_base_job].get('success', 0),
-                'success_case': 0,
+                'func_data': {
+                    'funcAll': 0 if not func_job_list else job_data[func_base_job].get('all', 0),
+                    'fail': 0 if not func_job_list else job_data[func_base_job].get('fail', 0),
+                    'success': 0 if not func_job_list else job_data[func_base_job].get('success', 0),
+                },
+                'perf_data': {},
                 'tag': f'{tag_name}(1)',
             },
             'compare_groups': [
@@ -485,12 +489,12 @@ def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
                     'tag': f'{tag_name}({idx})',
                     'is_job': 1,
                     'func_data': {
-                        'all': job_data.get(job_ids[0], {}).get('all', 0),
+                        'funcAll': job_data.get(job_ids[0], {}).get('all', 0),
                         'fail': job_data.get(job_ids[0], {}).get('fail', 0),
                         'success': job_data.get(job_ids[0], {}).get('success', 0),
                     },
                     'perf_data': {
-                        'all': job_data.get(job_ids[1], {}).get('all', 0),
+                        'perfAll': job_data.get(job_ids[1], {}).get('all', 0),
                         'decline': job_data.get(job_ids[1], {}).get('decline', 0),
                         'increase': job_data.get(job_ids[1], {}).get('increase', 0),
                     },
@@ -504,7 +508,7 @@ def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
         'perf_data': perf_data
     }
     data = {
-        'job_li': job_li,
+        # 'job_li': job_li,
         'name': before_name,
         'product_version': product_version,
         'project_id': project_id,
@@ -527,7 +531,219 @@ def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
                                      report_seq_id=report_id + 1)
     report.save()
     plan_id = plan_instance.plan_id
-    ReportObjectRelation.objects.create(object_type='plan_instance', object_id=plan_inst_id, report_id=report_id)
+    save_report_relation(plan_id, plan_inst_id, report_id)
+
+
+def handle_no_group(plan_instance, plan_inst_id):  # noqa: C901
+    from tone.services.report.report_services import ReportService
+    job_list = PlanInstanceTestRelation.objects.filter(
+        plan_instance_id=plan_inst_id, job_id__isnull=False).values_list('job_id', flat=True)
+    job_list = list(job_list)
+    job_list.sort()
+    func_job_list = [job for job in job_list if TestJob.objects.filter(id=job, test_type='functional')]
+    perf_job_list = [job for job in job_list if TestJob.objects.filter(id=job, test_type='performance')]
+
+    func_base_job = None if not func_job_list else func_job_list[0]
+    perf_base_job = None if not perf_job_list else perf_job_list[0]
+    func_compare_job = []
+    perf_compare_job = []
+    func_base_obj_li = []
+    for job in func_job_list:
+        func_base_obj_li.append({'is_job': 1, 'obj_id': job})
+    perf_base_obj_li = []
+    for job in perf_job_list:
+        perf_base_obj_li.append({'is_job': 1, 'obj_id': job})
+    # 对比suite
+    func_compare_groups = []
+    perf_compare_groups = []
+    data = {
+        'func_data': {'base_obj_li': func_base_obj_li,
+                      'compare_groups': func_compare_groups
+                      },
+        'perf_data': {'base_obj_li': perf_base_obj_li,
+                      'compare_groups': perf_compare_groups}
+    }
+
+    compare_suite_data = CompareSuiteInfoOldService().filter(data)
+
+    func_suite_data = {suite_id: list(suite_data.get('conf_dic', {}).keys())
+                       for suite_id, suite_data in compare_suite_data.get('func_suite_dic', {}).items()}
+    perf_suite_data = {suite_id: list(suite_data.get('conf_dic', {}).keys())
+                       for suite_id, suite_data in compare_suite_data.get('perf_suite_dic', {}).items()}
+
+    conf_set = set()
+    for case_list in func_suite_data.values():
+        conf_set.update(set(case_list))
+    for case_list in perf_suite_data.values():
+        conf_set.update(set(case_list))
+    conf_list = list(conf_set)
+    origin_func_suite = compare_suite_data.get('func_suite_dic')
+    origin_perf_suite = compare_suite_data.get('perf_suite_dic')
+    get_compare_date(origin_func_suite)
+    get_compare_date(origin_perf_suite)
+    compare_list_data = CompareListOldService().filter(compare_suite_data)
+    func_data_result = compare_list_data.get('func_data_result')
+    func_data_result = {} if not func_data_result else func_data_result
+    perf_data_result = compare_list_data.get('perf_data_result')
+    perf_data_result = {} if not perf_data_result else perf_data_result
+
+    # compare info
+    base_objs = []
+    if func_job_list:
+        base_objs.append({
+            'is_job': 1,
+            'obj_id': func_base_job,
+            'suite_data': func_suite_data
+        })
+    if perf_job_list:
+        base_objs.append({
+            'is_job': 1,
+            'obj_id': perf_base_job,
+            'suite_data': perf_suite_data
+        })
+    project_id = plan_instance.project_id
+    product_version = None
+    if project_id:
+        product_version = Project.objects.filter(id=project_id, query_scope='all').first().product_version
+    product_version = product_version if product_version else 'default_version'
+    tag_name = product_version if product_version else '对比标识'
+    base_group = {
+        'base_objs': base_objs,
+        'tag': f'{tag_name}(1)'
+    }
+    compare_groups = []
+    start_idx = 2
+    for func_job, perf_job in itertools.zip_longest(func_compare_job, perf_compare_job):
+        tmp_base_objs = []
+        if func_job:
+            tmp_base_objs.append({
+                'is_job': 1,
+                'obj_id': func_job,
+                'suite_data': func_suite_data
+            })
+        if perf_job:
+            tmp_base_objs.append({
+                'is_job': 1,
+                'obj_id': perf_job,
+                'suite_data': perf_suite_data
+            })
+        compare_groups.append(
+            {
+                'base_objs': tmp_base_objs,
+                'tag': f'{tag_name}({start_idx})'
+            }
+        )
+        start_idx += 1
+    test_env = CompareEnvInfoService().get_env_info(base_group, compare_groups)
+    # 模板名称
+    ws_id = plan_instance.ws_id
+    job_li = func_job_list
+    report_source = 'plan'
+    default_tmpl_id = ReportTemplate.objects.filter(ws_id=ws_id, name='默认模板', query_scope='all').first().id
+    name = plan_instance.report_name
+    before_name = name if name else '{plan_name}_report-{report_seq_id}'
+    tmpl_id = plan_instance.report_tmpl_id if plan_instance.report_tmpl_id else default_tmpl_id
+    description = plan_instance.report_description
+    # 将conf 根据 domain_group 分组
+    domain_group = get_domain_group(conf_list)
+    func_group = domain_group.get('functional')
+    perf_group = domain_group.get('performance')
+    job_data = {}
+    if tmpl_id == default_tmpl_id:
+        func_data = get_func_item(func_group, func_data_result, job_data)
+        perf_data = get_perf_item(perf_group, perf_data_result, job_data)
+    else:
+        # report_template_obj = ReportTemplate.objects.filter(id=tmpl_id, query_scope='all').first()
+        # 模板关联的测试项以及suite
+        item_suite_map = {}
+        [item_suite_map.update({report_template_item.name: list(
+            ReportTmplItemSuite.objects.filter(
+                report_tmpl_item_id=report_template_item.id).values_list('test_suite_id', flat=True))})
+            for report_template_item in ReportTmplItem.objects.filter(tmpl_id=tmpl_id, test_type='functional')]
+        func_data = get_func_item(item_suite_map, func_data_result, job_data, custom=True)
+        [item_suite_map.update({report_template_item.name: list(
+            ReportTmplItemSuite.objects.filter(
+                report_tmpl_item_id=report_template_item.id).values_list('test_suite_id', flat=True))})
+            for report_template_item in ReportTmplItem.objects.filter(tmpl_id=tmpl_id, test_type='performance')]
+        perf_data = get_perf_item(item_suite_map, perf_data_result, job_data, custom=True)
+
+    custom = '-'
+    test_background = '-'
+    test_method = '-'
+    if not job_data:
+        return
+    # 测试结论
+    test_conclusion = {
+        'custom': custom,
+        'summary': {
+            'base_group': {
+                'is_job': 1,
+                'func_data': {
+                    'funcAll': 0 if not func_job_list else job_data[func_base_job].get('all', 0),
+                    'fail': 0 if not func_job_list else job_data[func_base_job].get('fail', 0),
+                    'success': 0 if not func_job_list else job_data[func_base_job].get('success', 0),
+                },
+                'perf_data': {},
+                'tag': f'{tag_name}(1)',
+            },
+            'compare_groups': [
+                {
+                    'tag': f'{tag_name}({idx})',
+                    'is_job': 1,
+                    'func_data': {
+                        'funcAll': job_data.get(job_ids[0], {}).get('all', 0),
+                        'fail': job_data.get(job_ids[0], {}).get('fail', 0),
+                        'success': job_data.get(job_ids[0], {}).get('success', 0),
+                    },
+                    'perf_data': {
+                        'perfAll': job_data.get(job_ids[1], {}).get('all', 0),
+                        'decline': job_data.get(job_ids[1], {}).get('decline', 0),
+                        'increase': job_data.get(job_ids[1], {}).get('increase', 0),
+                    },
+                } for idx, job_ids in enumerate(
+                    itertools.zip_longest(func_compare_job, perf_compare_job, fillvalue=0), start=2)
+            ],
+        }
+    }
+    test_item = {
+        'func_data': func_data,
+        'perf_data': perf_data
+    }
+    data = {
+        # 'job_li': job_li,
+        'name': before_name,
+        'product_version': product_version,
+        'project_id': project_id,
+        'report_source': report_source,
+        'test_conclusion': test_conclusion,
+        'test_env': test_env,
+        'test_item': test_item,
+        'tmpl_id': tmpl_id,
+        'ws_id': ws_id,
+        'test_background': test_background,
+        'test_method': test_method,
+        'description': description,
+    }
+    operator = plan_instance.creator
+    report = ReportService().create(data, operator)
+    report_id = report.id
+    report.name = before_name.format(date=datetime.strftime(report.gmt_created, "%Y-%m-%d %H:%M:%S"),
+                                     plan_name=plan_instance.name, plan_id=str(plan_instance.plan_id),
+                                     report_id=report_id, product_version=product_version,
+                                     report_seq_id=report_id + 1)
+    report.save()
+    plan_id = plan_instance.plan_id
+    save_report_relation(plan_id, plan_inst_id, report_id)
+
+
+def save_report_relation(plan_id, plan_inst_id, report_id):
+    report_relation_instance = ReportObjectRelation.objects. \
+        filter(object_type='plan_instance', object_id=plan_inst_id).first()
+    if report_relation_instance:
+        report_relation_instance.report_id = report_id
+        report_relation_instance.save()
+    else:
+        ReportObjectRelation.objects.create(object_type='plan_instance', object_id=plan_inst_id, report_id=report_id)
     ReportObjectRelation.objects.create(object_type='plan_', object_id=plan_id, report_id=report_id)
 
 
@@ -594,13 +810,15 @@ def get_perf_item(perf_group, perf_data_result, job_data, custom=False):
                         job_data[tmp_job]['increase'] += tmp_count_data.get('increase', 0)
                         job_data[tmp_job]['decline'] += tmp_count_data.get('decline', 0)
                         job_data[tmp_job]['all'] += tmp_count_data.get('all', 0)
-
+                    job_list = comp_jobs
+                    job_list.append(tmp_conf_info.get('obj_id'))
                     tmp_conf_list.append({
                         'conf_id': conf_id,
                         'conf_name': conf_name,
                         'conf_source': conf_source,
                         'compare_conf_list': compare_conf_list,
                         'metric_list': metric_list,
+                        'job_list': job_list
                     })
                 tmp_suite_list.append({
                     'suite_id': suite_id,
@@ -631,6 +849,7 @@ def get_func_item(func_group, func_data_result, job_data, custom=False):
                 conf_list = tmp_suite_info.get('conf_list')
                 tmp_conf_list = []
                 for tmp_conf_info in conf_list:
+                    job_list = list()
                     conf_id = tmp_conf_info.get('conf_id')
                     conf_name = tmp_conf_info.get('conf_name')
                     conf_source = {
@@ -641,6 +860,7 @@ def get_func_item(func_group, func_data_result, job_data, custom=False):
                         'success_case': tmp_conf_info.get('success_case', 0),
                         'is_job': 1,
                     }
+                    job_list.append(tmp_conf_info.get('obj_id'))
                     if job_data.get(tmp_conf_info.get('obj_id')):
                         job_data[tmp_conf_info.get('obj_id')]['success'] += \
                             int(tmp_conf_info.get('success_case', 0))
@@ -659,6 +879,7 @@ def get_func_item(func_group, func_data_result, job_data, custom=False):
                         }
                     compare_conf_list = tmp_conf_info.get('conf_compare_data')
                     for compare_conf_data in compare_conf_list:
+                        job_list.append(compare_conf_data.get('obj_id'))
                         if job_data.get(compare_conf_data.get('obj_id')):
                             job_data[compare_conf_data.get('obj_id')]['success'] += \
                                 int(compare_conf_data.get('success_case', 0))
@@ -682,6 +903,7 @@ def get_func_item(func_group, func_data_result, job_data, custom=False):
                         'conf_source': conf_source,
                         'compare_conf_list': compare_conf_list,
                         'sub_case_list': sub_case_list,
+                        'job_list': job_list
                     })
                 tmp_suite_list.append({
                     'suite_id': suite_id,

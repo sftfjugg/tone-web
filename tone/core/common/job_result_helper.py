@@ -328,6 +328,7 @@ def get_job_case_run_server(job_case_id, return_field='ip'):
     job_case = TestJobCase.objects.get(id=job_case_id)
     run_mode = job_case.run_mode
     server_provider = job_case.server_provider
+    server = None
     if run_mode == 'standalone' and server_provider == 'aligroup':
         server = TestServerSnapshot.objects.filter(id=job_case.server_snapshot_id)
         if server.exists():
@@ -350,6 +351,9 @@ def get_job_case_run_server(job_case_id, return_field='ip'):
             server = CloudServerSnapshot.objects.filter(id=server_snapshot_id)
             if server.exists():
                 return __get_server_value(server, server_provider, return_field)
+    if not server:
+        server = None
+    return server
 
 
 def __get_server_value(server, server_provider, return_field):
@@ -559,6 +563,8 @@ def get_compare_data(suite, conf, metric, test_value, direction, compare_job_li,
 
 def get_compare_result(base_test_value, compare_test_value, direction, cmp_threshold, cv_value, cv_threshold):
     try:
+        if base_test_value == '0':
+            return 'na', 'na'
         change_rate = (compare_test_value - base_test_value) / float(base_test_value)
         if float(cv_value.split('%')[0]) > cv_threshold * 100:
             res = 'invalid'
@@ -718,7 +724,7 @@ class ServerData:
     server_is_deleted = False
     server_deleted = []
 
-    
+
 def get_suite_conf_metric_v1(suite_id, suite_name, base_index, group_list, suite_value, is_all):
     conf_list = list()
     suite_obj = {
@@ -787,7 +793,7 @@ def _check_duplicate_hit(duplicate_conf, conf_id, test_job_id):
 
 
 def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_list, base_job_id, base_index):
-    perf_results = PerfResult.objects.all().\
+    perf_results = PerfResult.objects.all(). \
         extra(select={'cv_threshold': 'test_track_metric.cv_threshold',
                       'cmp_threshold': 'test_track_metric.cmp_threshold',
                       'direction': 'test_track_metric.direction'},
@@ -798,6 +804,7 @@ def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_lis
                      "test_track_metric.cv_threshold > 0",
                      "test_track_metric.is_deleted = 0",
                      "(object_type='case' AND object_id=%s) or (object_type='suite' AND object_id=%s)"],
+              order_by=['test_track_metric.object_type'],
               params=[base_job_id, suite_id, conf_id, conf_id, suite_id]).distinct()
     if not perf_results.exists():
         return
@@ -817,7 +824,7 @@ def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_lis
         if not has_duplicate and len(compare_job.get('job_list')) > 0:
             for job_id in compare_job.get('job_list'):
                 if PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id, test_case_id=conf_id).exists():
-                    job_list= [job_id]
+                    job_list = [job_id]
                     compare_job_list.append(job_id)
                     break
         group_compare = None
@@ -830,7 +837,7 @@ def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_lis
                                                                                test_suite_id=suite_id,
                                                                                test_case_id=conf_id)
             else:
-                group_compare = compare_result = PerfResult.objects.\
+                group_compare = compare_result = PerfResult.objects. \
                     filter(test_job_id=job_id, test_suite_id=suite_id, test_case_id=conf_id)
             if compare_result:
                 compare_result_li.append(compare_result)
@@ -842,9 +849,9 @@ def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_lis
             'obj_id': compare_job_id[0] if len(compare_job_id) > 0 else compare_job.get('job_list')[0]
         }))
     conf_compare_data.insert(base_index, dict({
-            'is_job': 1,
-            'obj_id': base_job_id
-        }))
+        'is_job': 1,
+        'obj_id': base_job_id
+    }))
     conf_obj = {
         'conf_id': conf_id,
         'conf_name': conf_name,
@@ -877,7 +884,7 @@ def get_metric_list_v1(perf_results, compare_result_li, compare_count, base_inde
             }
         compare_data = get_compare_data_v1(metric, test_value, perf_result, compare_result_li, compare_count)
         compare_data.insert(base_index, base_metric)
-        metric_list.append({
+        metric_obj = {
             'metric': metric,
             'test_value': test_value,
             'cv_threshold': perf_result.cv_threshold,
@@ -885,7 +892,8 @@ def get_metric_list_v1(perf_results, compare_result_li, compare_count, base_inde
             'unit': unit,
             'direction': perf_result.direction,
             'compare_data': compare_data
-        })
+        }
+        metric_list.append(metric_obj)
     return metric_list
 
 
@@ -972,7 +980,10 @@ def get_suite_conf_sub_case_v1(suite_id, suite_name, base_index, group_job_list,
             if len(group_job_list) > 0:
                 conf_compare_data = get_conf_compare_data_v1(group_job_list, suite_id, conf_id,
                                                              suite_obj['compare_count'])
-                compare_data.extend(conf_compare_data)
+                if len(conf_compare_data) > 0:
+                    compare_data.extend(conf_compare_data)
+                else:
+                    compare_data.insert(0, dict())
             compare_data.insert(base_index, base_data)
             conf_obj = {
                 'conf_name': conf_name,
@@ -1009,6 +1020,8 @@ def concurrent_calc_v1(func_result, suite, conf, compare_job_li, base_index, q):
     sub_case_name = func_result[0]
     result = FUNC_CASE_RESULT_TYPE_MAP.get(func_result[1])
     compare_data = get_func_compare_data_v1(suite, conf, sub_case_name, compare_job_li)
+    if len(compare_data) == 0:
+        compare_data.insert(0, '')
     compare_data.insert(base_index, result)
     q.put(
         {
@@ -1022,7 +1035,7 @@ def concurrent_calc_v1(func_result, suite, conf, compare_job_li, base_index, q):
 def get_func_compare_data_v1(suite, conf, sub_case_name, compare_job_li):
     compare_data = list()
     for compare_job in compare_job_li:
-        group_data = None
+        group_data = ''
         duplicate_conf = compare_job.get('duplicate_conf', list())
         has_duplicate = False
         if len(duplicate_conf) > 0:
@@ -1035,6 +1048,8 @@ def get_func_compare_data_v1(suite, conf, sub_case_name, compare_job_li):
         if has_duplicate > 0:
             d_conf = [d for d in duplicate_conf if conf == d['conf_id']]
             if len(d_conf) > 0 and func_results.filter(test_job_id=d_conf[0]['job_id']).count() > 0:
+                compare_data.append(group_data)
+            else:
                 compare_data.append(group_data)
         else:
             compare_data.append(group_data)
@@ -1087,6 +1102,9 @@ def get_conf_compare_data_v1(compare_objs, suite_id, conf_id, compare_count):
             d_conf = [d for d in duplicate_conf if conf_id == d['conf_id']]
             if len(d_conf) > 0 and func_results.filter(test_job_id=d_conf[0]['job_id']).count() > 0:
                 group_data['obj_id'] = d_conf[0]['job_id']
+                compare_data.append(group_data)
+            else:
+                group_data['obj_id'] = group_obj.get('job_list')[0]
                 compare_data.append(group_data)
         else:
             group_data['obj_id'] = group_obj.get('job_list')[0]

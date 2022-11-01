@@ -1,13 +1,14 @@
 import logging
 
-from django.db import transaction, connection
+from django.db import transaction, connection, connections
 
 from tone.core.common.redis_cache import redis_cache
 from tone.models import TestPlan, PlanInstance, PlanStageRelation, PlanStageTestRelation, PlanStagePrepareRelation, \
     PlanInstanceStageRelation, PlanInstanceTestRelation, PlanInstancePrepareRelation, BLOCKING_STATEGY_CHOICES, \
-    TestTemplate, JobType, datetime, Workspace
+    TestTemplate, JobType, datetime, Workspace, ReportObjectRelation
 from tone.models.job.job_models import TestJob
 from tone.core.handle.report_handle import ReportHandle
+from tone.services.plan.complete_plan_report import plan_create_report
 
 logger = logging.getLogger('test_plan')
 
@@ -136,8 +137,32 @@ def is_connection_usable():
         return True
 
 
+def close_old_connections():
+    for conn in connections.all():
+        conn.close_if_unusable_or_obsolete()
+
+
 def auto_job_report():
-    report_job = TestJob.objects.filter(state__in=['fail', 'success', 'stop'], report_is_saved=0,
-                                        report_name__isnull=False).order_by('-id').first()
-    if report_job:
-        ReportHandle(report_job.id).save_report()
+    close_old_connections()
+    try:
+        report_job = TestJob.objects.filter(state__in=['fail', 'success', 'stop'], report_is_saved=0,
+                                            report_name__isnull=False).order_by('-id').first()
+        if report_job:
+            logger.info(f'auto_job_report begin now . job is {report_job.id}')
+            ReportHandle(report_job.id).save_report()
+    except Exception as ex:
+        logger.info(f'auto_job_report error. ex is {ex}')
+
+
+def auto_plan_report():
+    close_old_connections()
+    plan_instances = PlanInstance.objects.\
+        filter(state__in=['fail', 'success', 'stop'], auto_report=1, report_is_saved=0).order_by('-id')
+    logger.info(f'auto_plan_report begin now . total is {plan_instances.count()}')
+    for plan_instance in plan_instances:
+        try:
+            plan_create_report(plan_instance.id)
+            logger.info(f'auto_plan_report finish. plan_instance.id:{plan_instance.id}')
+        except Exception as ex:
+            logger.info(f'auto_plan_report error. ex is {ex}')
+    logger.info(f'auto_plan_report end now ...........')

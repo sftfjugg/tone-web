@@ -126,6 +126,11 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'test_plan': {
+            'handlers': ['test_plan'],
+            'level': 'INFO',
+            'propagate': False,
+        },
         'callback': {
             'handlers': ['callback'],
             'level': 'INFO',

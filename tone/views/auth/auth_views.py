@@ -114,7 +114,7 @@ class RoleView(CommonAPIView):
         response_data = self.get_response_data(data)
         response_data['data'] = {
             'list': response_data['data'],
-            'num': User.objects.count()
+            'num': User.objects.exclude(username='system').count()
         }
         return Response(response_data)
 
