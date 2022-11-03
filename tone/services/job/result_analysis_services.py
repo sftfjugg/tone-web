@@ -27,23 +27,14 @@ class PerfAnalysisService(CommonService):
         test_suite = data.get('test_suite_id', None)
         test_case = data.get('test_case_id', None)
         project_id = data.get('project_id')
-        assert project_id, AnalysisException(ErrorCode.PROJECT_ID_NEED)
-        with connection.cursor() as cursor:
-            search_sql = '''SELECT metric FROM perf_result 
-                    WHERE test_job_id=(SELECT id FROM test_job
-                                       where project_id = {} AND id 
-                                       IN (SELECT test_job.id FROM test_job 
-                                            join perf_result on perf_result.test_job_id=test_job.id 
-                                            WHERE test_suite_id={} AND test_case_id={}) 
-                                       ORDER BY id DESC LIMIT 1) 
-                    AND test_suite_id={} 
-                    AND test_case_id={};'''.format(project_id, test_suite, test_case, test_suite, test_case)
-            cursor.execute(search_sql)
-            metrics = cursor.fetchall()
-            metric_list = []
-            for metric in metrics:
-                metric_list.append(metric[0])
-            metric_list = sorted(set(metric_list))
+        if not project_id:
+            assert project_id, AnalysisException(ErrorCode.PROJECT_ID_NEED)
+        test_job = TestJob.objects.filter(project_id=project_id)
+        if test_job:
+            metrics = PerfResult.objects.filter(test_suite_id=test_suite, test_case_id=test_case,
+                                                test_job_id__in=test_job.values_list('id', flat=True)).\
+                values_list('metric', flat=True).distinct()
+            metric_list = sorted(list(set(metrics)))
             return metric_list
 
     def filter(self, data):
