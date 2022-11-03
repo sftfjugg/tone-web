@@ -473,8 +473,8 @@ class ReportService(CommonService):
             if TestMetric.objects.filter(name=perf_result.metric, object_type='case', object_id=test_conf_id).exists():
                 test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='case',
                                                      object_id=test_conf_id)
-            elif TestMetric.objects.filter(name=perf_result.metric, object_type='suite', object_id=test_suite_id). \
-                    exists():
+            elif TestMetric.objects.filter(name=perf_result.metric, object_type='suite',
+                                           object_id=test_suite_id).exists():
                 test_metric = TestMetric.objects.get(name=perf_result.metric, object_type='suite',
                                                      object_id=test_suite_id)
             else:
@@ -515,7 +515,7 @@ class ReportService(CommonService):
                 direction=test_metric.direction,
                 compare_data=compare_data_list)
             item_metric_list.append(report_metric)
-            ReportItemMetric.objects.bulk_create(item_metric_list)
+        ReportItemMetric.objects.bulk_create(item_metric_list)
 
     def save_test_item(self, data, report_id, test_type, job_li, plan_li):
         for item in data:
@@ -914,6 +914,14 @@ def get_perf_suite_list(report_item_id):
 
 def get_perf_suite_list_v1(report_item_id, base_index, is_automatic):
     suite_list = list()
+    case_metric_sql = 'SELECT c.test_metric' \
+                      ' FROM report_item_suite a ' \
+                      'LEFT JOIN report_item_conf b ON b.report_item_suite_id=a.id ' \
+                      'LEFT JOIN report_item_metric c ON c.report_item_conf_id=b.id ' \
+                      'LEFT JOIN test_suite d ON a.test_suite_name=d.name ' \
+                      'LEFT JOIN test_track_metric e ON c.test_metric=e.name AND e.object_id=b.test_conf_id ' \
+                      'WHERE e.object_type="case" AND a.report_item_id=%s AND a.is_deleted=0 AND b.is_deleted=0 ' \
+                      'AND c.is_deleted=0 AND d.is_deleted=0 AND e.is_deleted=0'
     raw_sql = 'SELECT a.id AS item_suite_id, a.test_suite_id AS suite_id, a.test_suite_name AS suite_name,' \
               'a.show_type, a.test_env, a.test_description, a.test_conclusion, ' \
               'b.id AS item_conf_id, b.test_conf_id AS conf_id,b.test_conf_name AS conf_name, b.conf_source,' \
@@ -938,8 +946,9 @@ def get_perf_suite_list_v1(report_item_id, base_index, is_automatic):
                'LEFT JOIN test_suite d ON a.test_suite_name=d.name ' \
                'LEFT JOIN test_track_metric e ON c.test_metric=e.name AND e.object_id=a.test_suite_id ' \
                'WHERE e.object_type="suite" AND a.report_item_id=%s AND a.is_deleted=0 AND b.is_deleted=0 ' \
-               'AND c.is_deleted=0 AND d.is_deleted=0 AND e.is_deleted=0'
-    test_suite_objs = query_all_dict(raw_sql, [report_item_id, report_item_id])
+               'AND c.is_deleted=0 AND d.is_deleted=0 AND e.is_deleted=0 AND c.test_metric not in (' + \
+               case_metric_sql + ')'
+    test_suite_objs = query_all_dict(raw_sql, [report_item_id, report_item_id, report_item_id])
     for test_suite_obj in test_suite_objs:
         exist_suite = [suite for suite in suite_list if suite['item_suite_id'] == test_suite_obj['item_suite_id']]
         if len(exist_suite) > 0:
