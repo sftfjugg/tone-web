@@ -946,7 +946,8 @@ class CloudServerService(CommonService):
                     'cloud_ssd': 'SSD云盘',
                     'ephemeral_ssd': '本地SSD盘',
                     'cloud_essd': 'ESSD云盘',
-                    'cloud': '普通云盘'
+                    'cloud': '普通云盘',
+                    'cloud_auto': 'ESSD AutoPL云盘'
                 }
                 if item.get('id') == data.get('zone'):
                     available_disk_categories = item.get('available_disk_categories')
