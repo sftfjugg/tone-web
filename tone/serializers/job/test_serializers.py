@@ -563,7 +563,7 @@ class JobTestResultSerializer(CommonSerializer):
 
     @staticmethod
     def _get_test_suite_result(suite, test_job, test_type, test_type_map):
-        test_suite = TestSuite.objects.get(id=suite.test_suite_id)
+
         business_name = None
         if suite.state != 'running':
             if test_job.test_type == 'business':
@@ -572,6 +572,7 @@ class JobTestResultSerializer(CommonSerializer):
                 business = BusinessSuiteRelation.objects.filter(test_suite_id=suite.test_suite_id,
                                                                 query_scope='all').first()
                 business_name = TestBusiness.objects.filter(id=business.business_id, query_scope='all').first().name
+            test_suite = TestSuite.objects.get(id=suite.test_suite_id)
             suite_data = {
                 'job_suite_id': suite.id,
                 'suite_id': suite.test_suite_id,
@@ -588,8 +589,8 @@ class JobTestResultSerializer(CommonSerializer):
                 per_result = PerfResult.objects.filter(test_job_id=test_job.id, test_suite_id=suite.test_suite_id)
                 baseline_id = test_job.baseline_id
                 baseline = None
-                if per_result.exists() and per_result.first().compare_baseline:
-                    baseline_id = per_result.first().compare_baseline
+                if per_result.exists():
+                    baseline_id = per_result[0].compare_baseline
                 baseline_obj = Baseline.objects.filter(id=baseline_id).first()
                 if baseline_obj:
                     baseline = baseline_obj.name
@@ -613,6 +614,7 @@ class JobTestResultSerializer(CommonSerializer):
             check_cases = TestJobCase.objects.filter(job_id=test_job.id, test_suite_id=suite.test_suite_id,
                                                      state__in=['success', 'fail', 'skip', 'stop']).count()
             if check_cases > 0:
+                test_suite = TestSuite.objects.get(id=suite.test_suite_id)
                 suite_data = {
                     'job_suite_id': suite.id,
                     'suite_id': suite.test_suite_id,
