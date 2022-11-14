@@ -68,3 +68,24 @@ def pack_env_infos(data):
     except Exception:
         raise JobTestException(ErrorCode.GLOBAL_VARIABLES_ERROR)
     return env_data
+
+
+def query_all_dict(sql, params=None):
+    '''
+    查询所有结果返回字典类型数据
+    :param sql:
+    :param params:
+    :return:
+    '''
+    with connection.cursor() as cursor:
+        if params:
+            cursor.execute(sql, params=params)
+        else:
+            cursor.execute(sql)
+        col_names = [desc[0] for desc in cursor.description]
+        row = cursor.fetchall()
+        rowList = []
+        for list in row:
+            tMap = dict(zip(col_names, list))
+            rowList.append(tMap)
+        return rowList
