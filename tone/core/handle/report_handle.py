@@ -14,7 +14,7 @@ from django.db import transaction
 from tone.models import TestJob, ReportTemplate, Report, TestServerSnapshot, CloudServerSnapshot, ReportItemConf, \
     ReportItemSuite, ReportItem, ReportItemMetric, ReportItemSubCase, ReportObjectRelation, ReportTmplItem, \
     ReportTmplItemSuite, TestJobCase, TestJobSuite, TestCase, FuncResult, PerfResult, TestSuite, TestMetric, \
-    PerfBaselineDetail, FuncBaselineDetail, Baseline
+    PerfBaselineDetail, Baseline
 from tone.core.common.constant import FUNC_CASE_RESULT_TYPE_MAP
 from tone.views.api.get_domain_group import get_domain_group
 
@@ -53,7 +53,6 @@ class ReportHandle(object):
                                            project_id=self.job_obj.project_id, ws_id=self.job_obj.ws_id,
                                            tmpl_id=self.report_template_obj.id, creator=self.job_obj.creator,
                                            is_automatic=1)
-            # test_env = self.get_test_env()
             before_name = report.name
             report.test_env = self.get_test_env()
             report.name = before_name.format(date=datetime.strftime(report.gmt_created, "%Y-%m-%d %H:%M:%S"),
@@ -100,9 +99,14 @@ class ReportHandle(object):
                     report_item = ReportItem.objects.create(name=item_key, test_type='performance', report_id=report.id)
                     for suite_key, suite_value in item_value.items():
                         suite_id = int(suite_key)
+                        tmp_suite = TestSuite.objects.filter(id=suite_id).first()
+                        suite_doc = None
+                        if tmp_suite and tmp_suite.doc and tmp_suite.doc.find('Description') > -1 and \
+                                tmp_suite.doc.find('## Homepage') > -1:
+                            suite_doc = tmp_suite.doc.split('Description')[1].split('## Homepage')[0]
                         report_item_suite = ReportItemSuite.objects.create(
                             report_item_id=report_item.id, test_suite_id=suite_id, show_type=0,
-                            test_suite_name=TestSuite.objects.get_value(id=suite_id).name)
+                            test_suite_name=tmp_suite.name, test_suite_description=suite_doc)
                         for conf_id in suite_value:
                             conf_source = {"is_job": 1, "obj_id": self.job_id}
                             report_item_conf = self.create_report_item(conf_id, conf_source, report_item_suite)
@@ -216,36 +220,14 @@ class ReportHandle(object):
     def create_report_item(self, conf_id, conf_source, report_item_suite):
         compare_conf_list = list()
         compare_conf_list.append(conf_source)
-        if self.job_obj.baseline_id:
-            if self.job_obj.test_type == 'functional':
-                baseline = FuncBaselineDetail.objects.filter(baseline_id=self.job_obj.baseline_id)
-                compare_conf_list.insert(0, dict({
-                    "is_job": 0,
-                    "obj_id": self.job_obj.baseline_id,
-                    "all_case": baseline.count(),
-                    "success_case": 0,
-                    "fail_case": 0,
-                    "warn_case": 0}))
-            else:
-                compare_conf_list.insert(0, dict({
-                    "is_job": 0,
-                    "obj_id": self.job_obj.baseline_id}))
-            report_item_conf = ReportItemConf.objects.create(
-                report_item_suite_id=report_item_suite.id, test_conf_id=conf_id,
-                test_conf_name=TestCase.objects.get_value(id=conf_id).name,
-                compare_conf_list=compare_conf_list)
-        else:
-            compare_conf_list.insert(0, dict())
-            report_item_conf = ReportItemConf.objects.create(
-                report_item_suite_id=report_item_suite.id, test_conf_id=conf_id,
-                test_conf_name=TestCase.objects.get_value(id=conf_id).name,
-                conf_source=conf_source, compare_conf_list=compare_conf_list)
-        return report_item_conf
+        return ReportItemConf.objects.create(
+            report_item_suite_id=report_item_suite.id, test_conf_id=conf_id,
+            test_conf_name=TestCase.objects.get_value(id=conf_id).name,
+            conf_source=conf_source, compare_conf_list=compare_conf_list)
 
     def handle_perf_result(self, conf_id, perf_result, report_item_conf):
         metric_obj = TestMetric.objects.filter(name=perf_result.metric, object_type='case', object_id=conf_id).first()
         decline = increase = 0
-        compare_data = list()
         compare_obj = dict()
         if self.job_obj.baseline_id:
             perf_baseline = PerfBaselineDetail.objects.filter(baseline_id=perf_result.compare_baseline,
@@ -263,84 +245,47 @@ class ReportHandle(object):
                     decline += 1
                 if compare_obj['compare_result'] == 'increase':
                     increase += 1
-            compare_data.append(compare_obj)
-            ReportItemMetric.objects.create(report_item_conf_id=report_item_conf.id,
-                                            test_metric=perf_result.metric,
-                                            test_value=perf_baseline.test_value if perf_baseline else '0',
-                                            cv_value=perf_baseline.cv_value.replace('±', '') if perf_baseline else '0',
-                                            unit=perf_baseline.unit if perf_baseline else None,
-                                            max_value=perf_baseline.max_value if perf_baseline else '0',
-                                            min_value=perf_baseline.min_value if perf_baseline else '0',
-                                            value_list=perf_baseline.value_list if perf_baseline else '[]',
-                                            direction=metric_obj.direction if metric_obj else 'na',
-                                            compare_data=compare_data)
-        else:
-            compare_data.append(dict())
-            ReportItemMetric.objects.create(report_item_conf_id=report_item_conf.id,
-                                            test_metric=perf_result.metric,
-                                            test_value=perf_result.test_value,
-                                            cv_value=perf_result.cv_value.replace('±', ''),
-                                            unit=perf_result.unit,
-                                            max_value=perf_result.max_value,
-                                            min_value=perf_result.min_value,
-                                            value_list=perf_result.value_list,
-                                            direction=metric_obj.direction if metric_obj else None,
-                                            compare_data=compare_data)
+        ReportItemMetric.objects.create(report_item_conf_id=report_item_conf.id,
+                                        test_metric=perf_result.metric,
+                                        test_value=perf_result.test_value,
+                                        cv_value=perf_result.cv_value.replace('±', ''),
+                                        unit=perf_result.unit,
+                                        max_value=perf_result.max_value,
+                                        min_value=perf_result.min_value,
+                                        value_list=perf_result.value_list,
+                                        direction=metric_obj.direction if metric_obj else None,
+                                        compare_data=list())
         return decline, increase
 
     def handle_func_result(self, func_result, report_item_conf):
         compare_data = list()
         compare_data.append(FUNC_CASE_RESULT_TYPE_MAP.get(func_result.sub_case_result))
-        compare_data.insert(0, '')
-        if self.job_obj.baseline_id:
-            func_baseline = FuncBaselineDetail.objects. \
-                filter(baseline_id=self.job_obj.baseline_id, sub_case_name=func_result.sub_case_name).first()
-            ReportItemSubCase.objects.create(report_item_conf_id=report_item_conf.id,
-                                             sub_case_name=func_result.sub_case_name,
-                                             result='Fail' if func_baseline else None,
-                                             compare_data=compare_data)
-        else:
-            ReportItemSubCase.objects.create(report_item_conf_id=report_item_conf.id,
-                                             sub_case_name=func_result.sub_case_name,
-                                             result=FUNC_CASE_RESULT_TYPE_MAP.get(
-                                                 func_result.sub_case_result),
-                                             compare_data=compare_data)
+        ReportItemSubCase.objects.create(report_item_conf_id=report_item_conf.id,
+                                         sub_case_name=func_result.sub_case_name,
+                                         result=FUNC_CASE_RESULT_TYPE_MAP.get(
+                                             func_result.sub_case_result),
+                                         compare_data=compare_data)
 
     def get_test_env(self):
-        compare_groups = list()
-        server_info = self.get_server_info()
-        compare_groups.append(server_info)
         env_info = {
-            'base_group': {
-                'tag': self.get_baseline_name(),
-                'server_info': [],
-                'is_job': 0
-            },
-            'compare_groups': compare_groups,
+            'base_group': self.get_server_info(),
+            'compare_groups': list(),
         }
-        count = len(server_info.get('server_info'))
+        count = len(self.get_server_info().get('server_info'))
         env_info['count'] = count
-        self.logger.info(f'server_info')
         return env_info
 
     def get_test_conclusion(self, report, perf_count, func_count):
-        compare_groups = []
-        product_version = self.job_obj.product_version
-        tag_name = product_version if product_version else '对比标识'
-        compare_groups.append({
-            'tag': report.product_version,
-            'is_job': 1,
-            'func_data': func_count,
-            'perf_data': perf_count
-        })
         test_conclusion = {
             'custom': None,
             'summary': {
                 'base_group': {
-                    'tag': f'{tag_name}(1)',
-                    'is_job': 0
+                    'tag': report.product_version,
+                    'is_job': 1,
+                    'func_data': func_count,
+                    'perf_data': perf_count
                 },
-                'compare_groups': compare_groups
+                'compare_groups': list()
             }
         }
         return test_conclusion
