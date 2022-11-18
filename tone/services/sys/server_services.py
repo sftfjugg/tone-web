@@ -1135,6 +1135,8 @@ class TestClusterService(CommonService):
             q &= Q(id__in=server_id_list)
         if data.get('cluster_type'):
             q &= Q(cluster_type=data.get('cluster_type'))
+        if data.get('is_instance'):
+            q &= Q(is_instance=data.get('is_instance'))
         if data.get('owner'):
             q &= Q(owner__in=data.getlist('owner'))
         if data.get('description'):
@@ -1151,13 +1153,15 @@ class TestClusterService(CommonService):
         test_cluster = TestCluster.objects.filter(name=post_data['name'], ws_id=post_data['ws_id']).first()
         if test_cluster:
             return False, '集群已存在'
+        is_instance = post_data.get('is_instance') if post_data.get('is_instance') else 1
         update_owner(post_data)
         create_data = dict(
             name=post_data['name'],
             cluster_type=post_data['cluster_type'],
             owner=post_data['owner'],
             ws_id=post_data['ws_id'],
-            description=post_data['description']
+            description=post_data['description'],
+            is_instance=is_instance
         )
         test_cluster = TestCluster.objects.create(**create_data)
         with transaction.atomic():

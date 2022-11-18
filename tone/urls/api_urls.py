@@ -27,4 +27,6 @@ urlpatterns = [
     path('job/server_list/', create_job.get_server_list, name='server_list'),
     path('job/server_tag/', create_job.get_server_tag_list, name='server_tag'),
     path('case/re_auto_report/', get_suite_info.reset_report, name='reset_report'),
+    path('workspace/update_cluster_is_instance/', query_job.update_cluster_is_instance,
+         name='update_cluster_is_instance'),
 ]
