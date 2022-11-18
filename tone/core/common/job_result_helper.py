@@ -49,12 +49,13 @@ def calc_job(job_id):
         success = len(list(filter(lambda x: x.state == 'success', job_case_queryset)))
         result = {'count': count, 'success': success, 'fail': fail, 'skip': skip}
     else:
-        func_result = FuncResult.objects.filter(test_job_id=job_id)
-        success = len(list(filter(lambda x: x.sub_case_result == 1, func_result)))
-        fail = len(list(filter(lambda x: x.sub_case_result == 2, func_result)))
-        skip = len(list(filter(lambda x: x.sub_case_result == 5, func_result)))
-        warn = len(list(filter(lambda x: x.sub_case_result == 6, func_result)))
-        count = len(func_result)
+        sub_case_result = FuncResult.objects.filter(test_job_id=job_id).values_list('sub_case_result', flat=True)
+        sub_case_result_list = list(sub_case_result)
+        count = len(sub_case_result_list)
+        success = sub_case_result_list.count(1)
+        fail = sub_case_result_list.count(2)
+        skip = sub_case_result_list.count(5)
+        warn = sub_case_result_list.count(6)
         result = {'count': count, 'success': success, 'fail': fail, 'skip': skip, 'warn': warn}
     return result
 
