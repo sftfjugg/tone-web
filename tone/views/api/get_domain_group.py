@@ -5,7 +5,7 @@ Date:
 Author: Yfh
 """
 import json
-from django.db.models import Q
+from tone.core.utils.common_utils import query_all_dict
 from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestCase, TestDomain, TestSuite, DomainRelation
 from tone.core.utils.helper import CommResp
@@ -52,7 +52,7 @@ def get_domain_group(conf_list):
 def get_domain_group_v1(suite_list):
     res_data = {'functional': dict(), 'performance': dict()}
     conf_id_list = list()
-    q = Q()
+    sql_filter = '1=1'
     suite_id_list = list()
     for suite in suite_list:
         if suite.get('is_all'):
@@ -61,25 +61,26 @@ def get_domain_group_v1(suite_list):
         else:
             conf_id_list.extend(suite.get('conf_list'))
     if len(suite_id_list) > 0:
-        q &= Q(test_suite_id__in=suite_id_list)
+        sql_filter += ' and a.test_suite_id in (' + ','.join(str(e) for e in suite_id_list) + ')'
     if len(conf_id_list) > 0:
-        q |= Q(id__in=conf_id_list)
+        sql_filter += ' or a.id in (' + ','.join(str(e) for e in conf_id_list) + ')'
     if len(suite_id_list) == 0 and len(conf_id_list) == 0:
         test_case_list = list()
     else:
-        test_case_list = TestCase.objects.filter(q).extra(
-            select={'test_type': 'test_suite.test_type',
-                    'domain': 'test_domain.name'},
-            tables=['domain_relation', 'test_suite', 'test_domain'],
-            where=['object_type="case"',
-                   'object_id=test_case.id',
-                   'test_suite.id=test_case.test_suite_id',
-                   'test_domain.id=domain_relation.domain_id',
-                   'domain_relation.is_deleted=0',
-                   'test_domain.is_deleted=0']
-        )
+        raw_sql = 'SELECT a.id,a.test_suite_id,b.test_type,d.name as domain FROM test_case a LEFT JOIN ' \
+                  'test_suite b ON a.test_suite_id=b.id LEFT JOIN domain_relation c ON ' \
+                  'c.object_type="case" AND c.object_id=a.id LEFT JOIN test_domain d ON ' \
+                  'c.domain_id=d.id WHERE a.is_deleted=0 AND b.is_deleted=0 AND c.is_deleted=0 AND' \
+                  ' d.is_deleted=0 AND (' + sql_filter + \
+                  ') UNION SELECT a.id,a.test_suite_id,b.test_type,"其他" as domain FROM test_case' \
+                  ' a LEFT JOIN test_suite b ' \
+                  'ON a.test_suite_id=b.id WHERE a.id NOT IN (SELECT object_id from domain_relation WHERE ' \
+                  'object_type="case" AND is_deleted=0) AND a.is_deleted=0 AND b.is_deleted=0 AND ' \
+                  '(' + sql_filter + ')'
+        test_case_list = query_all_dict(raw_sql)
     for test_case in test_case_list:
-        insert_conf(test_case.domain, res_data, test_case.test_type, test_case.test_suite_id, test_case.id)
+        insert_conf(test_case.get('domain'), res_data, test_case.get('test_type'), test_case.get('test_suite_id'),
+                    test_case.get('id'))
     return res_data
 
 
