@@ -114,6 +114,9 @@ class ValidPermission(MiddlewareMixin):
     def check_ws_permission(self, current_path, current_role_name, user_id, ws_id, current_method):
         """ws级别权限校验"""
         workspace_member = WorkspaceMember.objects.filter(user_id=user_id, ws_id=ws_id).first()
+        res_check = self.ws_white_handle(workspace_member, current_path, current_role_name, user_id, ws_id)
+        if res_check == 'success':
+            return True
         ws_role_name = ''
         if workspace_member is not None:
             ws_role = Role.objects.get(id=workspace_member.role_id)
@@ -127,9 +130,6 @@ class ValidPermission(MiddlewareMixin):
                 if not request_ws.is_public:
                     return False
         if ws_role_name == 'ws_owner':
-            return True
-        res_check = self.ws_white_handle(workspace_member, current_path, current_role_name, user_id, ws_id)
-        if res_check == 'success':
             return True
         ws_url_res = self.check_ws_url_permission(current_path, current_method, ws_role_name)
         if ws_url_res == 'success':
