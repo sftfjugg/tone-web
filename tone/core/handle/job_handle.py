@@ -366,9 +366,9 @@ class JobDataHandle(BaseHandle):
         if self.default_server and isinstance(self.default_server, dict):
             custom_ip = self.default_server.get('custom_ip')
             if custom_ip not in self.server_map:
-                channel = self.default_server.get('custom_channel', 'staragent')
+                channel = self.default_server.get('custom_channel', 'otheragent')
                 ip, sn = get_server_ip_sn(custom_ip, channel)
-                if channel == 'staragent':
+                if channel == 'otheragent':
                     server_snapshot = TestServerSnapshot.objects.create(ip=ip, channel_type=channel, sn=sn,
                                                                         in_pool=False, ws_id=self.ws_id) \
                         if self.provider == 'aligroup' \
@@ -432,7 +432,7 @@ class JobDataHandle(BaseHandle):
                 if not ip_or_sn:
                     raise JobTestException(ErrorCode.MONITOR_IP_OR_SN_ERROR)
                 try:
-                    ip, sn = get_server_ip_sn(ip_or_sn, 'staragent')
+                    ip, sn = get_server_ip_sn(ip_or_sn, 'otheragent')
                 except (TypeError, Exception):
                     raise JobTestException(ErrorCode.MONITOR_IP_OR_SN_ERROR)
                 tmp.update({

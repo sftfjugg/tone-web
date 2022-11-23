@@ -41,8 +41,8 @@ class TestServerCheckSchema(BaseSchema):
         return {
             'ips': {'type': list, 'required': True, 'example': ['123.2.32.3', '1.1.1.1'],
                     'desc': 'ip/sn列表，逗号分隔;返回数据：success列表和errors列表'},
-            'channel_type': {'type': str, 'required': True, 'example': 'staragent',
-                             'desc': '控制通道：staragent，toneagent'}
+            'channel_type': {'type': str, 'required': True, 'example': 'otheragent',
+                             'desc': '控制通道：otheragent，toneagent'}
         }
 
 
@@ -50,8 +50,8 @@ class TestServerChannelStateSchema(BaseSchema):
     def get_param_data(self):
         return {
             'ip': {'type': str, 'required': True, 'example': '123.2.32.3', 'desc': 'ip'},
-            'channel_type': {'type': str, 'required': True, 'example': 'staragent',
-                             'desc': '控制通道：staragent，toneagent'}
+            'channel_type': {'type': str, 'required': True, 'example': 'otheragent',
+                             'desc': '控制通道：otheragent，toneagent'}
         }
 
 
@@ -59,8 +59,8 @@ class TestServerChannelCheckSchema(BaseSchema):
     def get_param_data(self):
         return {
             'ip': {'type': str, 'required': True, 'example': '123.2.32.3', 'desc': 'ip'},
-            'channel_type': {'type': str, 'required': True, 'example': 'staragent',
-                             'desc': '控制通道：staragent，toneagent'}
+            'channel_type': {'type': str, 'required': True, 'example': 'otheragent',
+                             'desc': '控制通道：otheragent，toneagent'}
         }
 
 
@@ -74,8 +74,8 @@ class TestServerSchema(BaseSchema):
             'device_type': {'type': list, 'required': False, 'example': 'phy_server',
                             'desc': '机器类型:phy_server(物理机), vm(虚拟机)'},
             'device_mode': {'type': str, 'required': False, 'example': 'abc', 'desc': '机型'},
-            'channel_type': {'type': list, 'required': False, 'example': 'staragent',
-                             'desc': '控制通道：staragent，toneagent'},
+            'channel_type': {'type': list, 'required': False, 'example': 'otheragent',
+                             'desc': '控制通道：otheragent，toneagent'},
             'app_group': {'type': str, 'required': False, 'example': 'a', 'desc': '分组'},
             'state': {'type': list, 'required': False, 'example': 'Available',
                       'desc': '使用状态：Available, Occpuied, Broken, Reserved'},
@@ -88,8 +88,8 @@ class TestServerSchema(BaseSchema):
             'ips': {'type': list, 'required': True, 'example': '[123.2.32.3,1.1.1.1]', 'desc': 'ip/sn数组'},
             'state': {'type': str, 'required': True, 'example': 'Available',
                       'desc': '使用状态：Available, Occpuied, Broken, Reserved'},
-            'channel_type': {'type': list, 'required': False, 'example': 'staragent',
-                             'desc': '控制通道：staragent，toneagent'},
+            'channel_type': {'type': list, 'required': False, 'example': 'otheragent',
+                             'desc': '控制通道：otheragent，toneagent'},
             'tags': {'type': list, 'required': True, 'example': [11, 22, 333], 'desc': '标签ID数组'},
             'owner': {'type': int, 'required': True, 'example': '1', 'desc': 'owner'},
             'description': {'type': str, 'required': False, 'example': 'abc', 'desc': '备注'},
@@ -101,8 +101,8 @@ class TestServerDetailSchema(BaseSchema):
     def get_update_data(self):
         return {
             'name': {'type': str, 'required': True, 'example': 'WSffws', 'desc': '机器名称'},
-            'channel_type': {'type': str, 'required': False, 'example': 'staragent',
-                             'desc': '控制通道：staragent，toneagent'},
+            'channel_type': {'type': str, 'required': False, 'example': 'otheragent',
+                             'desc': '控制通道：otheragent，toneagent'},
             'state': {'type': str, 'required': True, 'example': 'Available',
                       'desc': '使用状态：Available, Occpuied, Broken, Reserved'},
             'tags': {'type': list, 'required': True, 'example': [11, 22, 333], 'desc': '标签ID数组'},
@@ -232,8 +232,8 @@ class TestClusterTestServerDetailSchema(BaseSchema):
             'kernel_install': {'type': bool, 'required': True, 'example': 'True', 'desc': '是否安装内核'},
             'private_ip': {'type': str, 'required': True, 'example': '1.1.1.1', 'desc': '私有ip'},
             'var_name': {'type': str, 'required': False, 'example': 'abc', 'desc': '变量名称'},
-            'channel_type': {'type': str, 'required': False, 'example': 'staragent',
-                             'desc': '控制通道：staragent，toneagent'},
+            'channel_type': {'type': str, 'required': False, 'example': 'otheragent',
+                             'desc': '控制通道：otheragent，toneagent'},
         }
 
 

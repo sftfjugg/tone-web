@@ -4,10 +4,9 @@ from tone.settings.db_settings import *
 from tone.settings.drf_settings import *
 from tone.settings.oss_settings import *
 from tone.settings.api_settings import *
-from tone.settings.staragent_setting import *
+from tone.settings.toneagent_setting import *
 from tone.settings.log_settings import *
 from tone.settings.redis_settings import *
-from tone.settings.skyline_setting import *
 from tone.settings.operationlog_setting import *
 from tone.settings.email_settings import *
 from tone.settings.celery_settings import *

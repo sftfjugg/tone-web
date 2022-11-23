@@ -371,18 +371,14 @@ def __get_server_value(server, server_provider, return_field):
 def get_server_ip_sn(server, channel_type):
     ip = server if IP_PATTEN.match(server) else None
     sn = None if IP_PATTEN.match(server) else server
-    if ip and channel_type == 'staragent':
+    if ip and channel_type == 'otheragent':
         pass
-        # sn = json.loads(query_skyline_info('sn', condition="ip='{}'".
-        #                                    format(server)).decode()).get('value').get('itemList')[0].get('sn')
     elif ip and channel_type == 'toneagent':
         agent_url = tone_agent_info(ip=server)
         res = json.loads(requests.get(url=agent_url, verify=False).text)
         sn = res.get('RESULT').get('TSN')
-    elif sn and channel_type == 'staragent':
+    elif sn and channel_type == 'otheragent':
         pass
-        # ip = json.loads(query_skyline_info('ip', condition="sn='{}'".
-        #                                    format(server)).decode()).get('value').get('itemList')[0].get('ip')
     else:
         agent_url = tone_agent_info(tsn=server)
         res = json.loads(requests.get(url=agent_url, verify=False).text)
@@ -400,7 +396,7 @@ def get_custom_server(job_case_id, template=None):
         server_obj = TestServerSnapshot.objects.get(id=job_case.server_snapshot_id)
         server = {
             'custom_ip': server_obj.ip,
-            'custom_sn': server_obj.sn if server_obj.channel_type == 'staragent' else server_obj.tsn,
+            'custom_sn': server_obj.sn if server_obj.channel_type == 'otheragent' else server_obj.tsn,
             'custom_channel': server_obj.channel_type,
         }
     else:

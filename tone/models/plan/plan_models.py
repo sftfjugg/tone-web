@@ -182,7 +182,7 @@ class PlanInstancePrepareRelation(BaseModel):
     run_index = models.IntegerField()
     instance_stage_id = models.IntegerField()
     extend_info = json.JSONField(default=dict(), help_text='脚本信息、监控信息等扩展配置')
-    channel_type = models.CharField(max_length=64, default='staragent', null=True, blank=True,
+    channel_type = models.CharField(max_length=64, default='otheragent', null=True, blank=True,
                                     choices=TestServerEnums.SERVER_CHANNEL_TYPE_CHOICES, help_text='通道类型')
     ip = models.CharField(max_length=64, help_text='IP', null=True, blank=True)
     sn = models.CharField(max_length=64, help_text='SN', null=True, blank=True)

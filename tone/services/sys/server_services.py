@@ -427,7 +427,7 @@ class TestServerService(CommonService):
     def check_db_existed(channel_type, ip, ip_list, sn_list, server_id=None, ws_id=None):  # noqa: C901
         errors_sn, msg_sn, errors_ip, msg_ip = [], '', [], ''
         if re.match(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}', ip) is None:
-            if channel_type == 'staragent':
+            if channel_type == 'otheragent':
                 server_obj = TestServer.objects.filter(sn=ip).first()
                 if server_obj and (server_id is None or server_id is not None
                                    and str(server_obj.id) != server_id) and ws_id != server_obj.ws_id:

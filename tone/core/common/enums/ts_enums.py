@@ -13,7 +13,7 @@ class TestServerEnums:
     )
 
     SERVER_CHANNEL_TYPE_CHOICES = (
-        ('staragent', 'staragent'),
+        ('otheragent', 'otheragent'),
         ('toneagent', 'toneagent')
     )
 

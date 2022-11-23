@@ -119,7 +119,7 @@ class TestPlanScheduleJob(ScheduleJob):
                     run_index=stage_prepare.run_index,
                     instance_stage_id=instance_stage.id,
                     extend_info=stage_prepare.prepare_info,
-                    channel_type=stage_prepare.prepare_info.get('channel_type', 'staragent'),
+                    channel_type=stage_prepare.prepare_info.get('channel_type', 'otheragent'),
                     ip=stage_prepare.prepare_info.get('ip', '').strip(),
                     sn=stage_prepare.prepare_info.get('sn', '').strip(),
                     script_info=stage_prepare.prepare_info.get('script'),

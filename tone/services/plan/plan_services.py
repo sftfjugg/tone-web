@@ -225,7 +225,7 @@ class PlanService(CommonService):
             if env_prep_info.get('machine_info'):
                 for run_index, tmp_machine_info in enumerate(env_prep_info.get('machine_info', dict()), start=1):
                     machine_ip_sn = tmp_machine_info.get('machine')
-                    channel_type = tmp_machine_info.get('channel_type', 'staragent')
+                    channel_type = tmp_machine_info.get('channel_type', 'otheragent')
                     try:
                         tmp_ip, tmp_sn = get_server_ip_sn(machine_ip_sn, channel_type)
                     except (TypeError, Exception):
@@ -267,7 +267,7 @@ class PlanService(CommonService):
             for run_index, tmp_machine_info in enumerate(env_prep_info.get('machine_info', dict()), start=1):
                 machine_ip_sn = tmp_machine_info.get('machine', '').strip()
                 try:
-                    tmp_ip, tmp_sn = get_server_ip_sn(machine_ip_sn, tmp_machine_info.get('channel_type', 'staragent'))
+                    tmp_ip, tmp_sn = get_server_ip_sn(machine_ip_sn, tmp_machine_info.get('channel_type', 'otheragent'))
                 except (TypeError, Exception):
                     tmp_ip = tmp_sn = None
                 if re.match(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}', machine_ip_sn) is None:
@@ -278,7 +278,7 @@ class PlanService(CommonService):
                                                            run_index=run_index,
                                                            instance_stage_id=prepare_env_stage.id,
                                                            extend_info=tmp_machine_info,
-                                                           channel_type=data.get('channel_type', 'staragent'),
+                                                           channel_type=data.get('channel_type', 'otheragent'),
                                                            ip=tmp_ip if tmp_ip is not None else machine_ip_sn,
                                                            sn=tmp_sn if tmp_sn is not None else machine_ip_sn,
                                                            script_info=tmp_machine_info.get('script'),
