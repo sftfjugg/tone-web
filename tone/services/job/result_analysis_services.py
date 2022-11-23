@@ -368,8 +368,8 @@ def get_case_map(sub_case_map, job):
         'job_id': job.id,
         'job_name': job.name,
         'commit_id': job.build_pkg_info.get('commit_id'),
-        'start_time': datetime.strftime(job.gmt_created, "%Y-%m-%d %H:%M:%S"),
-        'end_time': datetime.strftime(job.gmt_modified, "%Y-%m-%d %H:%M:%S"),
+        'start_time': datetime.strftime(job.start_time, "%Y-%m-%d %H:%M:%S"),
+        'end_time': datetime.strftime(job.end_time, "%Y-%m-%d %H:%M:%S"),
         'creator': User.objects.get(id=job.creator).first_name or User.objects.get(
             id=job.creator).last_name,
     }
