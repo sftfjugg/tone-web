@@ -144,13 +144,16 @@ def close_old_connections():
 
 def auto_job_report():
     close_old_connections()
+    test_job_id = 0
     try:
         report_job = TestJob.objects.filter(state__in=['fail', 'success', 'stop'], report_is_saved=0,
                                             report_name__isnull=False).order_by('-id').first()
         if report_job:
+            test_job_id = report_job.id
             logger.info(f'auto_job_report begin now . job is {report_job.id}')
             ReportHandle(report_job.id).save_report()
     except Exception as ex:
+        TestJob.objects.filter(id=test_job_id).update(report_is_saved=1)
         logger.info(f'auto_job_report error. ex is {ex}')
 
 
