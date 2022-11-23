@@ -1016,8 +1016,6 @@ def concurrent_calc_v1(func_result, suite, conf, compare_job_li, base_index, q):
     sub_case_name = func_result[0]
     result = FUNC_CASE_RESULT_TYPE_MAP.get(func_result[1])
     compare_data = get_func_compare_data_v1(suite, conf, sub_case_name, compare_job_li)
-    if len(compare_data) == 0:
-        compare_data.insert(0, '')
     compare_data.insert(base_index, result)
     q.put(
         {
