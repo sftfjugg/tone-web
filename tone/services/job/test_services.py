@@ -670,23 +670,7 @@ class JobTestCaseResultService(CommonService):
         q &= Q(sub_case_result=data.get('sub_case_result')) if data.get('sub_case_result') else q
         q &= Q(sub_case_name__contains=data.get('sub_case_name')) if data.get('sub_case_name') else q
         queryset = queryset.filter(q)
-        sub_case_name_list = [query.sub_case_name for query in queryset]
-        if len(sub_case_name_list) > len(set(sub_case_name_list)):
-            id_list = JobTestCaseResultService._get_sub_case_id_list(queryset)
-            queryset = queryset.filter(id__in=id_list)
         return sorted(queryset, key=lambda x: (0 if x.sub_case_result == 2 else 1, x.id))
-
-    @staticmethod
-    def _get_sub_case_id_list(queryset):
-        # 获取FuncResult表中指标去重后的id_list
-        id_list = []
-        sub_case_name_list = []
-        queryset = queryset.order_by('-id')
-        for query in queryset:
-            if query.sub_case_name not in sub_case_name_list:
-                id_list.append(query.id)
-                sub_case_name_list.append(query.sub_case_name)
-        return id_list
 
 
 class JobTestCasePerResultService(CommonService):
@@ -708,24 +692,7 @@ class JobTestCasePerResultService(CommonService):
                 q &= ~Q(track_result__in=['increase', 'decline', 'normal', 'invalid'])
             else:
                 q &= Q(track_result=data.get('compare_result'))
-        queryset = queryset.filter(q)
-        metric_list = [query.metric for query in queryset]
-        if len(metric_list) > len(set(metric_list)):
-            id_list = JobTestCasePerResultService._get_metric_id_list(queryset)
-            return queryset.filter(id__in=id_list)
-        return queryset
-
-    @staticmethod
-    def _get_metric_id_list(queryset):
-        # 获取PerResult表中指标去重后的id_list
-        id_list = []
-        metric_list = []
-        queryset = queryset.order_by('-id')
-        for query in queryset:
-            if query.metric not in metric_list:
-                id_list.append(query.id)
-                metric_list.append(query.metric)
-        return id_list
+        return queryset.filter(q)
 
 
 class JobTestCaseVersionService(CommonService):
