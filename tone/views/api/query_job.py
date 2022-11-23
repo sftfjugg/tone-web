@@ -8,7 +8,7 @@ import json
 from datetime import datetime
 from tone.core.common.constant import FUNC_CASE_RESULT_TYPE_MAP, PERFORMANCE
 from tone.models import TestJob, TestJobCase, TestSuite, TestCase, PerfResult, FuncResult, JobType, Project, \
-    Workspace, ResultFile
+    Workspace, ResultFile, TestCluster, TestClusterServer, CloudServer
 from tone.core.utils.helper import CommResp
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.error_catch import api_catch_error
@@ -212,4 +212,23 @@ def get_workspace(request):
     queryset = Workspace.objects.all()
     ws_list = [{'id': ws.id, 'name': ws.name} for ws in queryset]
     resp.data = ws_list
+    return resp.json_resp()
+
+
+@api_catch_error
+@token_required
+def update_cluster_is_instance(request):
+    resp = CommResp()
+    update_dict = {}
+    cluster_list = TestCluster.objects.filter(cluster_type='aliyun')
+    for cluster in cluster_list:
+        cluster_server = TestClusterServer.objects.filter(cluster_id=cluster.id).first()
+        if cluster_server and cluster_server.server_id:
+            server = CloudServer.objects.filter(id=cluster_server.server_id).first()
+            if server:
+                cluster.is_instance = server.is_instance
+                update_dict[cluster.id] = server.is_instance
+                update_dict[f'{cluster.id}'] = server.is_instance
+    TestCluster.objects.bulk_update(cluster_list, fields=['is_instance'])
+    resp.data = {'update_dict': update_dict}
     return resp.json_resp()
