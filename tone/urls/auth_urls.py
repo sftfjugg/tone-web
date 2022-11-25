@@ -13,6 +13,7 @@ urlpatterns = [
     path('user/', auth_views.UserView.as_view(), name='user'),
     path('user/detail/', auth_views.UserDetailView.as_view(), name='user_detail'),
     path('role/', auth_views.RoleView.as_view(), name='role'),
+    path('personal_home_center/', auth_views.HomeUserView.as_view(), name='home_center'),
     path('personal_workspace/', auth_views.PersonalWorkspaceView.as_view(), name='personal_workspace'),
     path('personal_approve/', auth_views.PersonalApproveView.as_view(), name='personal_approve'),
     path('personal_token/', auth_views.PersonalTokenView.as_view(), name='personal_token'),
