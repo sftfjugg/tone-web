@@ -1508,7 +1508,7 @@ class TestClusterServerService(CommonService):
                     # 单机池机器仅修改占用状态
                     test_server.update(spec_use=0)
             else:
-                CloudServer.objects.filter(id=server.server_id).delete()
+                CloudServer.objects.filter(id=server.server_id).update(spec_use=0)
             with transaction.atomic():
                 operation_li = list()
                 log_data = {
