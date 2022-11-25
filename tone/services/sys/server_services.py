@@ -427,7 +427,7 @@ class TestServerService(CommonService):
     def check_db_existed(channel_type, ip, ip_list, sn_list, server_id=None, ws_id=None):  # noqa: C901
         errors_sn, msg_sn, errors_ip, msg_ip = [], '', [], ''
         if re.match(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}', ip) is None:
-            if channel_type == 'staragent':
+            if channel_type == 'otheragent':
                 server_obj = TestServer.objects.filter(sn=ip).first()
                 if server_obj and (server_id is None or server_id is not None
                                    and str(server_obj.id) != server_id) and ws_id != server_obj.ws_id:
@@ -946,7 +946,8 @@ class CloudServerService(CommonService):
                     'cloud_ssd': 'SSD云盘',
                     'ephemeral_ssd': '本地SSD盘',
                     'cloud_essd': 'ESSD云盘',
-                    'cloud': '普通云盘'
+                    'cloud': '普通云盘',
+                    'cloud_auto': 'ESSD AutoPL云盘'
                 }
                 if item.get('id') == data.get('zone'):
                     available_disk_categories = item.get('available_disk_categories')
@@ -1135,6 +1136,8 @@ class TestClusterService(CommonService):
             q &= Q(id__in=server_id_list)
         if data.get('cluster_type'):
             q &= Q(cluster_type=data.get('cluster_type'))
+        if data.get('is_instance'):
+            q &= Q(is_instance=data.get('is_instance'))
         if data.get('owner'):
             q &= Q(owner__in=data.getlist('owner'))
         if data.get('description'):
@@ -1151,13 +1154,15 @@ class TestClusterService(CommonService):
         test_cluster = TestCluster.objects.filter(name=post_data['name'], ws_id=post_data['ws_id']).first()
         if test_cluster:
             return False, '集群已存在'
+        is_instance = post_data.get('is_instance') if post_data.get('is_instance') else 1
         update_owner(post_data)
         create_data = dict(
             name=post_data['name'],
             cluster_type=post_data['cluster_type'],
             owner=post_data['owner'],
             ws_id=post_data['ws_id'],
-            description=post_data['description']
+            description=post_data['description'],
+            is_instance=is_instance
         )
         test_cluster = TestCluster.objects.create(**create_data)
         with transaction.atomic():

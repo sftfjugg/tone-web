@@ -474,7 +474,6 @@ class PerfBaselineService(CommonService):
         instance_type = ''
         image = ''
         bandwidth = 10
-        perf_baseline_detail_list = list()
         machine = None
         machine_ip = ''
         baseline_id = self.get_baseline_id(data)
@@ -510,45 +509,96 @@ class PerfBaselineService(CommonService):
                     machine_ip = machine.private_ip
         perf_res_list = PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id, test_case_id=case_id)
 
+        create_list = []
+        update_dict = dict()
+        thread_tasks = []
         for perf_res in perf_res_list:
-            perf_detail = PerfBaselineDetail.objects.filter(baseline_id=baseline_id, test_suite_id=suite_id,
-                                                            test_case_id=case_id, metric=perf_res.metric)
-            create_data = {
-                "baseline_id": baseline_id,
-                "test_job_id": job_id,
-                "test_suite_id": suite_id,
-                "test_case_id": case_id,
-                "server_ip": machine_ip,
-                "server_sn": '' if machine is None else machine.sn,
-                "server_sm_name": sm_name,
-                "server_instance_type": instance_type,
-                "server_image": image,
-                "server_bandwidth": bandwidth,
-                "run_mode": test_job_case.run_mode,
-                "source_job_id": source_job_id,
-                "metric": perf_res.metric,
-                "test_value": perf_res.test_value,
-                "cv_value": perf_res.cv_value,
-                "max_value": perf_res.max_value,
-                "min_value": perf_res.min_value,
-                "value_list": perf_res.value_list,
-                "note": test_job_case.note
-            }
-            if not perf_detail.first():
-                perf_baseline_detail_list.append(PerfBaselineDetail.objects.create(**create_data))
-                # 加入基线和测试基线相同时，匹配基线
-                self.perf_match_baseline(test_job, baseline_id, perf_res)
-            else:
-                perf_detail.update(**create_data)
-                perf_baseline_detail_list = [perf_detail.first()]
+            thread_tasks.append(
+                ToneThread(self._get_add_perf_baseline_detail,
+                           (bandwidth, baseline_id, case_id, create_list, image, instance_type,
+                            job_id, machine, machine_ip, perf_res, sm_name, source_job_id, suite_id,
+                            test_job_case, update_dict))
+            )
+            thread_tasks[-1].start()
+        for thread_task in thread_tasks:
+            thread_task.join()
+            thread_task.get_result()
+        perf_baseline_detail_list = self._add_perf_baseline_detail(job_id, suite_id, case_id, create_list, update_dict,
+                                                                   test_job, baseline_id)
         return True, perf_baseline_detail_list
 
-    @staticmethod
-    def perf_match_baseline(test_job, baseline_id, perf_res):
-        """性能匹配基线"""
-        if test_job.baseline_id == baseline_id:
-            perf_res.match_baseline = True
-            perf_res.save()
+    def _get_add_perf_baseline_detail(self, bandwidth, baseline_id, case_id, create_list, image, instance_type, job_id,
+                                      machine, machine_ip, perf_res, sm_name, source_job_id, suite_id, test_job_case,
+                                      update_dict):
+        perf_detail = PerfBaselineDetail.objects.filter(baseline_id=baseline_id, test_suite_id=suite_id,
+                                                        test_case_id=case_id, metric=perf_res.metric)
+        create_data = PerfBaselineDetail(
+            baseline_id=baseline_id,
+            test_job_id=job_id,
+            test_suite_id=suite_id,
+            test_case_id=case_id,
+            server_ip=machine_ip,
+            server_sn='' if machine is None else machine.sn,
+            server_sm_name=sm_name,
+            server_instance_type=instance_type,
+            server_image=image,
+            server_bandwidth=bandwidth,
+            run_mode=test_job_case.run_mode,
+            source_job_id=source_job_id,
+            metric=perf_res.metric,
+            test_value=perf_res.test_value,
+            cv_value=perf_res.cv_value,
+            max_value=perf_res.max_value,
+            min_value=perf_res.min_value,
+            value_list=perf_res.value_list,
+            note=test_job_case.note
+        )
+        if not perf_detail.first():
+            create_list.append(create_data)
+        else:
+            update_dict.setdefault(str(perf_detail.first().id), create_data)
+
+    def _add_perf_baseline_detail(self, job_id, suite_id, case_id, create_list, update_dict, test_job, baseline_id):
+        add_list = []
+        if create_list:
+            add_list.extend([perf for perf in PerfBaselineDetail.objects.bulk_create(create_list)])
+            if test_job.baseline_id == baseline_id:
+                metric_list = [metric.metric for metric in create_list]
+                PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id, test_case_id=case_id,
+                                          metric__in=metric_list).update(match_baseline=True)
+        if update_dict:
+            id_list = list(update_dict.keys())
+            perf_detail = PerfBaselineDetail.objects.filter(id__in=id_list)
+            for perf_obj in perf_detail:
+                update_data = update_dict.get(perf_obj.id)
+                if update_data:
+                    perf_obj.baseline_id = update_data.baseline_id
+                    perf_obj.test_job_id = update_data.test_job_id
+                    perf_obj.test_suite_id = update_data.test_suite_id
+                    perf_obj.test_case_id = update_data.test_case_id
+                    perf_obj.server_ip = update_data.server_ip
+                    perf_obj.server_sn = update_data.server_sn
+                    perf_obj.server_sm_name = update_data.server_sm_name
+                    perf_obj.server_instance_type = update_data.server_instance_type
+                    perf_obj.server_image = update_data.server_image
+                    perf_obj.server_bandwidth = update_data.server_bandwidth
+                    perf_obj.run_mode = update_data.run_mode
+                    perf_obj.source_job_id = update_data.source_job_id
+                    perf_obj.metric = update_data.metric
+                    perf_obj.test_value = update_data.test_value
+                    perf_obj.cv_value = update_data.cv_value
+                    perf_obj.max_value = update_data.max_value
+                    perf_obj.min_value = update_data.min_value
+                    perf_obj.value_list = update_data.value_list
+                    perf_obj.note = update_data.note
+
+            update_fields = ['baseline_id', 'test_job_id', 'test_suite_id', 'test_case_id', 'server_ip', 'server_sn',
+                             'server_sm_name', 'server_instance_type', 'server_image', 'server_bandwidth', 'run_mode',
+                             'source_job_id', 'metric', 'test_value', 'cv_value', 'max_value', 'min_value',
+                             'value_list', 'note']
+            PerfBaselineDetail.objects.bulk_update(perf_detail, update_fields)
+            add_list.extend([perf for perf in perf_detail])
+        return add_list
 
     @staticmethod
     def get_perf_res_id_list(job_id, suite_id_list, suite_data_list):

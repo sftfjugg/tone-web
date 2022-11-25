@@ -49,12 +49,13 @@ def calc_job(job_id):
         success = len(list(filter(lambda x: x.state == 'success', job_case_queryset)))
         result = {'count': count, 'success': success, 'fail': fail, 'skip': skip}
     else:
-        func_result = FuncResult.objects.filter(test_job_id=job_id)
-        success = len(list(filter(lambda x: x.sub_case_result == 1, func_result)))
-        fail = len(list(filter(lambda x: x.sub_case_result == 2, func_result)))
-        skip = len(list(filter(lambda x: x.sub_case_result == 5, func_result)))
-        warn = len(list(filter(lambda x: x.sub_case_result == 6, func_result)))
-        count = len(func_result)
+        sub_case_result = FuncResult.objects.filter(test_job_id=job_id).values_list('sub_case_result', flat=True)
+        sub_case_result_list = list(sub_case_result)
+        count = len(sub_case_result_list)
+        success = sub_case_result_list.count(1)
+        fail = sub_case_result_list.count(2)
+        skip = sub_case_result_list.count(5)
+        warn = sub_case_result_list.count(6)
         result = {'count': count, 'success': success, 'fail': fail, 'skip': skip, 'warn': warn}
     return result
 
@@ -371,18 +372,14 @@ def __get_server_value(server, server_provider, return_field):
 def get_server_ip_sn(server, channel_type):
     ip = server if IP_PATTEN.match(server) else None
     sn = None if IP_PATTEN.match(server) else server
-    if ip and channel_type == 'staragent':
+    if ip and channel_type == 'otheragent':
         pass
-        # sn = json.loads(query_skyline_info('sn', condition="ip='{}'".
-        #                                    format(server)).decode()).get('value').get('itemList')[0].get('sn')
     elif ip and channel_type == 'toneagent':
         agent_url = tone_agent_info(ip=server)
         res = json.loads(requests.get(url=agent_url, verify=False).text)
         sn = res.get('RESULT').get('TSN')
-    elif sn and channel_type == 'staragent':
+    elif sn and channel_type == 'otheragent':
         pass
-        # ip = json.loads(query_skyline_info('ip', condition="sn='{}'".
-        #                                    format(server)).decode()).get('value').get('itemList')[0].get('ip')
     else:
         agent_url = tone_agent_info(tsn=server)
         res = json.loads(requests.get(url=agent_url, verify=False).text)
@@ -400,7 +397,7 @@ def get_custom_server(job_case_id, template=None):
         server_obj = TestServerSnapshot.objects.get(id=job_case.server_snapshot_id)
         server = {
             'custom_ip': server_obj.ip,
-            'custom_sn': server_obj.sn if server_obj.channel_type == 'staragent' else server_obj.tsn,
+            'custom_sn': server_obj.sn if server_obj.channel_type == 'otheragent' else server_obj.tsn,
             'custom_channel': server_obj.channel_type,
         }
     else:
@@ -1020,8 +1017,6 @@ def concurrent_calc_v1(func_result, suite, conf, compare_job_li, base_index, q):
     sub_case_name = func_result[0]
     result = FUNC_CASE_RESULT_TYPE_MAP.get(func_result[1])
     compare_data = get_func_compare_data_v1(suite, conf, sub_case_name, compare_job_li)
-    if len(compare_data) == 0:
-        compare_data.insert(0, '')
     compare_data.insert(base_index, result)
     q.put(
         {
