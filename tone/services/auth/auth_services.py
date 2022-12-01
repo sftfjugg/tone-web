@@ -13,7 +13,7 @@ from tone.core.common.redis_cache import redis_cache
 from tone.core.common.services import CommonService
 from tone.core.utils.short_uuid import short_uuid
 from tone.models import WorkspaceMember, User, RoleMember, Role, ApproveInfo, Workspace, \
-    InSiteWorkProcessUserMsg, InSiteWorkProcessMsg, InSiteSimpleMsg
+    InSiteWorkProcessUserMsg, InSiteWorkProcessMsg, InSiteSimpleMsg, WorkspaceAccessHistory
 from tone.serializers.auth.auth_serializers import UserSerializer, LoginUserInfoSerializer
 from tone.services.sys.interface_token_services import InterfaceTokenService
 
@@ -308,6 +308,12 @@ class UserInfoService(CommonService):
                         'emp_id': emp_id,
                     }
         return default_user_info
+
+    @staticmethod
+    def get_first_entry(user_id, ws_id):
+        if WorkspaceAccessHistory.objects.filter(user_id=user_id, ws_id=ws_id).exists():
+            return True
+        return False
 
 
 class PersonalHomeService(CommonService):

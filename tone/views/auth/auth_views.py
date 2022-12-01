@@ -131,6 +131,21 @@ class PersonalHomeView(CommonAPIView):
         return Response(response_data)
 
 
+class HomeUserView(CommonAPIView):
+    service_class = UserInfoService
+    serializer_class = PersonalUserSerializer
+
+    def get(self, request):
+        """获取个人中心基本信息，系统角色信息，ws角色信息"""
+        response_data = self.get_response_data(request.user, many=False)
+        user_info = self.service.get_user_info(request.GET, operator=request.user.id)
+        response_data['data'].update(user_info)
+        if request.data.get('ws_id'):
+            first_entry = self.service.get_first_entry(request.user.id, request.data.get('ws_id'))
+            response_data['data'].update({'first_entry': first_entry})
+        return Response(response_data)
+
+
 class LogoutView(View):
     """
     用户登出
