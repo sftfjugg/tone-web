@@ -1748,8 +1748,12 @@ class SyncServerStateService(CommonService):
                 }
             )
             if channel_state:
-                server.state = server.history_state
-                server.real_state = server.history_state
+                if server.state == TestServerState.BROKEN:
+                    if server.history_state == TestServerState.RESERVED:
+                        server.state = server.history_state
+                    else:
+                        server.state = TestServerState.AVAILABLE
+                server.real_state = TestServerState.AVAILABLE
             else:
                 server.state = TestServerState.BROKEN
                 server.real_state = TestServerState.BROKEN
