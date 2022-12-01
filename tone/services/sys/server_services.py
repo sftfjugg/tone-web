@@ -539,7 +539,7 @@ class CloudServerService(CommonService):
             q &= Q(id__in=server_id_list)
         if data.get('tags'):
             server_id_list = ServerTagRelation.objects.filter(object_type=TestServerEnums.OBJECT_TYPE_CHOICES[1][0],
-                                                              server_tag_id__in=data.getlist('tags')).\
+                                                              server_tag_id__in=data.getlist('tags')). \
                 order_by('object_id').values_list('object_id', flat=True).distinct()
             q &= Q(id__in=server_id_list)
         if data.get('owner'):
@@ -559,13 +559,37 @@ class CloudServerService(CommonService):
             q &= Q(description__icontains=data.get('description'))
         if data.get('ws_id'):
             q &= Q(ws_id=data.get('ws_id'))
-        if data.get('private_ip'):
-            q &= Q(private_ip__in=data.getlist('private_ip'))
         for item in ['state', 'real_state']:
             if data.get(item):
                 q &= Q(**{'{}__in'.format(item): data.getlist(item)})
         if data.get('release_rule'):
             q &= Q(release_rule=data.get('release_rule'))
+        if data.get('manufacturer_ak_name'):
+            cloud_ak_id = CloudAk.objects.filter(name__icontains=data.get('manufacturer_ak_name')).values_list('id',
+                                                                                                               flat=True)
+            q &= Q(Q(ak_id__in=cloud_ak_id) | Q(manufacturer__icontains=data.get('manufacturer_ak_name')))
+        if data.get('region_zone'):
+            q &= Q(Q(region__icontains=data.get('region_zone')) | Q(zone__icontains=data.get('region_zone')))
+        if data.get('instance_type'):
+            q &= Q(instance_type__icontains=data.get('instance_type'))
+        if data.get('image'):
+            q &= Q(image__icontains=data.get('image'))
+        if data.get('bandwidth'):
+            q &= Q(bandwidth=data.get('bandwidth'))
+        if data.get('storage_type'):
+            storage_type_list = data.get('storage_type').split(',')
+            q &= Q(storage_type__in=storage_type_list)
+        if data.get('release_rule'):
+            q &= Q(release_rule=data.get('release_rule'))
+        if data.get('channel_type'):
+            channel_type_list = data.get('channel_type').split(',')
+            q &= Q(channel_type__in=channel_type_list)
+        if data.get('private_ip'):
+            q &= Q(private_ip__icontains=data.get('private_ip'))
+        if data.get('sn'):
+            q &= Q(sn__icontains=data.get('sn'))
+        if data.get('instance_id'):
+            q &= Q(instance_id__icontains=data.get('instance_id'))
         return queryset.filter(q)
 
     @staticmethod
