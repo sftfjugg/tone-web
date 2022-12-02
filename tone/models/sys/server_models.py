@@ -146,6 +146,7 @@ class TestCluster(BaseModel):
     owner = models.IntegerField(null=True, help_text='Owner')
     description = models.CharField(max_length=1024, null=True, blank=True, help_text='描述')
     occupied_job_id = models.IntegerField(null=True, blank=True, help_text='被哪个任务所占用')
+    is_instance = models.BooleanField(default=True, help_text='是否实例')
 
     class Meta:
         db_table = 'test_cluster'

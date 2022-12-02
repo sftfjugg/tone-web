@@ -15,7 +15,6 @@ PARAM_ERROR_204 = {'code': 204, 'msg': 'Parameter error. Please reenter and subm
 
 SERVER_ERROR_500 = {'code': 500, 'msg': 'Server error, please contact administrator'}
 SERVER_TIMEOUT_504 = {'code': 504, 'msg': 'Server response timeout, please try again later'}
-STARAGENT_ERROR_511 = {'code': 511, 'msg': 'star-agent error'}
 TONEAGENT_ERROR_512 = {'code': 512, 'msg': 'tone-agent error'}
 ALIYUN_ERROR_513 = {'code': 513, 'msg': 'aliyun api error'}
 MACHINE_INFO_ERROR_514 = {'code': 514, 'msg': 'get machine info error'}

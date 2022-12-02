@@ -11,17 +11,19 @@ tone_branch=${TONE_DEBUG_BRANCH:-master}
 clone_code(){
   ret=1
   # try 5 times
-  for ((i=0; i<$clone_retries; ++i)); do
+  i=0
+  while [ "$i" -lt $clone_retries ]; do
     rm -Rf $tone_install
     git clone --single-branch --branch $tone_branch https://gitee.com/anolis/tone-cli $1 > $log 2>&1
     if [ $? -ne 0 ]; then
-      echo git clone fail >> $logfile
+      echo git clone fail >>$logfile
       sleep 5
       continue
     else
       ret=0
       break
     fi
+    i=$((i + 1))
   done
 
   return $ret
@@ -51,17 +53,23 @@ fi
 
 tone_list_output=$(tone list)
 
-suite_list=(${tone_list_output// / }) 
-for(( i=0;i<${#suite_list[@]};i++))
-do
-    if [ $(($i%2)) == 0 ] ; then
-       echo suite:${suite_list[$i]}
-       case_info=`tone list ${suite_list[$i]}`
+tone_list() {
+  i=0
+  while [ "$i" -lt $# ]; do
+    if [ $((i % 2)) = 0 ]; then
+      tmp=$((i + 1))
+      eval "echo \"suite:\${${tmp}}\""
+      eval "case_info=\`tone list \${${tmp}}\`"
     else
-       echo type:${suite_list[$i]}
-       echo "$case_info"
-       echo "-------------------------------"  
+      tmp=$((i + 1))
+      eval "echo \"type:\${${tmp}}\""
+      echo "$case_info"
+      echo "-------------------------------"
     fi
-done
+    i=$((i + 1))
+  done
+}
+
+tone_list ${tone_list_output}
 
 """

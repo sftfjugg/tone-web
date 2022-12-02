@@ -427,7 +427,7 @@ class TestServerService(CommonService):
     def check_db_existed(channel_type, ip, ip_list, sn_list, server_id=None, ws_id=None):  # noqa: C901
         errors_sn, msg_sn, errors_ip, msg_ip = [], '', [], ''
         if re.match(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}', ip) is None:
-            if channel_type == 'staragent':
+            if channel_type == 'otheragent':
                 server_obj = TestServer.objects.filter(sn=ip).first()
                 if server_obj and (server_id is None or server_id is not None
                                    and str(server_obj.id) != server_id) and ws_id != server_obj.ws_id:
@@ -539,7 +539,7 @@ class CloudServerService(CommonService):
             q &= Q(id__in=server_id_list)
         if data.get('tags'):
             server_id_list = ServerTagRelation.objects.filter(object_type=TestServerEnums.OBJECT_TYPE_CHOICES[1][0],
-                                                              server_tag_id__in=data.getlist('tags')).\
+                                                              server_tag_id__in=data.getlist('tags')). \
                 order_by('object_id').values_list('object_id', flat=True).distinct()
             q &= Q(id__in=server_id_list)
         if data.get('owner'):
@@ -559,13 +559,37 @@ class CloudServerService(CommonService):
             q &= Q(description__icontains=data.get('description'))
         if data.get('ws_id'):
             q &= Q(ws_id=data.get('ws_id'))
-        if data.get('private_ip'):
-            q &= Q(private_ip__in=data.getlist('private_ip'))
         for item in ['state', 'real_state']:
             if data.get(item):
                 q &= Q(**{'{}__in'.format(item): data.getlist(item)})
         if data.get('release_rule'):
             q &= Q(release_rule=data.get('release_rule'))
+        if data.get('manufacturer_ak_name'):
+            cloud_ak_id = CloudAk.objects.filter(name__icontains=data.get('manufacturer_ak_name')).values_list('id',
+                                                                                                               flat=True)
+            q &= Q(Q(ak_id__in=cloud_ak_id) | Q(manufacturer__icontains=data.get('manufacturer_ak_name')))
+        if data.get('region_zone'):
+            q &= Q(Q(region__icontains=data.get('region_zone')) | Q(zone__icontains=data.get('region_zone')))
+        if data.get('instance_type'):
+            q &= Q(instance_type__icontains=data.get('instance_type'))
+        if data.get('image'):
+            q &= Q(image__icontains=data.get('image'))
+        if data.get('bandwidth'):
+            q &= Q(bandwidth=data.get('bandwidth'))
+        if data.get('storage_type'):
+            storage_type_list = data.get('storage_type').split(',')
+            q &= Q(storage_type__in=storage_type_list)
+        if data.get('release_rule'):
+            q &= Q(release_rule=data.get('release_rule'))
+        if data.get('channel_type'):
+            channel_type_list = data.get('channel_type').split(',')
+            q &= Q(channel_type__in=channel_type_list)
+        if data.get('private_ip'):
+            q &= Q(private_ip__icontains=data.get('private_ip'))
+        if data.get('sn'):
+            q &= Q(sn__icontains=data.get('sn'))
+        if data.get('instance_id'):
+            q &= Q(instance_id__icontains=data.get('instance_id'))
         return queryset.filter(q)
 
     @staticmethod
@@ -946,7 +970,8 @@ class CloudServerService(CommonService):
                     'cloud_ssd': 'SSD云盘',
                     'ephemeral_ssd': '本地SSD盘',
                     'cloud_essd': 'ESSD云盘',
-                    'cloud': '普通云盘'
+                    'cloud': '普通云盘',
+                    'cloud_auto': 'ESSD AutoPL云盘'
                 }
                 if item.get('id') == data.get('zone'):
                     available_disk_categories = item.get('available_disk_categories')
@@ -1135,6 +1160,8 @@ class TestClusterService(CommonService):
             q &= Q(id__in=server_id_list)
         if data.get('cluster_type'):
             q &= Q(cluster_type=data.get('cluster_type'))
+        if data.get('is_instance'):
+            q &= Q(is_instance=data.get('is_instance'))
         if data.get('owner'):
             q &= Q(owner__in=data.getlist('owner'))
         if data.get('description'):
@@ -1151,13 +1178,15 @@ class TestClusterService(CommonService):
         test_cluster = TestCluster.objects.filter(name=post_data['name'], ws_id=post_data['ws_id']).first()
         if test_cluster:
             return False, '集群已存在'
+        is_instance = post_data.get('is_instance') if post_data.get('is_instance') else 1
         update_owner(post_data)
         create_data = dict(
             name=post_data['name'],
             cluster_type=post_data['cluster_type'],
             owner=post_data['owner'],
             ws_id=post_data['ws_id'],
-            description=post_data['description']
+            description=post_data['description'],
+            is_instance=is_instance
         )
         test_cluster = TestCluster.objects.create(**create_data)
         with transaction.atomic():
@@ -1503,7 +1532,7 @@ class TestClusterServerService(CommonService):
                     # 单机池机器仅修改占用状态
                     test_server.update(spec_use=0)
             else:
-                CloudServer.objects.filter(id=server.server_id).delete()
+                CloudServer.objects.filter(id=server.server_id).update(spec_use=0)
             with transaction.atomic():
                 operation_li = list()
                 log_data = {
@@ -1743,8 +1772,12 @@ class SyncServerStateService(CommonService):
                 }
             )
             if channel_state:
-                server.state = server.history_state
-                server.real_state = server.history_state
+                if server.state == TestServerState.BROKEN:
+                    if server.history_state == TestServerState.RESERVED:
+                        server.state = server.history_state
+                    else:
+                        server.state = TestServerState.AVAILABLE
+                server.real_state = TestServerState.AVAILABLE
             else:
                 server.state = TestServerState.BROKEN
                 server.real_state = TestServerState.BROKEN

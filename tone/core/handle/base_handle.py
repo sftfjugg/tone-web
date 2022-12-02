@@ -299,7 +299,7 @@ class BaseHandle(metaclass=ABCMeta):
         elif server_config.get('ip') or server_config.get('custom_ip'):
             custom_ip = server_config.get('ip') or server_config.get('custom_ip')
             channel_type = server_config.get('channel_type', 'toneagent') or server_config.get('custom_channel',
-                                                                                               'staragent')
+                                                                                               'otheragent')
             if custom_ip:
                 self.package_customer_server(custom_ip, channel_type, provider, case_dict)
         elif server_config.get('tag'):
@@ -315,7 +315,7 @@ class BaseHandle(metaclass=ABCMeta):
     def package_customer_server(self, custom_ip, channel_type, provider, case_dict):
         if custom_ip not in self.server_map:
             ip, sn = get_server_ip_sn(custom_ip, channel_type)
-            if channel_type == 'staragent':
+            if channel_type == 'otheragent':
                 server_snapshot = TestServerSnapshot.objects.create(ip=ip, channel_type=channel_type, sn=sn,
                                                                     in_pool=False, ws_id=self.ws_id) \
                     if provider == 'aligroup' \

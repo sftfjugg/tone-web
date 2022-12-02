@@ -26,11 +26,6 @@ class DataExistsException(BaseAPIException):
         super().__init__(code, msg)
 
 
-class StarAgentException(BaseAPIException):
-    def __init__(self, code=exception_code.STARAGENT_ERROR_511['code'], msg=exception_code.STARAGENT_ERROR_511['msg']):
-        super().__init__(code, msg)
-
-
 class ToneAgentException(BaseAPIException):
     def __init__(self, code=exception_code.TONEAGENT_ERROR_512['code'], msg=exception_code.TONEAGENT_ERROR_512['msg']):
         super().__init__(code, msg)

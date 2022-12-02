@@ -80,7 +80,7 @@ class TestPlanDetailSerializer(CommonSerializer):
                   'cron_schedule', 'cron_info', 'blocking_strategy', 'enable', 'env_prep', 'test_config', 'next_time',
                   'auto_report', 'report_name', 'report_description', 'report_template_id', 'report_template_name',
                   'group_method', 'base_group', 'base_group_info', 'func_baseline_aliyun', 'func_baseline_aliyun_name',
-                  'perf_baseline_aliyun', 'perf_baseline_aliyun_name', 'stage_id', 'scripts']
+                  'perf_baseline_aliyun', 'perf_baseline_aliyun_name', 'stage_id', 'scripts', 'creator']
 
     @staticmethod
     def get_base_group_info(obj):
