@@ -2,6 +2,7 @@
 
 RUN_TEST_DEBIAN = """
 #!/bin/bash
+export PYTHONIOENCODING=utf-8
 
 TONE_STORAGE_HOST={tone_storage_host}
 TONE_STORAGE_SFTP_PORT={tone_storage_sftp_port}
@@ -42,7 +43,7 @@ fi
 
 install_utils()
 {{
- apt-get install -y lftp >> $ALL_LOG 2>&1
+ apt-get install -y expect >> $ALL_LOG 2>&1
 }}
 
 
@@ -61,6 +62,21 @@ prepare_suite(){{
   fi
 }}
 
+validate_ssh(){{
+    expect << EOF
+    set timeout 5
+
+    spawn sftp -P $TONE_STORAGE_SFTP_PORT $TONE_STORAGE_USER@$TONE_STORAGE_HOST
+    expect {{
+        "yes/no" {{ send "yes\\n";exp_continue }}
+        "password" {{ send "$TONE_STORAGE_PASSWORD\\n" }}
+    }}
+    expect "password" {{ send "$TONE_STORAGE_PASSWORD\\n" }}
+    expect "tp>" {{ send "exit\\n" }}
+    expect eof
+EOF
+    echo "ssh key validation success!"
+}}
 
 upload_file(){{
     file=$1
@@ -87,13 +103,22 @@ upload_file(){{
         return
     fi
 
-    lftp -u $TONE_STORAGE_USER,$TONE_STORAGE_PASSWORD -e "set ftp:ssl-allow no" sftp://$TONE_STORAGE_HOST:$TONE_STORAGE_SFTP_PORT >> $ALL_LOG 2>&1 <<EOF
-    cd $TONE_STORAGE_BUCKET
     mkdir -p $file_path
-    cd $file_path
-    mput $file
-    by
+    
+    expect << EOF
+    set timeout 30
+
+    spawn sftp -P $TONE_STORAGE_SFTP_PORT $TONE_STORAGE_USER@$TONE_STORAGE_HOST
+    expect "password" {{ send "$TONE_STORAGE_PASSWORD\\n" }}
+    
+    expect "tp>" {{ send "cd $TONE_STORAGE_BUCKET\\n" }}
+    expect "tp>" {{ send "cd $file_path\\n" }}
+    expect "tp>" {{ send "put $file\\n" }}
+    expect "tp>" {{ send "exit\\n" }}
+    expect EOF
 EOF
+    rm -rf $file_path
+
 }}
 
 
@@ -104,16 +129,23 @@ upload_dir(){{
         exit 2
     fi
 
-    lftp -u $TONE_STORAGE_USER,$TONE_STORAGE_PASSWORD -e "set ftp:ssl-allow no" sftp://$TONE_STORAGE_HOST:$TONE_STORAGE_SFTP_PORT >> $ALL_LOG 2>&1 <<EOF
-    cd $TONE_STORAGE_BUCKET
     mkdir -p $TONE_JOB_ID/$OSS_RESULT_FOLDER 
-    mirror -R $dir $TONE_JOB_ID/$OSS_RESULT_FOLDER
-    by
-EOF
+    
+    expect << EOF
+    set timeout 30
 
-    file_result_path="http://$TONE_STORAGE_HOST:$TONE_STORAGE_PROXY_PORT/$TONE_STORAGE_BUCKET/$TONE_JOB_ID/$OSS_RESULT_FOLDER/"
-    echo $file_result_path >> $LOG
-    echo $file_result_path
+    spawn sftp -P $TONE_STORAGE_SFTP_PORT $TONE_STORAGE_USER@$TONE_STORAGE_HOST
+    expect "password" {{ send "$TONE_STORAGE_PASSWORD\\n" }}
+    
+    expect "tp>" {{ send "cd $TONE_STORAGE_BUCKET\\n" }}
+    expect "tp>" {{ send "put -R $TONE_JOB_ID\\n" }}
+    expect "tp>" {{ send "cd $TONE_JOB_ID/$OSS_RESULT_FOLDER\\n" }}
+    expect "tp>" {{ send "lcd $dir\\n" }}
+    expect "tp>" {{ send "put -r *\\n" }}
+    expect "tp>" {{ send "exit\\n" }}
+    expect EOF
+EOF
+    rm -rf $TONE_JOB_ID
 }}
 
 
@@ -131,6 +163,8 @@ list_file(){{
 }}
 
 install_utils
+
+validate_ssh
 
 echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config
 systemctl restart sshd
@@ -174,6 +208,8 @@ fi
 sleep 5
 sync
 
+# 必须在 upload_file 之前
+upload_dir $TONE_RESULT_PATH
 
 if [ -f "/tmp/prepare_tone.log" ];then
   echo "#####################################################
@@ -193,13 +229,16 @@ if [ -f "$LOG" ];then
   upload_file $LOG tone_run.log $OSS_RESULT_FOLDER no_echo
 fi
 
-upload_dir $TONE_RESULT_PATH
 
 if [ -f "$ALL_LOG" ];then
   echo list_file $TONE_RESULT_PATH >> $ALL_LOG
   echo upload_file $ALL_LOG tone.log $OSS_RESULT_FOLDER >> $ALL_LOG
   upload_file $ALL_LOG tone.log $OSS_RESULT_FOLDER no_echo
 fi
+
+file_result_path="http://$TONE_STORAGE_HOST:$TONE_STORAGE_PROXY_PORT/$TONE_STORAGE_BUCKET/$TONE_JOB_ID/$OSS_RESULT_FOLDER/"
+echo $file_result_path >> $LOG
+echo $file_result_path
 
 list_file $TONE_RESULT_PATH
 """
