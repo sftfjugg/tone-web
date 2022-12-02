@@ -118,9 +118,8 @@ class WorkspaceHistoryView(CommonAPIView):
 
     def post(self, request):
         request.user_list = list(User.objects.all())
-        first_entry = self.service.add_entry_history(request.data, operator=request.user.id)
+        self.service.add_entry_history(request.data, operator=request.user.id)
         response_code = self.get_response_code()
-        response_code['first_entry'] = first_entry
         return Response(response_code)
 
 
