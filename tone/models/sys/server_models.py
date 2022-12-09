@@ -97,7 +97,7 @@ class CloudServer(BaseModel):
     template_name = models.CharField(max_length=64, help_text='模板名称')
 
     # 实例
-    instance_id = models.CharField(max_length=64, help_text='Instance id')
+    instance_id = models.CharField(max_length=64, help_text='Instance id', db_index=True)
     instance_name = models.CharField(max_length=64, help_text='Instance Name')
 
     instance_type = models.CharField(max_length=64, help_text='规格')
@@ -270,7 +270,7 @@ class CloudServerSnapshot(BaseModel):
     template_name = models.CharField(max_length=64, help_text='模板名称', null=True, blank=True)
 
     # 实例
-    instance_id = models.CharField(max_length=64, help_text='Instance id', null=True, blank=True)
+    instance_id = models.CharField(max_length=64, help_text='Instance id', null=True, blank=True, db_index=True)
     instance_name = models.CharField(max_length=64, help_text='Instance Name', null=True, blank=True)
 
     instance_type = models.CharField(max_length=64, help_text='规格', null=True, blank=True)
@@ -444,5 +444,6 @@ class ReleaseServerRecord(BaseModel):
     estimated_release_at = models.DateTimeField(help_text='预计释放时间')
     is_release = models.BooleanField(default=False, help_text='是否已释放')
     release_at = models.DateTimeField(help_text='释放时间')
+
     class Meta:
         db_table = 'release_server_record'
