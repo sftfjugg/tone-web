@@ -390,7 +390,7 @@ def get_server_ip_sn(server, channel_type):
 def get_custom_server(job_case_id, template=None):
     job_case = TestJobCase.objects.get(id=job_case_id) if not template else TestTmplCase.objects.get(id=job_case_id)
     server_provider = job_case.server_provider
-    if job_case.server_object_id or job_case.server_tag_id:
+    if job_case.run_mode == 'cluster' or job_case.server_object_id or job_case.server_tag_id:
         return None
     if server_provider == 'aligroup' and job_case.server_snapshot_id and not TestServerSnapshot.objects.get(
             id=job_case.server_snapshot_id).in_pool:
