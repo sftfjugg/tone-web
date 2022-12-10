@@ -9,6 +9,7 @@ import requests
 from django.db.models import Q
 
 from tone import settings
+from tone.core.common.constant import SERVER_REAL_STATE_PUT_MAP
 from tone.core.common.info_map import get_result_map
 from tone.core.common.services import CommonService
 from tone.core.common.toneagent import server_check, remove_server_from_toneagent, deploy_agent_by_ecs_assistant, \
@@ -109,7 +110,10 @@ class TestServerService(CommonService):
             flag = True
         for item in ['state', 'real_state', 'channel_type', 'device_type']:
             if data.get(item):
-                q &= Q(**{'{}__in'.format(item): data.getlist(item)})
+                search_list = data.getlist(item)
+                if item == 'real_state':
+                    search_list = [SERVER_REAL_STATE_PUT_MAP.get(i) for i in data.getlist(item)]
+                q &= Q(**{'{}__in'.format(item): search_list})
                 flag = True
         tags = data.getlist('tags')
         if len(tags) == 1 and tags != ['']:
@@ -561,7 +565,10 @@ class CloudServerService(CommonService):
             q &= Q(ws_id=data.get('ws_id'))
         for item in ['state', 'real_state']:
             if data.get(item):
-                q &= Q(**{'{}__in'.format(item): data.getlist(item)})
+                state_list = data.getlist(item)
+                if item == 'real_state':
+                    state_list = [SERVER_REAL_STATE_PUT_MAP.get(i) for i in data.getlist(item)]
+                q &= Q(**{'{}__in'.format(item): state_list})
         if data.get('release_rule'):
             q &= Q(release_rule=data.get('release_rule'))
         if data.get('manufacturer_ak_name'):
