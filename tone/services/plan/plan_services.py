@@ -573,6 +573,13 @@ class PlanService(CommonService):
                 next_time = schedule_job.next_run_time
         return next_time
 
+    def get_plan_last_time(self, plan_id):
+        last_time = None
+        plan_instance = PlanInstance.objects.filter(plan_id=plan_id).order_by('-gmt_created').first()
+        if plan_instance:
+            last_time = plan_instance.gmt_created
+        return last_time
+
     @staticmethod
     def manual_create_report(data):
         test_job_id = data.get('job_id')
