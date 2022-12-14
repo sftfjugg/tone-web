@@ -194,25 +194,25 @@ def get_job_case_server(job_case_id, template=None, is_config=False, data=None):
         _get_server_for_cluster(job_case, obj)
     else:
         if data and data.get('inheriting_machine'):
-            _get_server_inheriting_machine(is_config, job_case_id, obj)
+            _get_server_inheriting_machine(is_config, job_case_id, obj, run_mode)
         else:
-            _get_server_no_inheriting_machine(is_config, job_case, obj, server_provider)
+            _get_server_no_inheriting_machine(is_config, job_case, obj, server_provider, run_mode)
     return obj.server, obj.is_instance, obj.server_is_deleted, obj.server_deleted
 
 
-def _get_server_no_inheriting_machine(is_config, job_case, obj, server_provider):
+def _get_server_no_inheriting_machine(is_config, job_case, obj, server_provider, run_mode):
     if job_case.server_tag_id:
         obj.is_instance = None
         server_tag_id_list = str(job_case.server_tag_id).split(',')
         obj.server = ','.join(ServerTag.objects.filter(id__in=server_tag_id_list).values_list('name', flat=True)) \
             if ServerTag.objects.filter(id__in=server_tag_id_list).exists() else None
-    elif job_case.server_snapshot_id and server_provider == 'aligroup' and \
+    elif run_mode == 'standalone' and job_case.server_snapshot_id and server_provider == 'aligroup' and \
             not TestServerSnapshot.objects.get(id=job_case.server_snapshot_id).in_pool:
         obj.server = TestServerSnapshot.objects.get(id=job_case.server_snapshot_id).ip if \
             TestServerSnapshot.objects.get(id=job_case.server_snapshot_id).ip else \
             TestServerSnapshot.objects.get(id=job_case.server_snapshot_id).sn
-    elif not is_config and job_case.server_snapshot_id and server_provider == 'aliyun' and \
-            CloudServerSnapshot.objects.filter(id=job_case.server_snapshot_id).exists():
+    elif not is_config and run_mode == 'standalone' and job_case.server_snapshot_id and server_provider == 'aliyun' \
+            and CloudServerSnapshot.objects.filter(id=job_case.server_snapshot_id).exists():
         cloud_server = CloudServerSnapshot.objects.filter(id=job_case.server_snapshot_id)
         obj.server = _get_server_for_aliyun_not_config(cloud_server)
     else:
@@ -220,18 +220,18 @@ def _get_server_no_inheriting_machine(is_config, job_case, obj, server_provider)
         obj.server = '随机'
 
 
-def _get_server_inheriting_machine(is_config, job_case_id, obj):
+def _get_server_inheriting_machine(is_config, job_case_id, obj, run_mode):
     job_case = TestJobCase.objects.get(id=job_case_id)
     server_provider = job_case.server_provider
     if job_case.server_tag_id:
         _get_tag_server(job_case, obj)
-    elif job_case.server_snapshot_id and server_provider == 'aligroup' and \
+    elif run_mode == 'standalone' and job_case.server_snapshot_id and server_provider == 'aligroup' and \
             TestServerSnapshot.objects.get(id=job_case.server_snapshot_id).in_pool:
         test_server = TestServerSnapshot.objects.filter(id=job_case.server_snapshot_id).first()
         obj.server = test_server.ip if test_server else None
         _get_server_is_deleted(server_provider, test_server, obj)
-    elif not is_config and job_case.server_snapshot_id and server_provider == 'aliyun' and \
-            CloudServerSnapshot.objects.filter(id=job_case.server_snapshot_id).exists():
+    elif not is_config and run_mode == 'standalone' and job_case.server_snapshot_id and server_provider == 'aliyun' \
+            and CloudServerSnapshot.objects.filter(id=job_case.server_snapshot_id).exists():
         cloud_server = CloudServerSnapshot.objects.filter(id=job_case.server_snapshot_id).first()
         obj.server = _get_server_for_aliyun_not_config(cloud_server)
         obj.is_instance = 1 if cloud_server.is_instance else 0
