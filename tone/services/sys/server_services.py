@@ -107,7 +107,15 @@ class TestServerService(CommonService):
                                            Q(first_name__icontains=data.get('owner'))).values_list('id', flat=True)
                 q &= Q(owner__in=user)
             flag = True
-        for item in ['state', 'real_state', 'channel_type', 'device_type']:
+        if data.get('channel_type'):
+            channel_type_list = data.get('channel_type').split(',')
+            q &= Q(channel_type__in=channel_type_list)
+            flag = True
+        if data.get('device_type'):
+            device_type_list = data.get('device_type').split(',')
+            q &= Q(device_type__in=device_type_list)
+            flag = True
+        for item in ['state', 'real_state']:
             if data.get(item):
                 q &= Q(**{'{}__in'.format(item): data.getlist(item)})
                 flag = True
