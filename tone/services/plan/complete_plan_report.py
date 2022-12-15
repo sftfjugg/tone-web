@@ -2,7 +2,7 @@ import itertools
 import logging
 from tone.celery import app
 from tone.models import PlanInstance, PlanInstanceTestRelation, TestJob, ReportTemplate, Project, \
-    ReportObjectRelation, datetime, ReportTmplItem, ReportTmplItemSuite, PlanInstanceStageRelation, Report
+    ReportObjectRelation, datetime, ReportTmplItem, ReportTmplItemSuite, PlanInstanceStageRelation
 
 from tone.services.job.result_compare_services import CompareEnvInfoService, \
     CompareSuiteInfoOldService, CompareListOldService
@@ -435,7 +435,6 @@ def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
     test_env = CompareEnvInfoService().get_env_info(base_group, compare_groups)
     # 模板名称
     ws_id = plan_instance.ws_id
-    job_li = func_job_list
     report_source = 'plan'
     default_tmpl_id = ReportTemplate.objects.filter(ws_id=ws_id, name='默认模板', query_scope='all').first().id
     name = plan_instance.report_name
@@ -468,8 +467,6 @@ def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
     custom = '-'
     test_background = '-'
     test_method = '-'
-    if not job_data:
-        return
     # 测试结论
     test_conclusion = {
         'custom': custom,
@@ -670,8 +667,6 @@ def handle_no_group(plan_instance, plan_inst_id):  # noqa: C901
     custom = '-'
     test_background = '-'
     test_method = '-'
-    if not job_data:
-        return
     # 测试结论
     test_conclusion = {
         'custom': custom,
