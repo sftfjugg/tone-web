@@ -1272,7 +1272,7 @@ class TestClusterService(CommonService):
                     TestServer.objects.filter(id__in=cluster_servers, in_pool=0).delete()
                 TestCluster.objects.filter(id=pk).delete()
                 server_ids = list(TestClusterServer.objects.filter(cluster_id=pk).values_list('server_id', flat=True))
-                CloudServer.objects.filter(id__in=server_ids).delete()
+                CloudServer.objects.filter(id__in=server_ids, in_pool=0).delete()
                 TestClusterServer.objects.filter(cluster_id=pk).delete()
                 operation(operation_li)
 
@@ -1532,7 +1532,14 @@ class TestClusterServerService(CommonService):
                     # 单机池机器仅修改占用状态
                     test_server.update(spec_use=0)
             else:
-                CloudServer.objects.filter(id=server.server_id).update(spec_use=0)
+                test_server = CloudServer.objects.filter(id=server.server_id)
+                test_server_obj = test_server.first()
+                if test_server_obj is not None and not test_server_obj.in_pool:
+                    if test_server_obj.state == 'Occupied':
+                        return False, '机器被占用'
+                    test_server.delete()
+                else:
+                    test_server.update(spec_use=0)
             with transaction.atomic():
                 operation_li = list()
                 log_data = {
