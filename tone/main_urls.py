@@ -35,6 +35,8 @@ urlpatterns = [
     path('api/report/', include('tone.urls.report_urls'), name='report'),
     # api
     path('api/', include('tone.urls.api_urls'), name='sys'),
+    # admin
+    path('admin/', include('tone.urls.admin_urls'), name='admin'),
 
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 

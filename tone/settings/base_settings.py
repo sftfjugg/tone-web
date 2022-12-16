@@ -144,3 +144,6 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 SESSION_COOKIE_NAME = 'tonesessionid'
+
+ALLOW_ACCESS_ADMIN_URLS = cp.get('allow_access')
+ADMIN_URLS_TOKEN = cp.get('admin_urls_token')
