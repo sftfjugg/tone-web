@@ -13,7 +13,7 @@ def migrate(request):
     })
 
 
-def init_data():
+def init_data(request):
     if BaseConfig.objects.count() > 0:
         return JsonResponse({
             'success': False,
