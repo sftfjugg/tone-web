@@ -29,14 +29,22 @@ def init_data(request):
 
 def create_superuser(request):
     username = request.GET.get('username')
+    password = request.GET.get('password')
     if not username:
         return JsonResponse({
             'success': False,
             'msg': 'Missing username parameter'
         })
 
+    if not password:
+        return JsonResponse({
+            'success': False,
+            'msg': 'Missing password parameter'
+        })
+
     user = User.objects.create_user(
         username,
+        password=password
         **{
             'emp_id': str((User.objects.count() + 1)).zfill(6),
             'first_name': username,
