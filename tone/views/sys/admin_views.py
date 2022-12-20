@@ -17,7 +17,8 @@ def init_data(request):
     if BaseConfig.objects.count() > 0:
         return JsonResponse({
             'success': False,
-            'msg': '数据库中已有数据，如需初始化请手动操作'
+            'msg': 'Data already exists in the database. '
+                   'If you need to initialize data, perform this operation manually'
         })
 
     initialize_all()
@@ -31,7 +32,7 @@ def create_superuser(request):
     if not username:
         return JsonResponse({
             'success': False,
-            'msg': '缺少 username 参数'
+            'msg': 'Missing username parameter'
         })
 
     user = User.objects.create_user(
@@ -50,5 +51,5 @@ def create_superuser(request):
 
     return JsonResponse({
         'success': True,
-        'msg': f'{username} 创建成功'
+        'msg': f'User({username}) created'
     })
