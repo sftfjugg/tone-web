@@ -9,5 +9,6 @@ urlpatterns = [
     path('migrate/', admin_views.migrate),
     path('init_data/', admin_views.init_data),
     path('create_superuser/', admin_views.create_superuser),
+    path('sync_cases/', admin_views.sync_cases),
 
 ]

@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import logging
+import subprocess
 import time
 import urllib
 import urllib.request as urllib2
@@ -89,6 +90,16 @@ def sync_suite_tone_task():
         BaseConfig.objects.filter(config_type='sys', config_key='SUITE_SYNC_STATE').update(config_value='waiting')
         return False
     suite_type_map, suite_conf_list_map = parse_toneagent_result(data)
+    update_cases_to_db(suite_type_map, suite_conf_list_map)
+    BaseConfig.objects.filter(config_type='sys', config_key='SUITE_SYNC_LAST_TIME').update(
+        config_value=datetime.now())
+    # 更新任务运行状态
+    BaseConfig.objects.filter(config_type='sys', config_key='SUITE_SYNC_STATE').update(config_value='waiting')
+    logger.info('sync_suite_tone_task: sync success')
+    return True
+
+
+def update_cases_to_db(suite_type_map, suite_conf_list_map):
     origin_suite_list = SuiteData.objects.all().values_list('name', flat=True)
     for tmp_suite_name, tmp_test_type in suite_type_map.items():
         tmp_suite_obj = SuiteData.objects.filter(name=tmp_suite_name, test_type=tmp_test_type).first()
@@ -122,13 +133,6 @@ def sync_suite_tone_task():
 
     SuiteData.objects.filter(name__in=list(set(origin_suite_list) - set(suite_type_map.keys()))).delete()
 
-    BaseConfig.objects.filter(config_type='sys', config_key='SUITE_SYNC_LAST_TIME').update(
-        config_value=datetime.now())
-    # 更新任务运行状态
-    BaseConfig.objects.filter(config_type='sys', config_key='SUITE_SYNC_STATE').update(config_value='waiting')
-    logger.info('sync_suite_tone_task: sync success')
-    return True
-
 
 def sync_suite_desc_tone_task():
     for tmp_suite_obj in SuiteData.objects.all():
@@ -156,3 +160,14 @@ def sync_suite_desc_tone_task():
             tmp_case_name = tmp_case_obj.name
             CaseData.objects.filter(name=tmp_case_name, suite_id=tmp_suite_obj.id).update(description=description)
     return True
+
+
+def sync_case_info_by_tone_command():
+    script = BaseConfig.objects.filter(config_type='script', config_key='TONE_SYNC_CASE')
+    if not script.exists():
+        logger.warning('sync_case_info_by_toneagent: no sync case script!')
+        return False, 'no `TONE_SYNC_CASE` script'
+
+    res = subprocess.Popen(script, stdout=subprocess.PIPE, shell=True)
+    print(res)
+    return res

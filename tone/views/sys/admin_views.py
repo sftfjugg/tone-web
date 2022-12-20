@@ -4,12 +4,14 @@ from django.http import JsonResponse
 
 from initial.main import initialize_all
 from tone.models import User, RoleMember, Role, BaseConfig
+from tone.services.sys.sync_suite_task_servers import sync_case_info_by_tone_command, parse_toneagent_result, \
+    update_cases_to_db
 
 
 def migrate(request):
     result = os.system('python manage.py migrate')
     return JsonResponse({
-        'success': bool(result)
+        'success': not bool(result)
     })
 
 
@@ -44,8 +46,8 @@ def create_superuser(request):
 
     user = User.objects.create_user(
         username,
-        password=password
-        **{
+        password=password,
+        ** {
             'emp_id': str((User.objects.count() + 1)).zfill(6),
             'first_name': username,
             'last_name': username,
@@ -60,4 +62,18 @@ def create_superuser(request):
     return JsonResponse({
         'success': True,
         'msg': f'User({username}) created'
+    })
+
+
+def sync_cases(request):
+    success, data = sync_case_info_by_tone_command()
+    if not success:
+        return JsonResponse({
+            'success': False,
+            'msg': data
+        })
+    suite_type_map, suite_conf_list_map = parse_toneagent_result(data)
+    update_cases_to_db(suite_type_map, suite_conf_list_map)
+    return JsonResponse({
+        'success': True,
     })
