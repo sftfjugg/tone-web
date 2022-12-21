@@ -72,8 +72,9 @@ def sync_cases(request):
             'success': False,
             'msg': data
         })
-    suite_type_map, suite_conf_list_map = parse_toneagent_result(data)
-    update_cases_to_db(suite_type_map, suite_conf_list_map)
+    # suite_type_map, suite_conf_list_map = parse_toneagent_result(data)
+    # update_cases_to_db(suite_type_map, suite_conf_list_map)
     return JsonResponse({
         'success': True,
+        'data': data
     })

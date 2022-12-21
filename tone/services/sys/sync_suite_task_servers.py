@@ -163,11 +163,13 @@ def sync_suite_desc_tone_task():
 
 
 def sync_case_info_by_tone_command():
-    script = BaseConfig.objects.filter(config_type='script', config_key='TONE_SYNC_CASE')
-    if not script.exists():
+    script = BaseConfig.objects.filter(config_type='script', config_key='TONE_SYNC_CASE').first()
+    if not script:
         logger.warning('sync_case_info_by_toneagent: no sync case script!')
         return False, 'no `TONE_SYNC_CASE` script'
-
-    res = subprocess.Popen(script, stdout=subprocess.PIPE, shell=True)
-    print(res)
-    return res
+    sp = subprocess.Popen(script.config_value, stdout=subprocess.PIPE, shell=True, cwd='/tmp')
+    sp.wait()
+    if sp.returncode == 0:
+        result = sp.stdout.read().decode('utf-8')
+        return True, result
+    return False, sp.stderr.read().decode('utf-8')
