@@ -7,6 +7,7 @@ Author: Yfh
 from rest_framework import serializers
 
 from tone.core.common.serializers import CommonSerializer
+from tone.core.utils.common_utils import kernel_info_format
 from tone.models import TestTemplate, TestTmplCase, TestTmplSuite, TemplateTagRelation, JobTypeItem, \
     JobTypeItemRelation, JobTag
 from tone.models.job.job_models import JobType
@@ -74,7 +75,7 @@ class TestTemplateDetailSerializer(CommonSerializer):
     test_config = serializers.SerializerMethodField()
     template_name = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
-    kernel_info = serializers.JSONField()
+    kernel_info = serializers.SerializerMethodField()
     iclone_info = serializers.JSONField()
     rpm_info = serializers.JSONField()
     script_info = serializers.JSONField()
@@ -90,6 +91,10 @@ class TestTemplateDetailSerializer(CommonSerializer):
                   'product_id', 'baseline_id', 'iclone_info', 'kernel_info', 'need_reboot', 'rpm_info', 'script_info',
                   'monitor_info', 'cleanup_info', 'notice_info', 'console', 'kernel_version', 'env_info', 'tags',
                   'test_config', 'report_name', 'report_template_id', 'callback_api', 'baseline_job_id']
+
+    @staticmethod
+    def get_kernel_info(obj):
+        return kernel_info_format(obj.kernel_info)
 
     @staticmethod
     def get_creator_name(obj):

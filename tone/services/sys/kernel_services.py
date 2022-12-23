@@ -48,6 +48,7 @@ class KernelInfoService(CommonService):
         kernel_link = data.get('kernel_link')
         devel_link = data.get('devel_link')
         headers_link = data.get('headers_link')
+        kernel_packages = data.get('kernel_packages', [])
         release = data.get('release', True)
         enable = data.get('enable', True)
         creator = operator.id
@@ -59,6 +60,7 @@ class KernelInfoService(CommonService):
             kernel_link=kernel_link,
             devel_link=devel_link,
             headers_link=headers_link,
+            kernel_packages=kernel_packages,
             release=release,
             enable=enable,
             creator=creator,
@@ -102,11 +104,19 @@ class KernelInfoService(CommonService):
                         devel_link = kernel_link.replace('kernel', 'kernel-devel')
                         headers_link = kernel_link.replace('kernel', 'kernel-headers')
                         # 内核版本中不存在, 创建 / 存在， 更新
+                        kernel_packages = []
+                        if kernel_link:
+                            kernel_packages.append(kernel_link)
+                        if devel_link:
+                            kernel_packages.append(devel_link)
+                        if headers_link:
+                            kernel_packages.append(headers_link)
                         if not KernelInfo.objects.filter(version=kernel_version).exists():
                             kernel_info = KernelInfo.objects.create(version=kernel_version,
                                                                     kernel_link=kernel_link,
                                                                     devel_link=devel_link,
                                                                     headers_link=headers_link,
+                                                                    kernel_packages=kernel_packages,
                                                                     creator=creator,
                                                                     enable=True,
                                                                     release=False)
@@ -116,6 +126,7 @@ class KernelInfoService(CommonService):
                             KernelInfo.objects.filter(version=kernel_version).update(kernel_link=kernel_link,
                                                                                      devel_link=devel_link,
                                                                                      headers_link=headers_link,
+                                                                                     kernel_packages=kernel_packages,
                                                                                      update_user=creator,
                                                                                      enable=is_enable,
                                                                                      release=is_release)
