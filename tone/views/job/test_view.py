@@ -183,6 +183,22 @@ class JobTestPrepareView(CommonAPIView):
         return Response(response_data)
 
 
+class JobPrepareView(CommonAPIView):
+    service_class = JobTestPrepareService
+    permission_classes = []
+    order_by = ['gmt_created']
+
+    @method_decorator(views_catch_error)
+    def get(self, request):
+        """
+        获取JobTestProcess准备阶段数据，2022-12-15新增优化，用于替换JobTestPrepareView
+        """
+        job_id = request.GET.get('job_id')
+        test_job = TestJob.objects.filter(id=job_id).first()
+        response_data = self.get_response_only_for_data(self.service.get_test_prepare(test_job))
+        return Response(response_data)
+
+
 class JobTestProcessSuiteView(CommonAPIView):
     serializer_class = JobTestProcessSuiteSerializer
     queryset = TestJobSuite.objects.all()
