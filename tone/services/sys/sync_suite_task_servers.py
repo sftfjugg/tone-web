@@ -8,6 +8,8 @@ import time
 import urllib
 import urllib.request as urllib2
 
+import requests
+
 from tone import settings
 from tone.celery import app
 from tone.core.common import constant
@@ -172,4 +174,11 @@ def sync_case_info_by_tone_command():
     if sp.returncode == 0:
         result = sp.stdout.read().decode('utf-8')
         return True, result
-    return False, sp.stderr.read().decode('utf-8')
+    return False, sp.stderr.read().decode('utf-8') if sp.stderr else sp.returncode
+
+
+def sync_case_info_from_oss():
+    case_data_file = 'https://anolis-service-pub.oss-cn-zhangjiakou.aliyuncs.com/biz-resource/tone/case/case_data.txt'
+    res = requests.get(case_data_file)
+    case_data = res.text
+    return True, case_data
