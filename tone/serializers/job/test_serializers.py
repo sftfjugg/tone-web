@@ -18,6 +18,7 @@ from tone.core.common.info_map import get_result_map
 from tone.core.common.job_result_helper import calc_job_suite, calc_job_case, calc_job, get_job_case_server, \
     get_job_case_run_server
 from tone.core.common.serializers import CommonSerializer
+from tone.core.utils.common_utils import kernel_info_format
 from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestJob, JobType, Project, Product, TestJobCase, TestJobSuite, TestCase, TestSuite, \
     JobTagRelation, JobTag, TestStep, FuncResult, PerfResult, ResultFile, User, TestMetric, FuncBaselineDetail, \
@@ -89,7 +90,7 @@ class JobTestConfigSerializer(CommonSerializer):
     iclone_info = serializers.JSONField()
     env_info = serializers.JSONField()
     script_info = serializers.JSONField()
-    kernel_info = serializers.JSONField()
+    kernel_info = serializers.SerializerMethodField()
     build_pkg_info = serializers.JSONField()
     notice_info = serializers.JSONField()
     monitor_info = serializers.JSONField()
@@ -102,6 +103,10 @@ class JobTestConfigSerializer(CommonSerializer):
         fields = ['product_name', 'project_name', 'iclone_info', 'env_info', 'rpm_info', 'script_info', 'monitor_info',
                   'cleanup_info', 'notice_info', 'test_config', 'need_reboot', 'kernel_info', 'build_pkg_info',
                   'kernel_version', 'tags', 'report_name', 'report_template_id', 'callback_api', 'project_id']
+
+    @staticmethod
+    def get_kernel_info(obj):
+        return kernel_info_format(obj.kernel_info)
 
     @staticmethod
     def get_tags(obj):

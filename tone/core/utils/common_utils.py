@@ -89,3 +89,18 @@ def query_all_dict(sql, params=None):
             tMap = dict(zip(col_names, list))
             rowList.append(tMap)
         return rowList
+
+
+def kernel_info_format(kernel_info):
+    # 内核管理需求优化，内核包可扩展多个，故将原test_job.kernel_info转换为新数据结构
+    # 原数据结构：{"kernel": "a.rpm", "devel": "b.rpm", "headers": "c.rpm", "hotfix_install": true}
+    # 新数据结构：{"kernel_packages": ["a.rpm", "b.rpm", "c.rpm"], "hotfix_install": true}
+    if not kernel_info or kernel_info.get('kernel_packages'):
+        return kernel_info
+    new_kernel_info = {'kernel_packages': []}
+    for name,value in kernel_info.items():
+        if name in ['kernel', 'devel', 'headers']:
+            new_kernel_info['kernel_packages'].append(value)
+        else:
+            new_kernel_info[name] = value
+    return new_kernel_info

@@ -9,6 +9,7 @@ import json
 from rest_framework import serializers
 
 from tone.core.common.serializers import CommonSerializer
+from tone.core.utils.common_utils import kernel_info_format
 from tone.models import TestPlan, User, PlanStageRelation, PlanStagePrepareRelation, \
     PlanStageTestRelation, TestTemplate, PlanInstance, PlanInstanceStageRelation, PlanInstancePrepareRelation, \
     PlanInstanceTestRelation, TestJob, Baseline, Project, Product, BuildJob, ReportObjectRelation, Report, datetime, \
@@ -53,7 +54,7 @@ class TestPlanDetailSerializer(CommonSerializer):
     env_prep = serializers.SerializerMethodField()
     test_config = serializers.SerializerMethodField()
     build_pkg_info = serializers.JSONField()
-    kernel_info = serializers.JSONField()
+    kernel_info = serializers.SerializerMethodField()
     func_baseline = serializers.SerializerMethodField()
     func_baseline_name = serializers.SerializerMethodField()
     perf_baseline = serializers.SerializerMethodField()
@@ -81,6 +82,10 @@ class TestPlanDetailSerializer(CommonSerializer):
                   'auto_report', 'report_name', 'report_description', 'report_template_id', 'report_template_name',
                   'group_method', 'base_group', 'base_group_info', 'func_baseline_aliyun', 'func_baseline_aliyun_name',
                   'perf_baseline_aliyun', 'perf_baseline_aliyun_name', 'stage_id', 'scripts', 'creator']
+
+    @staticmethod
+    def get_kernel_info(obj):
+        return kernel_info_format(obj.kernel_info)
 
     @staticmethod
     def get_base_group_info(obj):
@@ -426,7 +431,7 @@ class PlanResultDetailSerializer(CommonSerializer):
     description = serializers.SerializerMethodField()
     project_name = serializers.SerializerMethodField()
     build_pkg_info = serializers.JSONField()
-    kernel_info = serializers.JSONField()
+    kernel_info = serializers.SerializerMethodField()
     start_time = serializers.SerializerMethodField()
     build_result = serializers.SerializerMethodField()
     state = serializers.SerializerMethodField()
@@ -443,6 +448,10 @@ class PlanResultDetailSerializer(CommonSerializer):
                   'env_info', 'description', 'note', 'project_name', 'build_result', 'plan_config_info', 'auto_report',
                   'report_name', 'report_description', 'report_template_id', 'report_li', 'report_template_name',
                   'group_method', 'base_group']
+
+    @staticmethod
+    def get_kernel_info(obj):
+        return kernel_info_format(obj.kernel_info)
 
     @staticmethod
     def get_report_li(obj):

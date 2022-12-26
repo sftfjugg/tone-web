@@ -266,3 +266,5 @@ class ErrorCode(object):
     GLOBAL_VARIABLES_ERROR = (1380, "全局变量填写不符合规范，请参考全局变量的使用规则")
 
     SYNC_SERVER_STATE_ERROR = (1381, "同步机器状态失败")
+
+    KERNELID_NOT_EXISTS = (1382, "kernel_id不存在！")
