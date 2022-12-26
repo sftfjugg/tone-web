@@ -493,8 +493,8 @@ class PerfBaselineService(CommonService):
                                                    test_case_id=case_id).first()
         job_case_id = test_job_case.id
         test_step_case = TestStep.objects.filter(job_id=job_id, job_case_id=job_case_id).first()
-        server_object_id = test_step_case.server
-        if server_object_id:
+        if test_step_case and test_step_case.server:
+            server_object_id = test_step_case.server
             if server_provider == "aligroup":
                 machine = TestServerSnapshot.objects.filter(id=server_object_id, query_scope='all').first()
                 if machine is not None:
