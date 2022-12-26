@@ -20,7 +20,7 @@ from tone.serializers.job.test_serializers import JobTestSerializer, JobTestSumm
     JobTestCaseResultSerializer, JobTestCaseVersionSerializer, JobTestCaseFileSerializer, \
     JobTestCasePerResultSerializer, JobTestPrepareSerializer, JobTestProcessSuiteSerializer, \
     JobTestProcessCaseSerializer, JobTestProcessMonitorSerializer, JobTestMachineFaultSerializer, \
-    CloudJobTestMachineFaultSerializer
+    CloudJobTestMachineFaultSerializer, TestJobStateSerializer
 from tone.services.job.test_services import JobTestService, JobTestConfigService, JobTestSummaryService, \
     JobTestResultService, JobTestConfResultService, JobTestCaseResultService, \
     JobTestCaseVersionService, JobTestCaseFileService, EditorNoteService, JobCollectionService, UpdateStateService, \
@@ -541,3 +541,15 @@ class MachineFaultView(CommonAPIView):
                                                    msg=exception_code.MACHINE_INFO_ERROR_514['msg'])
             response_data['data'] = []
             return Response(response_data)
+
+
+class JobStateView(CommonAPIView):
+    serializer_class = TestJobStateSerializer
+
+    def get(self, request):
+        job_id = request.GET.get('job_id')
+        test_job = TestJob.objects.filter(id=job_id).first()
+        response_data = self.get_response_only_for_data(
+            data=self.serializer_class(test_job, many=False).data
+        )
+        return Response(response_data)
