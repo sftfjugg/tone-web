@@ -12,9 +12,9 @@ from django.db import transaction
 from tone.core.utils.permission_manage import check_operator_permission
 from tone.models import Report, ReportItem, ReportItemConf, ReportItemMetric, ReportItemSubCase, ReportObjectRelation, \
     ReportItemSuite, TestJobCase, TestServerSnapshot, CloudServerSnapshot, PlanInstance, PlanInstanceTestRelation, \
-    PerfResult, FuncResult, TestMetric, TestJob, ReportDetail
+    PerfResult, FuncResult, TestMetric, ReportDetail, FuncBaselineDetail, PerfBaselineDetail
 from tone.core.common.job_result_helper import get_compare_result, get_func_compare_data
-from tone.core.handle.report_handle import save_report_detail, get_old_report
+from tone.core.handle.report_handle import save_report_detail, get_old_report, get_server_info
 from tone.core.common.services import CommonService
 from tone.models.report.test_report import ReportTemplate, ReportTmplItem, ReportTmplItemSuite
 from tone.services.plan.plan_services import random_choice_str
@@ -262,7 +262,7 @@ class ReportService(CommonService):
         if not operator:
             raise ReportException(ErrorCode.LOGIN_ERROR)
         name = data.get('name')
-        product_version = data.get('product_version')
+        product_version = data.get('product_version', '')
         project_id = data.get('project_id')
         test_background = data.get('test_background')
         test_method = data.get('test_method')
@@ -279,41 +279,26 @@ class ReportService(CommonService):
         plan_li = data.get('plan_li', list())
         assert name, ReportException(ErrorCode.NAME_NEED)
         assert ws_id, ReportException(ErrorCode.WS_NEED)
-        assert product_version, ReportException(ErrorCode.PRODUCT_VERSION_DUPLICATION)
+        # assert product_version, ReportException(ErrorCode.PRODUCT_VERSION_DUPLICATION)
         # assert project_id, ReportException(ErrorCode.PROJECT_ID_NEED)
         assert report_source, ReportException(ErrorCode.REPORT_SOURCE_NEED)
         assert test_env, ReportException(ErrorCode.TEST_ENV_NEED)
         assert tmpl_id, ReportException(ErrorCode.TEMPLATE_NEED)
         assert test_item, ReportException(ErrorCode.TEST_ITEM_NEED)
+        base_index = test_env.get('base_index', 0)
+        # test_env['base_group']['is_job'] = 1
+        if not test_env['base_group'].get('server_info'):
+            test_env['base_group']['server_info'] = list()
+        test_env['base_group'] = get_server_info(test_env['base_group'].get('tag'),
+                                                 test_env['base_group'].get('base_objs'))
+        count = len(test_env['base_group']['base_objs'])
+        compare_index = 0
+        for group in test_env['compare_groups']:
+            compare_group = get_server_info(group.get('tag'), group.get('base_objs'))
+            test_env['compare_groups'][compare_index] = compare_group
+            compare_index += 1
+        test_env['count'] = count
         with transaction.atomic():
-            base_index = test_env.get('base_index', 0)
-            test_env['base_group']['is_job'] = 1
-            if not test_env['base_group'].get('server_info'):
-                test_env['base_group']['server_info'] = list()
-            base_job_list = list()
-            server_provider = None
-            for base_obj in test_env['base_group']['base_objs']:
-                base_job_list.append(base_obj.get('obj_id'))
-                if not server_provider:
-                    test_job = TestJob.objects.filter(id=base_obj.get('obj_id')).first()
-                    if test_job:
-                        server_provider = test_job.server_provider
-            test_env['base_group']['server_info'] = self.package_server_li(base_job_list, server_provider)
-            count = len(test_env['base_group']['base_objs'])
-            for group in test_env['compare_groups']:
-                compare_job_list = list()
-                group['is_job'] = 1
-                if not group.get('server_info'):
-                    group['server_info'] = list()
-                for base_obj in group['base_objs']:
-                    if len(group['base_objs']) > count:
-                        count = len(group['base_objs'])
-                    compare_job_list.append(base_obj.get('obj_id'))
-                    compare_job = TestJob.objects.filter(id=base_obj.get('obj_id')).first()
-                    if compare_job:
-                        server_provider = compare_job.server_provider
-                group['server_info'] = self.package_server_li(compare_job_list, server_provider)
-            test_env['count'] = count
             report = Report.objects.create(name=name, product_version=product_version, project_id=project_id,
                                            ws_id=ws_id, test_method=test_method, test_conclusion=test_conclusion,
                                            report_source=report_source, test_env=test_env, description=description,
@@ -338,7 +323,7 @@ class ReportService(CommonService):
             if server_provider == 'aligroup' else CloudServerSnapshot.objects. \
             filter(job_id__in=job_list, distro__isnull=False).distinct()
         for snap_shot_obj in snap_shot_objs:
-            ip = snap_shot_obj.ip if server_provider == 'aligroup' else snap_shot_obj.pub_ip
+            ip = snap_shot_obj.ip if server_provider == 'aligroup' else snap_shot_obj.private_ip
             if ip in ip_list:
                 continue
             ip_list.append(ip)
@@ -366,7 +351,9 @@ class ReportService(CommonService):
             name = item.get('name')
             suite_list = item.get('suite_list', list())
             assert name, ReportException(ErrorCode.ITEM_NAME_NEED)
-            report_item = ReportItem.objects.create(name=name, report_id=report_id, test_type=test_type)
+            report_item = ReportItem.objects.filter(report_id=report_id).first()
+            if not report_item:
+                report_item = ReportItem.objects.create(name=name, report_id=report_id, test_type=test_type)
             report_item_id = report_item.id
             for suite in suite_list:
                 self.save_item_suite_v1(suite, report_item_id, test_type, base_index)
@@ -378,19 +365,10 @@ class ReportService(CommonService):
         conf_list = suite.get('conf_list', list())
         assert test_suite_id, ReportException(ErrorCode.TEST_SUITE_NEED)
         assert test_suite_name, ReportException(ErrorCode.TEST_SUITE_NAME_NEED)
-        if test_type == 'functional':
+        item_suite = ReportItemSuite.objects.filter(report_item_id=report_item_id, test_suite_id=test_suite_id).first()
+        if not item_suite:
             item_suite = ReportItemSuite.objects.create(report_item_id=report_item_id, test_suite_id=test_suite_id,
                                                         test_suite_name=test_suite_name, show_type=show_type)
-        else:
-            test_suite_description = suite.get('test_suite_description')
-            test_env = suite.get('test_env')
-            test_description = suite.get('test_description')
-            test_conclusion = suite.get('test_conclusion')
-            item_suite = ReportItemSuite.objects.create(report_item_id=report_item_id, test_suite_id=test_suite_id,
-                                                        test_suite_name=test_suite_name, show_type=show_type,
-                                                        test_suite_description=test_suite_description,
-                                                        test_env=test_env, test_description=test_description,
-                                                        test_conclusion=test_conclusion)
         item_suite_id = item_suite.id
         for conf in conf_list:
             self.save_item_conf_v1(conf, item_suite_id, test_suite_id, test_type, base_index)
@@ -403,19 +381,32 @@ class ReportService(CommonService):
         job_index = 0
         for compare_job in conf.get('job_list'):
             if test_type == 'functional':
-                func_results = FuncResult.objects. \
-                    filter(test_job_id=compare_job, test_suite_id=test_suite_id, test_case_id=test_conf_id)
-                compare_count = dict({
-                    'is_job': 1,
-                    'all_case': func_results.count(),
-                    'obj_id': compare_job,
-                    'success_case': func_results.filter(sub_case_result=1).count(),
-                    'fail_case': func_results.filter(sub_case_result=2).count(),
-                })
+                if compare_job.get('is_baseline', 0):
+                    func_results = FuncBaselineDetail.objects. \
+                        filter(baseline_id=compare_job.get('job_id'), test_suite_id=test_suite_id,
+                               test_case_id=test_conf_id)
+                    compare_count = dict({
+                        'is_job': 0,
+                        'all_case': func_results.count(),
+                        'obj_id': compare_job.get('job_id'),
+                        'success_case': 0,
+                        'fail_case': func_results.count(),
+                    })
+                else:
+                    func_results = FuncResult.objects. \
+                        filter(test_job_id=compare_job.get('job_id'), test_suite_id=test_suite_id,
+                               test_case_id=test_conf_id)
+                    compare_count = dict({
+                        'is_job': 1,
+                        'all_case': func_results.count(),
+                        'obj_id': compare_job.get('job_id'),
+                        'success_case': func_results.filter(sub_case_result=1).count(),
+                        'fail_case': func_results.filter(sub_case_result=2).count(),
+                    })
             else:
                 compare_count = dict({
-                    'is_job': 1,
-                    'obj_id': compare_job,
+                    'is_job': 0 if compare_job.get('is_baseline', 0) else 1,
+                    'obj_id': compare_job.get('job_id'),
                 })
             if job_index == base_index:
                 conf_source = compare_count
@@ -423,9 +414,11 @@ class ReportService(CommonService):
                 compare_conf_list.append(compare_count)
             job_index += 1
         compare_conf_list.insert(base_index, conf_source)
-        item_conf = ReportItemConf.objects.create(report_item_suite_id=item_suite_id, test_conf_id=test_conf_id,
-                                                  test_conf_name=test_conf_name, conf_source=conf_source,
-                                                  compare_conf_list=compare_conf_list)
+        item_conf = ReportItemConf.objects.filter(report_item_suite_id=item_suite_id, test_conf_id=test_conf_id).first()
+        if not item_conf:
+            item_conf = ReportItemConf.objects.create(report_item_suite_id=item_suite_id, test_conf_id=test_conf_id,
+                                                      test_conf_name=test_conf_name, conf_source=conf_source,
+                                                      compare_conf_list=compare_conf_list)
         item_conf_id = item_conf.id
         if test_type == 'functional':
             self.save_item_sub_case_v1(test_suite_id, test_conf_id, item_conf_id, conf.get('job_list'), base_index)
@@ -435,27 +428,48 @@ class ReportService(CommonService):
     @staticmethod
     def save_item_sub_case_v1(test_suite_id, test_conf_id, item_conf_id, job_list, base_index):
         base_job_id = job_list.pop(base_index)
-        func_results = FuncResult.objects. \
-            filter(test_job_id=base_job_id, test_suite_id=test_suite_id, test_case_id=test_conf_id). \
-            values_list('sub_case_name', 'sub_case_result')
+        base_is_baseline = base_job_id.get('is_baseline', 0)
+        if base_is_baseline:
+            func_results = FuncBaselineDetail.objects. \
+                filter(baseline_id=base_job_id.get('job_id'), test_suite_id=test_suite_id, test_case_id=test_conf_id). \
+                values_list('sub_case_name', flat=True)
+        else:
+            func_results = FuncResult.objects. \
+                filter(test_job_id=base_job_id.get('job_id'), test_suite_id=test_suite_id, test_case_id=test_conf_id). \
+                values_list('sub_case_name', 'sub_case_result')
         item_sub_case_list = list()
         for func_result in func_results:
             compare_data = get_func_compare_data(test_suite_id, test_conf_id, func_result[0], job_list)
-            compare_data.insert(base_index, FUNC_CASE_RESULT_TYPE_MAP.get(func_result[1]))
+            if base_is_baseline:
+                func_case_result = FUNC_CASE_RESULT_TYPE_MAP.get(2)
+                func_case_name = func_result
+            else:
+                func_case_name = func_result[0]
+                func_case_result = FUNC_CASE_RESULT_TYPE_MAP.get(func_result[1])
+            compare_data.insert(base_index, func_case_result)
             report_sub_case = ReportItemSubCase(
                 report_item_conf_id=item_conf_id,
-                sub_case_name=func_result[0],
-                result=FUNC_CASE_RESULT_TYPE_MAP.get(func_result[1]),
+                sub_case_name=func_case_name,
+                result=func_case_result,
                 compare_data=compare_data)
             item_sub_case_list.append(report_sub_case)
+        ReportItemSubCase.objects.filter(report_item_conf_id=item_conf_id).delete()
         ReportItemSubCase.objects.bulk_create(item_sub_case_list)
 
     @staticmethod
     def save_item_metric_v1(test_suite_id, test_conf_id, item_conf_id, job_list, base_index):
         base_job_id = job_list.pop(base_index)
-        perf_results = PerfResult.objects. \
-            filter(test_job_id=base_job_id, test_suite_id=test_suite_id, test_case_id=test_conf_id)
+        base_is_baseline = base_job_id.get('is_baseline', 0)
+        job_id = base_job_id.get('job_id')
+        if base_is_baseline:
+            perf_results = PerfBaselineDetail.objects.filter(baseline_id=job_id, test_suite_id=test_suite_id,
+                                                             test_case_id=test_conf_id)
+        else:
+            perf_results = PerfResult.objects.filter(test_job_id=job_id, test_suite_id=test_suite_id,
+                                                     test_case_id=test_conf_id)
         item_metric_list = list()
+        job_id_list = [job.get('job_id') for job in job_list if job.get('is_baseline', 0) == 0]
+        base_id_list = [job.get('job_id') for job in job_list if job.get('is_baseline', 0) == 1]
         for perf_result in perf_results:
             compare_data_list = list()
             if TestMetric.objects.filter(name=perf_result.metric, object_type='case', object_id=test_conf_id).exists():
@@ -467,42 +481,80 @@ class ReportService(CommonService):
                                                      object_id=test_suite_id)
             else:
                 continue
-            compare_data = PerfResult.objects. \
-                filter(test_job_id__in=job_list, metric=perf_result.metric, test_suite_id=test_suite_id,
-                       test_case_id=test_conf_id).distinct()
             test_value = round(float(perf_result.test_value), 2)
-            for job_id in job_list:
-                compare_metric = compare_data.filter(test_job_id=job_id).first()
-                if compare_metric:
-                    value = round(float(compare_metric.test_value), 2)
-                    cv_value = compare_metric.cv_value.split('±')[-1]
-                    compare_value, compare_result = get_compare_result(test_value, value, test_metric.direction,
-                                                                       test_metric.cmp_threshold, cv_value,
-                                                                       test_metric.cv_threshold)
-                    compare = dict({
-                        'test_value': round(float(compare_metric.test_value), 2),
-                        'cv_value': compare_metric.cv_value.split('±')[-1],
-                        'max_value': compare_metric.max_value,
-                        'min_value': compare_metric.min_value,
-                        'compare_value': compare_value,
-                        'compare_result': compare_result,
-                        'value_list': compare_metric.value_list
-                    })
-                    compare_data_list.append(compare)
-                else:
-                    compare_data_list.append(dict())
-            report_metric = ReportItemMetric(
-                report_item_conf_id=item_conf_id,
-                test_metric=perf_result.metric,
-                test_value=perf_result.test_value,
-                cv_value=perf_result.cv_value,
-                unit=perf_result.unit,
-                max_value=perf_result.max_value,
-                min_value=perf_result.min_value,
-                value_list=perf_result.value_list,
-                direction=test_metric.direction,
-                compare_data=compare_data_list)
-            item_metric_list.append(report_metric)
+            if len(job_id_list) > 0:
+                compare_data = PerfResult.objects. \
+                    filter(test_job_id__in=job_id_list, metric=perf_result.metric, test_suite_id=test_suite_id,
+                           test_case_id=test_conf_id).distinct()
+                for job_id in job_id_list:
+                    compare_metric = compare_data.filter(test_job_id=job_id).first()
+                    if compare_metric:
+                        value = round(float(compare_metric.test_value), 2)
+                        cv_value = compare_metric.cv_value.split('±')[-1]
+                        compare_value, compare_result = get_compare_result(test_value, value, test_metric.direction,
+                                                                           test_metric.cmp_threshold, cv_value,
+                                                                           test_metric.cv_threshold)
+                        compare = dict({
+                            'test_value': round(float(compare_metric.test_value), 2),
+                            'cv_value': compare_metric.cv_value.split('±')[-1],
+                            'max_value': compare_metric.max_value,
+                            'min_value': compare_metric.min_value,
+                            'compare_value': compare_value,
+                            'compare_result': compare_result,
+                            'value_list': compare_metric.value_list
+                        })
+                        compare_data_list.append(compare)
+                    else:
+                        compare_data_list.append(dict())
+                report_metric = ReportItemMetric(
+                    report_item_conf_id=item_conf_id,
+                    test_metric=perf_result.metric,
+                    test_value=perf_result.test_value,
+                    cv_value=perf_result.cv_value,
+                    unit=perf_result.unit,
+                    max_value=perf_result.max_value,
+                    min_value=perf_result.min_value,
+                    value_list=perf_result.value_list,
+                    direction=test_metric.direction,
+                    compare_data=compare_data_list)
+                item_metric_list.append(report_metric)
+            if len(base_id_list) > 0:
+                compare_data = PerfBaselineDetail.objects. \
+                    filter(baseline_id__in=base_id_list, metric=perf_result.metric, test_suite_id=test_suite_id,
+                           test_case_id=test_conf_id).distinct()
+                for job_id in base_id_list:
+                    compare_metric = compare_data.filter(baseline_id=job_id).first()
+                    if compare_metric:
+                        value = round(float(compare_metric.test_value), 2)
+                        cv_value = compare_metric.cv_value.split('±')[-1]
+                        compare_value, compare_result = get_compare_result(test_value, value, test_metric.direction,
+                                                                           test_metric.cmp_threshold, cv_value,
+                                                                           test_metric.cv_threshold)
+                        compare = dict({
+                            'test_value': round(float(compare_metric.test_value), 2),
+                            'cv_value': compare_metric.cv_value.split('±')[-1],
+                            'max_value': compare_metric.max_value,
+                            'min_value': compare_metric.min_value,
+                            'compare_value': compare_value,
+                            'compare_result': compare_result,
+                            'value_list': compare_metric.value_list
+                        })
+                        compare_data_list.append(compare)
+                    else:
+                        compare_data_list.append(dict())
+                report_metric = ReportItemMetric(
+                    report_item_conf_id=item_conf_id,
+                    test_metric=perf_result.metric,
+                    test_value=perf_result.test_value,
+                    cv_value=perf_result.cv_value,
+                    unit=perf_result.unit,
+                    max_value=perf_result.max_value,
+                    min_value=perf_result.min_value,
+                    value_list=perf_result.value_list,
+                    direction=test_metric.direction,
+                    compare_data=compare_data_list)
+                item_metric_list.append(report_metric)
+        ReportItemMetric.objects.filter(report_item_conf_id=item_conf_id).delete()
         ReportItemMetric.objects.bulk_create(item_metric_list)
 
     def save_test_item(self, data, report_id, test_type, job_li, plan_li):
@@ -522,6 +574,7 @@ class ReportService(CommonService):
         conf_list = suite.get('conf_list', list())
         assert test_suite_id, ReportException(ErrorCode.TEST_SUITE_NEED)
         assert test_suite_name, ReportException(ErrorCode.TEST_SUITE_NAME_NEED)
+        # assert conf_list, ReportException(ErrorCode.CONF_LIST)
         if test_type == 'functional':
             item_suite = ReportItemSuite.objects.create(report_item_id=report_item_id, test_suite_id=test_suite_id,
                                                         test_suite_name=test_suite_name, show_type=show_type)
@@ -556,7 +609,7 @@ class ReportService(CommonService):
                 else:
                     snapshot = CloudServerSnapshot.objects.filter(id=test_job_case.server_object_id).first()
                     if snapshot:
-                        ip = snapshot.pub_ip
+                        ip = snapshot.private_ip
             test_env.append(ip)
         return test_env
 
@@ -617,13 +670,12 @@ class ReportService(CommonService):
         test_item = data.get('test_item', None)
         with transaction.atomic():
             if test_item:
-                ReportItem.objects.filter(report_id=report_id).delete()
                 perf_data = test_item.get('perf_data', list())
                 func_data = test_item.get('func_data', list())
                 self.save_test_item_v1(perf_data, report_id, 'performance', base_index)
                 self.save_test_item_v1(func_data, report_id, 'functional', base_index)
             report.save()
-            save_report_detail(report_id, base_index, get_old_report(report), report.is_automatic)
+        save_report_detail(report_id, base_index, get_old_report(report), report.is_automatic)
 
     @staticmethod
     def delete(data, operator):
@@ -673,6 +725,14 @@ class ReportService(CommonService):
             if test_conclusion:
                 report_item_suite.test_conclusion = test_conclusion
             report_item_suite.save()
+            report_item = ReportItem.objects.filter(id=report_item_suite.report_item_id).first()
+            if report_item:
+                report = Report.objects.filter(id=report_item.report_id).first()
+                if report:
+                    base_index = 0
+                    if report.test_env:
+                        base_index = report.test_env.get('base_index', 0)
+                    save_report_detail(report.id, base_index, get_old_report(report), report.is_automatic)
 
     @staticmethod
     def update_report_desc(data):
