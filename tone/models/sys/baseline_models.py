@@ -1,7 +1,9 @@
+from datetime import datetime
 from django.db import models
 from django_extensions.db.fields import json
 
 from tone.models import BaseModel
+from django.forms.models import model_to_dict
 
 
 class Baseline(BaseModel):
@@ -27,6 +29,12 @@ class Baseline(BaseModel):
 
     class Meta:
         db_table = 'baseline'
+
+    def to_dict(self):
+        job_dict = model_to_dict(self)
+        job_dict['gmt_modified'] = datetime.strftime(self.gmt_modified, "%Y-%m-%d %H:%M:%S")
+        job_dict['gmt_created'] = datetime.strftime(self.gmt_created, "%Y-%m-%d %H:%M:%S")
+        return job_dict
 
 
 class FuncBaselineDetail(BaseModel):
