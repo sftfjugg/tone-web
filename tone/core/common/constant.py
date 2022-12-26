@@ -390,6 +390,10 @@ class MonitorType:
     CUSTOM_MACHINE = 'custom_machine'
 
 
+SERVER_REAL_STATE_RETURN_MAP = {'Available': 'Online', 'Broken': 'Offline'}
+SERVER_REAL_STATE_PUT_MAP = {'Online': 'Available', 'Offline': 'Broken'}
+# 机器“心跳状态”由数据库存储的实际状态的Available改成Online；Broken改成Offline
+
 # 提示信息中需要前端增加超链接的文字
 LINK_INFO_LIST = ["T-One开发"]
 
