@@ -789,7 +789,7 @@ class OutSiteMsgHandle(object):
         if ding_to:
             for tmp_token in ding_to.replace('\n', ',').split(','):
                 tmp_token = tmp_token.strip()
-                if len(tmp_token) == 64:
+                if len(tmp_token) >= 64:
                     check_ding.append(tmp_token)
         return ','.join(check_ding)
 
