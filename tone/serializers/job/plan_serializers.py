@@ -280,11 +280,13 @@ class PlanViewSerializer(CommonSerializer):
     success_count = serializers.SerializerMethodField()
     fail_count = serializers.SerializerMethodField()
     next_time = serializers.SerializerMethodField()
+    last_time = serializers.SerializerMethodField()
     job_total = serializers.SerializerMethodField()
 
     class Meta:
         model = TestPlan
-        fields = ['id', 'name', 'trigger_count', 'success_count', 'fail_count', 'next_time', 'description', 'job_total']
+        fields = ['id', 'name', 'trigger_count', 'success_count', 'fail_count', 'next_time', 'last_time',
+                  'description', 'job_total']
 
     @staticmethod
     def get_job_total(obj):
@@ -300,6 +302,13 @@ class PlanViewSerializer(CommonSerializer):
         if next_time is not None:
             next_time = next_time.strftime('%Y-%m-%d %H:%M:%S').split('+')[0]
         return next_time
+
+    @staticmethod
+    def get_last_time(obj):
+        last_time = PlanService().get_plan_last_time(obj.id)
+        if last_time is not None:
+            last_time = last_time.strftime('%Y-%m-%d %H:%M:%S').split('+')[0]
+        return last_time
 
     @staticmethod
     def get_trigger_count(obj):
