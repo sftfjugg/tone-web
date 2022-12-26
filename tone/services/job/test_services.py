@@ -277,7 +277,7 @@ class JobTestService(CommonService):
             'creator_name': creator_name,
             'project_name': self.get_expect_name(Project, project_name_map, project_id),
             'product_name': self.get_expect_name(Product, product_name_map, product_id),
-            'server': self.get_job_server(test_server_shot, clould_server_shot, server_provider, job_id),
+            'server': self.get_job_server(server_provider, job_id),
             'collection': True if job_id in collect_job_set else False,
             'report_li': self.get_report_li(report_obj, job_id, create_name_map)
         })
@@ -305,16 +305,14 @@ class JobTestService(CommonService):
         return state
 
     @staticmethod
-    def get_job_server(test_server_shot, clould_server_shot, server_provider, job_id):
+    def get_job_server(server_provider, job_id):
         server = None
         if server_provider == 'aligroup':
-            server_list = list(filter(lambda x: x.job_id == job_id, test_server_shot))
-            if len(server_list) == 1:
-                server = server_list[0].ip
+            if TestServerSnapshot.objects.filter(job_id=job_id).count() == 1:
+                server = TestServerSnapshot.objects.get(job_id=job_id).ip
         else:
-            server_list = list(filter(lambda x: x.job_id == job_id, clould_server_shot))
-            if len(server_list) == 1:
-                server = server_list[0].private_ip
+            if CloudServerSnapshot.objects.filter(job_id=job_id).count() == 1:
+                server = CloudServerSnapshot.objects.get(job_id=job_id).pub_ip
         return server
 
     def get_report_li(self, report_obj, job_id, create_name_map):
