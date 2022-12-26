@@ -105,15 +105,15 @@ class CompareConfInfoService(CommonService):
         test_case_data = dict()
         if is_baseline:
             raw_sql = 'SELECT distinct a.test_case_id,b.name AS conf_name FROM func_baseline_detail a ' \
-                      'LEFT JOIN test_case b ON a.test_suite_id = b.test_suite_id WHERE a.is_deleted=0 AND ' \
+                      'LEFT JOIN test_case b ON a.test_case_id= b.id WHERE a.is_deleted=0 AND ' \
                       'b.is_deleted=0 and a.test_suite_id=%s AND a.baseline_id IN (' + job_id_list + ') UNION ' \
                       'SELECT distinct a.test_case_id,b.name AS conf_name FROM perf_baseline_detail a ' \
-                      'LEFT JOIN test_case b ON a.test_suite_id = b.test_suite_id WHERE a.is_deleted=0 AND ' \
+                      'LEFT JOIN test_case b ON a.test_case_id= b.id WHERE a.is_deleted=0 AND ' \
                       'b.is_deleted=0 and a.test_suite_id=%s AND a.baseline_id IN (' + job_id_list + ')'
             all_test_cases = query_all_dict(raw_sql.replace('\'', ''), [suite_id, suite_id])
         else:
             raw_sql = 'SELECT distinct a.test_case_id,b.name AS conf_name FROM test_job_case a ' \
-                      'LEFT JOIN test_case b ON a.test_suite_id = b.test_suite_id WHERE a.is_deleted=0 AND ' \
+                      'LEFT JOIN test_case b ON a.test_case_id= b.id WHERE a.is_deleted=0 AND ' \
                       'b.is_deleted=0 and a.test_suite_id=%s AND a.job_id IN (' + job_id_list + ')'
             all_test_cases = query_all_dict(raw_sql.replace('\'', ''), [suite_id])
         for job_case in all_test_cases:
