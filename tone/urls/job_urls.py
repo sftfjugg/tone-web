@@ -25,6 +25,7 @@ urlpatterns = [
     path('test/case/file/', test_view.JobTestCaseFileView.as_view(), name='case_file'),
     path('test/config/', test_view.JobTestConfigView.as_view(), name='job_test_config'),
     path('test/process/build/', test_view.JobTestBuildView.as_view(), name='job_test_build_package'),
+    path('test/process/test_prepare/', test_view.JobPrepareView.as_view(), name='job_test_process_prepare'),
     path('test/process/prepare/', test_view.JobTestPrepareView.as_view(), name='job_test_process_prepare'),
     path('test/process/suite/', test_view.JobTestProcessSuiteView.as_view(), name='job_test_process_suite'),
     path('test/process/case/', test_view.JobTestProcessCaseView.as_view(), name='job_test_process_case'),
