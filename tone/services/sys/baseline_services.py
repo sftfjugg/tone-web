@@ -704,7 +704,7 @@ class PerfBaselineService(CommonService):
         perf_detail = PerfBaselineDetail.objects.filter(baseline_id=baseline_id, test_suite_id=suite_id,
                                                         test_case_id=case_id, metric=perf_result.metric)
         # 重复详情不再加入
-        if not perf_detail.first():
+        if not perf_detail.exists():
             perf_baseline_detail_obj = PerfBaselineDetail(
                 baseline_id=baseline_id,
                 test_job_id=job_id,
@@ -732,7 +732,7 @@ class PerfBaselineService(CommonService):
                 perf_result.save()
             return perf_baseline_detail_obj
         else:
-            PerfBaselineDetail.objects.filter(id=perf_detail.first().id).update(
+            PerfBaselineDetail.objects.filter(id=perf_detail[0].id).update(
                 baseline_id=baseline_id,
                 test_job_id=job_id,
                 test_suite_id=suite_id,
