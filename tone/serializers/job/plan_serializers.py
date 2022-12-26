@@ -19,24 +19,16 @@ from tone.services.plan.plan_services import PlanService
 
 class TestPlanSerializer(CommonSerializer):
     creator_name = serializers.SerializerMethodField()
-    next_time = serializers.SerializerMethodField()
     cron_info = serializers.SerializerMethodField()
 
     class Meta:
         model = TestPlan
-        fields = ['id', 'name', 'cron_info', 'enable', 'creator', 'creator_name', 'gmt_created', 'next_time']
+        fields = ['id', 'name', 'cron_info', 'enable', 'creator', 'creator_name', 'gmt_created', 'gmt_modified']
 
     @staticmethod
     def get_cron_info(obj):
         if obj.cron_schedule:
             return obj.cron_info
-
-    @staticmethod
-    def get_next_time(obj):
-        next_time = PlanService().get_plan_next_time(obj.id)
-        if next_time is not None:
-            next_time = next_time.strftime('%Y-%m-%d %H:%M:%S').split('+')[0]
-        return next_time
 
     @staticmethod
     def get_creator_name(obj):
