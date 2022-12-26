@@ -6,6 +6,7 @@ import re
 from django.http import JsonResponse
 from django.utils.deprecation import MiddlewareMixin
 
+from tone import settings
 from tone.core.common.permission_config_info import SYS_PERMISSION_CONFIG, WS_PERMISSION_CONFIG, VALID_URL_LIST, \
     RE_PERMISSION_CONFIG
 from tone.core.utils.config_parser import get_config_from_db
@@ -165,6 +166,17 @@ class ValidPermission(MiddlewareMixin):
     def process_request(self, request):
         """权限校验中间件"""
         current_path = request.path_info  # 当前访问路径
+        token = request.GET.get('token')
+        response_401 = JsonResponse(
+            status=401,
+            data={'code': 401, 'msg': '没有权限，请联系统管理员'}
+        )
+        if 'admin/' in current_path:
+            if settings.ALLOW_ACCESS_ADMIN_URLS and settings.ADMIN_URLS_TOKEN \
+                    and token == settings.ADMIN_URLS_TOKEN:
+                return
+            else:
+                return response_401
         # 检查是否属于白名单
         if self.check_white_list(current_path):
             return None
@@ -175,7 +187,6 @@ class ValidPermission(MiddlewareMixin):
         # success, user_info = ucenter_service.get_authorized_user(request.COOKIES.get('_oc_ut'))
         # current_user = ucenter_service.get_user_obj   _by_user_info(success, user_info, request)
 
-        response_401 = JsonResponse(status=401, data={'code': 401, 'msg': '没有权限，请联系统管理员'})
         current_method = request.method
         if request.user is None or request.user.id is None:
             # 游客
