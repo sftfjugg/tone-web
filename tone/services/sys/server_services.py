@@ -339,6 +339,13 @@ class TestServerService(CommonService):
                                         run_mode='standalone',
                                         server_object_id=pk).update(server_object_id=None)
             TestServer.objects.filter(id=pk).delete()
+            # 调用接口，将机器从toneagent系统移除
+            try:
+                server = test_server.first()
+                remove_server_from_toneagent(server.ip, server.tsn)
+            except Exception as e:
+                error_logger.error(f'remove server from toneagent failed!server:'
+                                   f'{server.ip}, error:{str(e)}')
             operation_li = list()
             log_data = {
                 'creator': user_id,
