@@ -15,9 +15,7 @@ from django.db import transaction
 
 from tone.core.common.job_result_helper import get_server_ip_sn
 from tone.core.handle.report_handle import ReportHandle
-from tone.core.schedule.schedule_handle import ScheduleHandle
 from tone.core.schedule.schedule_job import TestPlanScheduleJob
-from tone.core.schedule.single_scheduler import scheduler
 from tone.core.utils.common_utils import pack_env_infos
 from tone.core.utils.permission_manage import check_operator_permission
 from tone.models import TestPlan, PlanStageRelation, PlanStagePrepareRelation, PlanStageTestRelation, datetime, \
@@ -565,6 +563,7 @@ class PlanService(CommonService):
         return schedule_job_id
 
     def get_plan_next_time(self, plan_id):
+        from tone.core.schedule.single_scheduler import scheduler
         next_time = None
         schedule_job_id = self.get_schedule_job_id(plan_id)
         if schedule_job_id is not None:
@@ -626,6 +625,7 @@ class PlanScheduleService(object):
 
     @staticmethod
     def add_plan_to_schedule(plan_id):
+        from tone.core.schedule.schedule_handle import ScheduleHandle
         plan = TestPlan.objects.filter(id=plan_id, cron_schedule=True)
         if not plan.exists():
             logger.info('no plan, so can not add to schedule. plan_id:{}'.format(plan_id))
@@ -634,12 +634,15 @@ class PlanScheduleService(object):
 
     @staticmethod
     def stop_schedule(plan_id):
+        from tone.core.schedule.schedule_handle import ScheduleHandle
         ScheduleHandle.pause_job(obj_id=str(plan_id))
 
     @staticmethod
     def resume_schedule(plan_id):
+        from tone.core.schedule.schedule_handle import ScheduleHandle
         ScheduleHandle.resume_job(obj_id=str(plan_id))
 
     @staticmethod
     def remove_schedule(plan_id):
+        from tone.core.schedule.schedule_handle import ScheduleHandle
         ScheduleHandle.remove_job(obj_id=str(plan_id))
