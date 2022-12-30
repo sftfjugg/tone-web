@@ -571,9 +571,10 @@ class JobTestPrepareService(CommonService):
                             last_step.stage) if last_step.state == 'running' else 'done',
                         'state': last_step.state,
                         'result': get_result_map("test_prepare",
-                                                 last_step.state.result) if last_step.state == 'running' else "",
+                                                 last_step.result) if last_step.state == 'running' else "",
                         'gmt_created': datetime.strftime(step_cluster.first().gmt_created, "%Y-%m-%d %H:%M:%S"),
-                        'gmt_modified': datetime.strftime(step_end.gmt_modified, "%Y-%m-%d %H:%M:%S"),
+                        'gmt_modified': datetime.strftime(step_end.gmt_modified, "%Y-%m-%d %H:%M:%S"
+                                                          ) if step_end and step_end.gmt_modified else "",
                         'server_list': JobPrepareInfo.get_server_dict(cluster_steps, provider)
                         }
                 date_list.append(date)
@@ -593,10 +594,11 @@ class JobTestPrepareService(CommonService):
                                 last_step.stage) if last_step.state == 'running' else 'done',
                             'state': last_step.state,
                             'result': get_result_map("test_prepare",
-                                                     last_step.state.result) if last_step.state == 'running' else "",
+                                                     last_step.result) if last_step.state == 'running' else "",
                             'gmt_created': datetime.strftime(step_server_order.first().gmt_created,
                                                              "%Y-%m-%d %H:%M:%S"),
-                            'gmt_modified': datetime.strftime(step_end.gmt_modified, "%Y-%m-%d %H:%M:%S"),
+                            'gmt_modified': datetime.strftime(step_end.gmt_modified, "%Y-%m-%d %H:%M:%S"
+                                                              ) if step_end and step_end.gmt_modified else "",
                             'server_list': [JobPrepareInfo.get_server_step_info(provider, step) for step in
                                             server_steps]
                             }
@@ -1376,7 +1378,7 @@ class JobPrepareInfo:
         if provider == 'aligroup':
             server = TestServerSnapshot.objects.get(id=server_id).ip
         else:
-            server = CloudServerSnapshot.objects.get(id=server_id).pub_ip
+            server = CloudServerSnapshot.objects.get(id=server_id).private_ip
         return server
 
     @staticmethod
