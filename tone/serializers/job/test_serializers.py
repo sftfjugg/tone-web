@@ -1096,3 +1096,15 @@ class CloudJobTestMachineFaultSerializer(CommonSerializer):
     class Meta:
         model = CloudServer
         fields = ['pub_ip', 'sn', 'channel_type', 'state', 'real_state']
+
+
+class TestJobStateSerializer(CommonSerializer):
+    job_state = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TestJob
+        fields = ['job_state']
+
+    @staticmethod
+    def get_job_state(obj):
+        return JobTestSummarySerializer.get_state(obj)
