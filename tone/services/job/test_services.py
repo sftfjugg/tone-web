@@ -31,7 +31,7 @@ from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.custom_error import JobTestException
 from tone.serializers.job.test_serializers import get_time
 from tone.settings import cp
-from tone.core.common.redis_cache import redis_cache_6
+from tone.core.common.redis_cache import runner_redis_cache
 
 
 logger = logging.getLogger()
@@ -940,10 +940,10 @@ def release_server(test_job_id):
         TestCluster.objects.filter(q).update(is_occpuied=0, occupied_job_id=None)
     # 3.清除redis数据
     try:
-        using_server = redis_cache_6.hgetall('tone-runner-using_server')
+        using_server = runner_redis_cache.hgetall('tone-runner-using_server')
         for key in using_server:
             if using_server[key] == str(test_job_id):
-                redis_cache_6.hdel('tone-runner-using_server', key)
+                runner_redis_cache.hdel('tone-runner-using_server', key)
     except Exception as e:
         logger.warning(f'release server from redis error: {e}')
 
