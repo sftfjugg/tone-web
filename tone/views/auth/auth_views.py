@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from tone.core.common.views import CommonAPIView
-from tone.models import User, Role, WorkspaceMember, Workspace, RoleMember
+from tone.models import User, Role, WorkspaceMember, Workspace, RoleMember, WorkspaceAccessHistory
 from tone.schemas.auth.auth_schemas import UserSchema
 from tone.serializers.auth.auth_serializers import UserSerializer, RoleSerializer, UserDetailSerializer, \
     PersonalUserSerializer, UserWorkspaceSerializer, UserApproveSerializer, WsAdminSerializer, TaskMsgSerializer, \
@@ -141,8 +141,9 @@ class HomeUserView(CommonAPIView):
         user_info = self.service.get_user_info(request.GET, operator=request.user.id)
         response_data['data'].update(user_info)
         if request.GET.get('ws_id'):
-            first_entry = self.service.get_first_entry(request.GET.get('ws_id'))
-            response_data['data'].update({'first_entry': first_entry})
+            response_data['data'].update(
+                {'first_entry': WorkspaceAccessHistory.objects.filter(ws_id=request.GET.get('ws_id')).exists()}
+            )
         return Response(response_data)
 
 
