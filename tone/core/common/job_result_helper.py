@@ -341,14 +341,14 @@ def get_job_case_run_server(job_case_id, return_field='ip'):
     elif run_mode == 'cluster' and server_provider == 'aligroup':
         test_step = TestStep.objects.filter(job_case_id=job_case_id, stage='run_case')
         if test_step.exists():
-            server_snapshot_id = TestStep.objects.get(job_case_id=job_case_id, stage='run_case').server
+            server_snapshot_id = TestStep.objects.filter(job_case_id=job_case_id, stage='run_case').first().server
             server = TestServerSnapshot.objects.filter(id=server_snapshot_id)
             if server.exists():
                 return __get_server_value(server, server_provider, return_field)
     elif run_mode == 'cluster' and server_provider == 'aliyun':
         test_step = TestStep.objects.filter(job_case_id=job_case_id, stage='run_case')
         if test_step.exists():
-            server_snapshot_id = TestStep.objects.get(job_case_id=job_case_id, stage='run_case').server
+            server_snapshot_id = TestStep.objects.filter(job_case_id=job_case_id, stage='run_case').first().server
             server = CloudServerSnapshot.objects.filter(id=server_snapshot_id)
             if server.exists():
                 return __get_server_value(server, server_provider, return_field)
