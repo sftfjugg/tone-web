@@ -158,8 +158,9 @@ def conversion_data(data):  # noqa: C901
                 kernel_info['kernel_packages'].append(kernel_info_obj.headers_link)
             data['kernel_info'] = kernel_info
     else:
-        data['kernel_version'] = None
         data['kernel_info'] = kernel_info_format(data.get('kernel_info', dict()))
+        if data['kernel_info']:
+            data['kernel_version'] = None
 
 
 def get_template(template, ws_id):
