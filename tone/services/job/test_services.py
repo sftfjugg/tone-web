@@ -972,11 +972,10 @@ class UpdateStateService(CommonService):
                 id=test_job_conf_id, state__in=['running', 'pending']
         ).exists():
             raise JobTestException(ErrorCode.SKIP_CASE_ERROR)
-        with transaction.atomic():
-            TestJobCase.objects.filter(
-                id=test_job_conf_id, state__in=['pending', 'running']
-            ).update(state=state)
-            TestJobCase.objects.filter(id=test_job_conf_id).update(note=operation_note)
+        TestJobCase.objects.filter(
+            id=test_job_conf_id, state__in=['pending', 'running']
+        ).update(state=state)
+        TestJobCase.objects.filter(id=test_job_conf_id).update(note=operation_note)
 
 
 def release_server(test_job_id):
