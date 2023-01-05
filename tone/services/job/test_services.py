@@ -12,6 +12,7 @@ from datetime import datetime
 import yaml
 from django.db.models import Q
 from django.db import transaction, connection
+from itertools import chain
 
 from tone.core.common.callback import CallBackType, JobCallBack
 from tone.core.common.enums.job_enums import JobCaseState, JobState
@@ -25,7 +26,8 @@ from tone.core.utils.verify_tools import check_contains_chinese
 from tone.models import TestJob, TestJobCase, TestJobSuite, JobCollection, TestServerSnapshot, CloudServerSnapshot, \
     PerfResult, TestServer, CloudServer, BaseConfig, TestClusterSnapshot
 from tone.models import JobType, User, FuncResult, Baseline, BuildJob, Project, Product, ReportObjectRelation, \
-    Report, MonitorInfo, Workspace, TestSuite, TestCase, ServerTag, ReportTemplate, TestCluster, TestStep
+    Report, MonitorInfo, Workspace, TestSuite, TestCase, ServerTag, ReportTemplate, TestCluster, TestStep, \
+    PlanInstanceTestRelation
 from tone.models.sys.config_models import JobTagRelation, JobTag
 from tone.core.handle.job_handle import JobDataHandle
 from tone.core.common.expection_handler.error_code import ErrorCode
@@ -284,9 +286,9 @@ class JobTestService(CommonService):
             'creator_name': creator_name,
             'project_name': self.get_expect_name(Project, project_name_map, project_id),
             'product_name': self.get_expect_name(Product, product_name_map, product_id),
-            'server': self.get_job_server(test_server_shot, clould_server_shot, server_provider, job_id),
+            'server': self.get_job_server(server_provider, job_id),
             'collection': True if job_id in collect_job_set else False,
-            'report_li': self.get_report_li(report_obj, job_id, create_name_map)
+            'report_li': self.get_report_li(job_id, create_name_map)
         })
 
     def get_job_state(self, fun_result, test_job_case, test_job_id, test_type, state, func_view_config):
@@ -312,30 +314,34 @@ class JobTestService(CommonService):
         return state
 
     @staticmethod
-    def get_job_server(test_server_shot, clould_server_shot, server_provider, job_id):
+    def get_job_server(server_provider, job_id):
         server = None
         if server_provider == 'aligroup':
-            server_list = list(filter(lambda x: x.job_id == job_id, test_server_shot))
-            if len(server_list) == 1:
-                server = server_list[0].ip
+            if TestServerSnapshot.objects.filter(job_id=job_id).count() == 1:
+                server = TestServerSnapshot.objects.get(job_id=job_id).ip
         else:
-            server_list = list(filter(lambda x: x.job_id == job_id, clould_server_shot))
-            if len(server_list) == 1:
-                server = server_list[0].private_ip
+            if CloudServerSnapshot.objects.filter(job_id=job_id).count() == 1:
+                server = CloudServerSnapshot.objects.get(job_id=job_id).pub_ip
         return server
 
-    def get_report_li(self, report_obj, job_id, create_name_map):
-        report_li = []
-        report_relation_list = list(filter(lambda x: x.object_id == job_id and x.object_type == 'job', report_obj))
-        if report_relation_list:
-            report_queryset = Report.objects.filter(id__in=[report.report_id for report in report_relation_list])
-            report_li = [{
-                'id': report.id,
-                'name': report.name,
-                'creator': report.creator,
-                'creator_name': self.get_expect_name(User, create_name_map, report.creator),
-                'gmt_created': datetime.strftime(report.gmt_created, "%Y-%m-%d %H:%M:%S"),
-            } for report in report_queryset]
+    def get_report_li(self, job_id, create_name_map):
+        report_id_list = ReportObjectRelation.objects.filter(object_type='job', object_id=job_id).values_list(
+            'report_id', flat=True)
+        plan_relation = PlanInstanceTestRelation.objects.filter(job_id=job_id)
+        if plan_relation.exists():
+            plan_report_id_li = ReportObjectRelation.objects.filter(object_type='plan_instance',
+                                                                    object_id=plan_relation[0].plan_instance_id). \
+                values_list('report_id', flat=True)
+            if len(plan_report_id_li) > 0:
+                report_id_list = chain(report_id_list, plan_report_id_li)
+        report_queryset = Report.objects.filter(id__in=report_id_list)
+        report_li = [{
+            'id': report.id,
+            'name': report.name,
+            'creator': report.creator,
+            'creator_name': self.get_expect_name(User, create_name_map, report.creator),
+            'gmt_created': datetime.strftime(report.gmt_created, "%Y-%m-%d %H:%M:%S"),
+        } for report in report_queryset]
         return report_li
 
     @staticmethod

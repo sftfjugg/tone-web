@@ -108,7 +108,7 @@ class CompareFormView(CommonAPIView):
         获取WorkSpace下TestTemplate
         """
         queryset = self.service.filter(self.get_queryset(), request.GET)
-        response_data = self.get_response_data(queryset[0], many=False)
+        response_data = self.get_response_only_for_data(queryset)
         return Response(response_data)
 
     @method_decorator(views_catch_error)
