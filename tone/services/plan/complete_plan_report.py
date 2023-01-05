@@ -278,7 +278,7 @@ def handler_stage_group(plan_instance, plan_inst_id):  # noqa: C901
         'perf_data': perf_data
     }
     data = {
-        # 'job_li': job_li,
+        'job_li': job_li,
         'name': before_name,
         'product_version': product_version,
         'project_id': project_id,
@@ -505,7 +505,7 @@ def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
         'perf_data': perf_data
     }
     data = {
-        # 'job_li': job_li,
+        'job_li': job_list,
         'name': before_name,
         'product_version': product_version,
         'project_id': project_id,
@@ -705,7 +705,7 @@ def handle_no_group(plan_instance, plan_inst_id):  # noqa: C901
         'perf_data': perf_data
     }
     data = {
-        # 'job_li': job_li,
+        'job_li': job_list,
         'name': before_name,
         'product_version': product_version,
         'project_id': project_id,
@@ -805,8 +805,9 @@ def get_perf_item(perf_group, perf_data_result, job_data, custom=False):
                         job_data[tmp_job]['increase'] += tmp_count_data.get('increase', 0)
                         job_data[tmp_job]['decline'] += tmp_count_data.get('decline', 0)
                         job_data[tmp_job]['all'] += tmp_count_data.get('all', 0)
-                    job_list = comp_jobs
-                    job_list.append(tmp_conf_info.get('obj_id'))
+                    job_list = [{'is_baseline': 0, 'job_id': compare_data.get('obj_id')}
+                                for compare_data in compare_conf_list]
+                    job_list.append({'is_baseline': 0, 'job_id': tmp_conf_info.get('obj_id')})
                     tmp_conf_list.append({
                         'conf_id': conf_id,
                         'conf_name': conf_name,
@@ -855,7 +856,7 @@ def get_func_item(func_group, func_data_result, job_data, custom=False):
                         'success_case': tmp_conf_info.get('success_case', 0),
                         'is_job': 1,
                     }
-                    job_list.append(tmp_conf_info.get('obj_id'))
+                    job_list.append({'is_baseline': 0, 'job_id': tmp_conf_info.get('obj_id')})
                     if job_data.get(tmp_conf_info.get('obj_id')):
                         job_data[tmp_conf_info.get('obj_id')]['success'] += \
                             int(tmp_conf_info.get('success_case', 0))
@@ -874,7 +875,7 @@ def get_func_item(func_group, func_data_result, job_data, custom=False):
                         }
                     compare_conf_list = tmp_conf_info.get('conf_compare_data')
                     for compare_conf_data in compare_conf_list:
-                        job_list.append(compare_conf_data.get('obj_id'))
+                        job_list.append({'is_baseline': 0, 'job_id': compare_conf_data.get('obj_id')})
                         if job_data.get(compare_conf_data.get('obj_id')):
                             job_data[compare_conf_data.get('obj_id')]['success'] += \
                                 int(compare_conf_data.get('success_case', 0))
