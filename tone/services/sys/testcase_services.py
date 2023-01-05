@@ -770,10 +770,26 @@ class TestMetricService(CommonService):
     @staticmethod
     def delete(data, pk):
         TestMetric.objects.filter(id=pk).delete()
-        if data.get('object_type') == 'suite' and data.get('is_sync'):
+        if data.get('object_type') == 'suite' and data.get('is_sync') == 1:
             test_case = TestCase.objects.filter(test_suite_id=data.get('object_id'))
             for case in test_case:
                 TestMetric.objects.filter(name=data.get('name'), object_type='case', object_id=case.id).delete()
+
+    @staticmethod
+    def batch_delete(data):
+        if data.get('object_type') == 'suite' and data.get('is_sync') == 1:
+            suite_metric = TestMetric.objects.filter(id__in=data.get('id_list'))
+            metric_name_list = list()
+            for metric in suite_metric:
+                metric_name_list.append(metric.name)
+            test_case = TestCase.objects.filter(test_suite_id=data.get('object_id'))
+            case_id_list = list()
+            for case in test_case:
+                case_id_list.append(case.id)
+            TestMetric.objects.filter(name__in=metric_name_list, object_type='case',
+                                      object_id__in=case_id_list).delete()
+        else:
+            TestMetric.objects.filter(id__in=data.get('id_list')).delete()
 
     @staticmethod
     def get_metric_list(data):
