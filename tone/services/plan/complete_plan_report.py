@@ -2,7 +2,7 @@ import itertools
 import logging
 from tone.celery import app
 from tone.models import PlanInstance, PlanInstanceTestRelation, TestJob, ReportTemplate, Project, \
-    ReportObjectRelation, datetime, ReportTmplItem, ReportTmplItemSuite, PlanInstanceStageRelation, Report
+    ReportObjectRelation, datetime, ReportTmplItem, ReportTmplItemSuite, PlanInstanceStageRelation
 
 from tone.services.job.result_compare_services import CompareEnvInfoService, \
     CompareSuiteInfoOldService, CompareListOldService
@@ -278,7 +278,7 @@ def handler_stage_group(plan_instance, plan_inst_id):  # noqa: C901
         'perf_data': perf_data
     }
     data = {
-        # 'job_li': job_li,
+        'job_li': job_li,
         'name': before_name,
         'product_version': product_version,
         'project_id': project_id,
@@ -435,7 +435,6 @@ def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
     test_env = CompareEnvInfoService().get_env_info(base_group, compare_groups)
     # 模板名称
     ws_id = plan_instance.ws_id
-    job_li = func_job_list
     report_source = 'plan'
     default_tmpl_id = ReportTemplate.objects.filter(ws_id=ws_id, name='默认模板', query_scope='all').first().id
     name = plan_instance.report_name
@@ -468,8 +467,6 @@ def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
     custom = '-'
     test_background = '-'
     test_method = '-'
-    if not job_data:
-        return
     # 测试结论
     test_conclusion = {
         'custom': custom,
@@ -508,7 +505,7 @@ def handle_job_group(plan_instance, plan_inst_id):  # noqa: C901
         'perf_data': perf_data
     }
     data = {
-        # 'job_li': job_li,
+        'job_li': job_list,
         'name': before_name,
         'product_version': product_version,
         'project_id': project_id,
@@ -670,8 +667,6 @@ def handle_no_group(plan_instance, plan_inst_id):  # noqa: C901
     custom = '-'
     test_background = '-'
     test_method = '-'
-    if not job_data:
-        return
     # 测试结论
     test_conclusion = {
         'custom': custom,
@@ -710,7 +705,7 @@ def handle_no_group(plan_instance, plan_inst_id):  # noqa: C901
         'perf_data': perf_data
     }
     data = {
-        # 'job_li': job_li,
+        'job_li': job_list,
         'name': before_name,
         'product_version': product_version,
         'project_id': project_id,
@@ -810,8 +805,9 @@ def get_perf_item(perf_group, perf_data_result, job_data, custom=False):
                         job_data[tmp_job]['increase'] += tmp_count_data.get('increase', 0)
                         job_data[tmp_job]['decline'] += tmp_count_data.get('decline', 0)
                         job_data[tmp_job]['all'] += tmp_count_data.get('all', 0)
-                    job_list = comp_jobs
-                    job_list.append(tmp_conf_info.get('obj_id'))
+                    job_list = [{'is_baseline': 0, 'job_id': compare_data.get('obj_id')}
+                                for compare_data in compare_conf_list]
+                    job_list.append({'is_baseline': 0, 'job_id': tmp_conf_info.get('obj_id')})
                     tmp_conf_list.append({
                         'conf_id': conf_id,
                         'conf_name': conf_name,
@@ -860,7 +856,7 @@ def get_func_item(func_group, func_data_result, job_data, custom=False):
                         'success_case': tmp_conf_info.get('success_case', 0),
                         'is_job': 1,
                     }
-                    job_list.append(tmp_conf_info.get('obj_id'))
+                    job_list.append({'is_baseline': 0, 'job_id': tmp_conf_info.get('obj_id')})
                     if job_data.get(tmp_conf_info.get('obj_id')):
                         job_data[tmp_conf_info.get('obj_id')]['success'] += \
                             int(tmp_conf_info.get('success_case', 0))
@@ -879,7 +875,7 @@ def get_func_item(func_group, func_data_result, job_data, custom=False):
                         }
                     compare_conf_list = tmp_conf_info.get('conf_compare_data')
                     for compare_conf_data in compare_conf_list:
-                        job_list.append(compare_conf_data.get('obj_id'))
+                        job_list.append({'is_baseline': 0, 'job_id': compare_conf_data.get('obj_id')})
                         if job_data.get(compare_conf_data.get('obj_id')):
                             job_data[compare_conf_data.get('obj_id')]['success'] += \
                                 int(compare_conf_data.get('success_case', 0))

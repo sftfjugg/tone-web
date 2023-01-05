@@ -9,6 +9,7 @@ import random
 import string
 from datetime import datetime
 
+from tone.core.utils.common_utils import kernel_info_format
 from tone.core.utils.verify_tools import check_ip
 from tone.models import Project, TestJob, JobType, TestTemplate, TestTmplCase, TestTmplSuite, \
     TemplateTagRelation, JobTagRelation, TestJobCase, TestJobSuite, TestServerSnapshot, CloudServerSnapshot, \
@@ -114,15 +115,7 @@ class JobDataHandle(BaseHandle):
             kernel_info = self.data.get('kernel_info')
             if not kernel_info:
                 kernel_info = template_obj.kernel_info
-            else:
-                if not kernel_info.get('kernel'):
-                    kernel_info['kernel'] = template_obj.kernel_info.get('kernel')
-                if not kernel_info.get('devel'):
-                    kernel_info['devel'] = template_obj.kernel_info.get('devel')
-                if not kernel_info.get('headers'):
-                    kernel_info['headers'] = template_obj.kernel_info.get('headers')
-                if not kernel_info.get('scripts') or len(kernel_info.get('scripts')) == 0:
-                    kernel_info['scripts'] = template_obj.kernel_info.get('scripts')
+            kernel_info = kernel_info_format(kernel_info)
             self.data_dic['kernel_info'] = kernel_info
             self.data_dic['build_pkg_info'] = self.data.get('build_pkg_info', template_obj.build_pkg_info)
             self.data_dic['script_info'] = self.data.get('script_info', template_obj.script_info)
@@ -147,8 +140,8 @@ class JobDataHandle(BaseHandle):
                                                                          subject=self.data.get('notice_subject', None))
                 else:
                     self.data_dic['notice_info'] = template_obj.notice_info
-            self.data_dic['kernel_version'] = self.data_dic['show_kernel_version'] = \
-                self.data.get('kernel_version', template_obj.kernel_version)
+            self.data_dic['kernel_version'] = self.data_dic['show_kernel_version'] = self.data.get('kernel_version',
+                                                                                                   template_obj.kernel_version)
             if api:
                 template_env = copy.deepcopy(template_obj.env_info)
                 template_env.update(self.pack_env_info(self.data.get('env_info')))

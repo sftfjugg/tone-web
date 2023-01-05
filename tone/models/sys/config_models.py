@@ -1,4 +1,5 @@
 from django.db import models
+from django_extensions.db.fields import json
 
 from tone.models import BaseModel
 
@@ -88,6 +89,7 @@ class KernelInfo(BaseModel):
     creator = models.IntegerField()
     update_user = models.IntegerField(null=True, blank=True)
     description = models.CharField(max_length=512, null=True, blank=True)
+    kernel_packages = json.JSONField(default=dict(), help_text='扩展包')
 
     class Meta:
         db_table = 'kernel_info'

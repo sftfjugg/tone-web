@@ -2,6 +2,7 @@ import logging
 
 from django.db import transaction, connection, connections
 
+from tone.core.utils.schedule_lock import lock_run_task
 from tone.core.common.redis_cache import redis_cache
 from tone.models import TestPlan, PlanInstance, PlanStageRelation, PlanStageTestRelation, PlanStagePrepareRelation, \
     PlanInstanceStageRelation, PlanInstanceTestRelation, PlanInstancePrepareRelation, BLOCKING_STATEGY_CHOICES, \
@@ -142,6 +143,7 @@ def close_old_connections():
         conn.close_if_unusable_or_obsolete()
 
 
+@lock_run_task(60 * 5, 'auto_job_report')
 def auto_job_report():
     close_old_connections()
     test_job_id = 0
@@ -157,6 +159,7 @@ def auto_job_report():
         logger.info(f'auto_job_report error. ex is {ex}')
 
 
+@lock_run_task(60 * 10, 'auto_plan_report')
 def auto_plan_report():
     close_old_connections()
     plan_instances = PlanInstance.objects.\
@@ -168,4 +171,5 @@ def auto_plan_report():
             logger.info(f'auto_plan_report finish. plan_instance.id:{plan_instance.id}')
         except Exception as ex:
             logger.info(f'auto_plan_report error. ex is {ex}')
+            PlanInstance.objects.filter(id=plan_instance.id).update(report_is_saved=1)
     logger.info(f'auto_plan_report end now ...........')

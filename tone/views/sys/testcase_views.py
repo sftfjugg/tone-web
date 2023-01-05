@@ -332,6 +332,11 @@ class TestMetricDetailView(CommonAPIView):
         response_data = self.get_response_code()
         return Response(response_data)
 
+    def post(self, request):
+        self.service.batch_delete(request.data)
+        response_data = self.get_response_code()
+        return Response(response_data)
+
 
 class WorkspaceCaseView(CommonAPIView):
     serializer_class = WorkspaceCaseRelationSerializer

@@ -12,26 +12,29 @@ from datetime import datetime
 import yaml
 from django.db.models import Q
 from django.db import transaction, connection
+from itertools import chain
 
 from tone.core.common.callback import CallBackType, JobCallBack
 from tone.core.common.enums.job_enums import JobCaseState, JobState
 from tone.core.common.enums.ts_enums import TestServerState
+from tone.core.common.info_map import get_result_map
 from tone.core.common.services import CommonService
-from tone.core.common.constant import MonitorType, PERFORMANCE
+from tone.core.common.constant import MonitorType, PERFORMANCE, PREPARE_STEP_STAGE_MAP
 from tone.core.utils.permission_manage import check_operator_permission
 from tone.core.utils.tone_thread import ToneThread
 from tone.core.utils.verify_tools import check_contains_chinese
 from tone.models import TestJob, TestJobCase, TestJobSuite, JobCollection, TestServerSnapshot, CloudServerSnapshot, \
-    PerfResult, TestServer, CloudServer, BaseConfig
+    PerfResult, TestServer, CloudServer, BaseConfig, TestClusterSnapshot
 from tone.models import JobType, User, FuncResult, Baseline, BuildJob, Project, Product, ReportObjectRelation, \
-    Report, MonitorInfo, Workspace, TestSuite, TestCase, ServerTag, ReportTemplate, TestCluster, TestStep
+    Report, MonitorInfo, Workspace, TestSuite, TestCase, ServerTag, ReportTemplate, TestCluster, TestStep, \
+    PlanInstanceTestRelation
 from tone.models.sys.config_models import JobTagRelation, JobTag
 from tone.core.handle.job_handle import JobDataHandle
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.custom_error import JobTestException
-from tone.serializers.job.test_serializers import get_time
+from tone.serializers.job.test_serializers import get_time, get_check_server_ip
 from tone.settings import cp
-from tone.core.common.redis_cache import redis_cache_6
+from tone.core.common.redis_cache import runner_redis_cache
 
 
 logger = logging.getLogger()
@@ -89,6 +92,7 @@ class JobTestService(CommonService):
         create_name_map = {}
         project_name_map = {}
         product_name_map = {}
+        pass_test_type = ""
         test_type_map = {
             'functional': '功能测试',
             'performance': '性能测试',
@@ -116,7 +120,10 @@ class JobTestService(CommonService):
                     job_id = 0
             query_sql.append('AND id="{}"'.format(job_id))
         if data.get('state'):
-            state_list = data.get('state').split(',')
+            input_state_list = data.get('state').split(',')
+            if 'pass' in input_state_list:
+                pass_test_type = 'functional'
+            state_list = ['success' if state == 'pass' else state for state in input_state_list]
             if 'pending' in state_list:
                 state_list.append('pending_q')
             if len(state_list) == 1:
@@ -186,7 +193,10 @@ class JobTestService(CommonService):
         if data.get('creators'):
             creators = json.loads(data.get('creators'))
             query_sql.append('AND creator IN ({})'.format(','.join(str(creator) for creator in creators)))
-        filter_fields = ['project_id', 'job_type_id', 'product_id', 'server_provider', 'test_type', 'product_version',
+        if data.get('test_type') or pass_test_type:
+            test_type = data.get('test_type') if data.get('test_type') else pass_test_type
+            query_sql.append('AND test_type="{}"'.format(test_type))
+        filter_fields = ['project_id', 'job_type_id', 'product_id', 'server_provider', 'product_version',
                          'ws_id']
         for filter_field in filter_fields:
             if data.get(filter_field):
@@ -276,9 +286,9 @@ class JobTestService(CommonService):
             'creator_name': creator_name,
             'project_name': self.get_expect_name(Project, project_name_map, project_id),
             'product_name': self.get_expect_name(Product, product_name_map, product_id),
-            'server': self.get_job_server(test_server_shot, clould_server_shot, server_provider, job_id),
+            'server': self.get_job_server(server_provider, job_id),
             'collection': True if job_id in collect_job_set else False,
-            'report_li': self.get_report_li(report_obj, job_id, create_name_map)
+            'report_li': self.get_report_li(job_id, create_name_map)
         })
 
     def get_job_state(self, fun_result, test_job_case, test_job_id, test_type, state, func_view_config):
@@ -304,30 +314,34 @@ class JobTestService(CommonService):
         return state
 
     @staticmethod
-    def get_job_server(test_server_shot, clould_server_shot, server_provider, job_id):
+    def get_job_server(server_provider, job_id):
         server = None
         if server_provider == 'aligroup':
-            server_list = list(filter(lambda x: x.job_id == job_id, test_server_shot))
-            if len(server_list) == 1:
-                server = server_list[0].ip
+            if TestServerSnapshot.objects.filter(job_id=job_id).count() == 1:
+                server = TestServerSnapshot.objects.get(job_id=job_id).ip
         else:
-            server_list = list(filter(lambda x: x.job_id == job_id, clould_server_shot))
-            if len(server_list) == 1:
-                server = server_list[0].private_ip
+            if CloudServerSnapshot.objects.filter(job_id=job_id).count() == 1:
+                server = CloudServerSnapshot.objects.get(job_id=job_id).pub_ip
         return server
 
-    def get_report_li(self, report_obj, job_id, create_name_map):
-        report_li = []
-        report_relation_list = list(filter(lambda x: x.object_id == job_id and x.object_type == 'job', report_obj))
-        if report_relation_list:
-            report_queryset = Report.objects.filter(id__in=[report.report_id for report in report_relation_list])
-            report_li = [{
-                'id': report.id,
-                'name': report.name,
-                'creator': report.creator,
-                'creator_name': self.get_expect_name(User, create_name_map, report.creator),
-                'gmt_created': datetime.strftime(report.gmt_created, "%Y-%m-%d %H:%M:%S"),
-            } for report in report_queryset]
+    def get_report_li(self, job_id, create_name_map):
+        report_id_list = ReportObjectRelation.objects.filter(object_type='job', object_id=job_id).values_list(
+            'report_id', flat=True)
+        plan_relation = PlanInstanceTestRelation.objects.filter(job_id=job_id)
+        if plan_relation.exists():
+            plan_report_id_li = ReportObjectRelation.objects.filter(object_type='plan_instance',
+                                                                    object_id=plan_relation[0].plan_instance_id). \
+                values_list('report_id', flat=True)
+            if len(plan_report_id_li) > 0:
+                report_id_list = chain(report_id_list, plan_report_id_li)
+        report_queryset = Report.objects.filter(id__in=report_id_list)
+        report_li = [{
+            'id': report.id,
+            'name': report.name,
+            'creator': report.creator,
+            'creator_name': self.get_expect_name(User, create_name_map, report.creator),
+            'gmt_created': datetime.strftime(report.gmt_created, "%Y-%m-%d %H:%M:%S"),
+        } for report in report_queryset]
         return report_li
 
     @staticmethod
@@ -548,6 +562,61 @@ class JobTestPrepareService(CommonService):
                             'end_time': str(build_job.gmt_modified).split('.')[0],
                         })
         return code, build_pkg_info
+
+    @staticmethod
+    def get_test_prepare(obj):
+        date_list = []
+        if not obj:
+            return date_list
+        steps = TestStep.objects.filter(job_id=obj.id, stage__in=PREPARE_STEP_STAGE_MAP.keys())
+        cluster_id_list = steps.values_list('cluster_id', flat=True).distinct()
+        provider = obj.server_provider
+        for cluster_id in cluster_id_list:
+            cluster_steps = steps.filter(cluster_id=cluster_id)
+            if cluster_id:
+                cluster_name = JobPrepareInfo.get_cluster_name_for_test_cluster_snapshot_id(cluster_id)
+                step_cluster = cluster_steps.order_by('gmt_created')
+                last_step = step_cluster.last()
+                step_end = cluster_steps.filter(state__in=['success', 'fail', 'stop']).order_by('-gmt_modified').first()
+                date = {'server_type': 'cluster',
+                        'server': cluster_name,
+                        'stage': PREPARE_STEP_STAGE_MAP.get(
+                            last_step.stage) if last_step.state == 'running' else 'done',
+                        'state': last_step.state,
+                        'result': get_result_map("test_prepare",
+                                                 last_step.result) if last_step.state == 'running' else "",
+                        'gmt_created': datetime.strftime(step_cluster.first().gmt_created, "%Y-%m-%d %H:%M:%S"),
+                        'gmt_modified': datetime.strftime(step_end.gmt_modified, "%Y-%m-%d %H:%M:%S"
+                                                          ) if step_end and step_end.gmt_modified else "",
+                        'server_list': JobPrepareInfo.get_server_dict(cluster_steps, provider)
+                        }
+                date_list.append(date)
+            else:
+                server_id_list = cluster_steps.values_list('server', flat=True).distinct()
+                for server_id in server_id_list:
+                    server_steps = cluster_steps.filter(server=server_id)
+                    server = JobPrepareInfo.get_server_ip_for_snapshot_id(provider, server_id)
+                    step_server_order = server_steps.order_by('gmt_created')
+                    last_step = step_server_order.last()
+                    step_end = server_steps.filter(state__in=['success', 'fail', 'stop']).order_by(
+                        '-gmt_modified').first()
+                    date = {'server_type': 'standalone',
+                            'server': server,
+                            'server_id': int(server_id),
+                            'stage': PREPARE_STEP_STAGE_MAP.get(
+                                last_step.stage) if last_step.state == 'running' else 'done',
+                            'state': last_step.state,
+                            'result': get_result_map("test_prepare",
+                                                     last_step.result) if last_step.state == 'running' else "",
+                            'gmt_created': datetime.strftime(step_server_order.first().gmt_created,
+                                                             "%Y-%m-%d %H:%M:%S"),
+                            'gmt_modified': datetime.strftime(step_end.gmt_modified, "%Y-%m-%d %H:%M:%S"
+                                                              ) if step_end and step_end.gmt_modified else "",
+                            'server_list': [JobPrepareInfo.get_server_step_info(provider, step) for step in
+                                            server_steps]
+                            }
+                    date_list.append(date)
+        return date_list
 
 
 class JobTestProcessSuiteService(CommonService):
@@ -918,11 +987,10 @@ class UpdateStateService(CommonService):
                 id=test_job_conf_id, state__in=['running', 'pending']
         ).exists():
             raise JobTestException(ErrorCode.SKIP_CASE_ERROR)
-        with transaction.atomic():
-            TestJobCase.objects.filter(
-                id=test_job_conf_id, state__in=['pending', 'running']
-            ).update(state=state)
-            TestJobCase.objects.filter(id=test_job_conf_id).update(note=operation_note)
+        TestJobCase.objects.filter(
+            id=test_job_conf_id, state__in=['pending', 'running']
+        ).update(state=state)
+        TestJobCase.objects.filter(id=test_job_conf_id).update(note=operation_note)
 
 
 def release_server(test_job_id):
@@ -940,10 +1008,10 @@ def release_server(test_job_id):
         TestCluster.objects.filter(q).update(is_occpuied=0, occupied_job_id=None)
     # 3.清除redis数据
     try:
-        using_server = redis_cache_6.hgetall('tone-runner-using_server')
+        using_server = runner_redis_cache.hgetall('tone-runner-using_server')
         for key in using_server:
             if using_server[key] == str(test_job_id):
-                redis_cache_6.hdel('tone-runner-using_server', key)
+                runner_redis_cache.hdel('tone-runner-using_server', key)
     except Exception as e:
         logger.warning(f'release server from redis error: {e}')
 
@@ -1314,3 +1382,54 @@ def package_server_list(job):
             })
             ip_li.append(ip)
     return server_li
+
+
+class JobPrepareInfo:
+    @staticmethod
+    def get_server_ip_for_snapshot_id(provider, server_id):
+        if provider == 'aligroup':
+            server = TestServerSnapshot.objects.get(id=server_id).ip
+        else:
+            server = CloudServerSnapshot.objects.get(id=server_id).private_ip
+        return server
+
+    @staticmethod
+    def get_server_step_info(provider, step):
+        return {
+            'stage': PREPARE_STEP_STAGE_MAP.get(step.stage),
+            'state': step.state,
+            'result': get_result_map("test_prepare", step.result),
+            'tid': step.tid,
+            'log_file': step.log_file,
+            'server_id': int(step.server) if step.server.isdigit() else None,
+            'server_description': get_check_server_ip(step.server, provider,
+                                                      return_field='description') if step.server.isdigit() else "",
+            'gmt_created': datetime.strftime(step.gmt_created, "%Y-%m-%d %H:%M:%S"),
+            'gmt_modified': datetime.strftime(step.gmt_modified, "%Y-%m-%d %H:%M:%S")
+        }
+
+    @staticmethod
+    def get_cluster_name_for_test_cluster_snapshot_id(test_step_cluster_id):
+        test_cluster_snapshot = TestClusterSnapshot.objects.filter(id=test_step_cluster_id).first()
+        cluster_name = ""
+        if test_cluster_snapshot:
+            source_cluster_id = test_cluster_snapshot.source_cluster_id
+            test_cluster = TestCluster.objects.filter(id=source_cluster_id).first()
+            if test_cluster:
+                cluster_name = test_cluster.name
+                if not cluster_name:
+                    cluster_name = TestCluster.objects.filter(id=test_cluster_snapshot,
+                                                              query_scope='deleted').first().name
+        return cluster_name
+
+    @staticmethod
+    def get_server_dict(cluster_steps, provider):
+        server_dict = {}
+        server_id_list = cluster_steps.values_list('server', flat=True).distinct()
+        for server_id in server_id_list:
+            server_steps = cluster_steps.filter(server=server_id)
+            server = JobPrepareInfo.get_server_ip_for_snapshot_id(provider, server_id)
+            server_dict[server] = []
+            for step in server_steps:
+                server_dict[server].append(JobPrepareInfo.get_server_step_info(provider, step))
+        return server_dict

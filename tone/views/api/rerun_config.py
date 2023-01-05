@@ -4,6 +4,7 @@ Module Description:
 Date:
 Author: Yfh
 """
+from tone.core.utils.common_utils import kernel_info_format
 from tone.models import TestJob, TestJobSuite, TestJobCase, JobTagRelation, JobTag, TestServerSnapshot
 from tone.core.utils.helper import CommResp
 from tone.core.common.expection_handler.error_catch import api_catch_error
@@ -25,6 +26,7 @@ def config_query(request):
     job_config = job.to_dict()
     job_config['baseline'] = job_config.get('baseline_id')
     job_config['baseline_job_id'] = job_config.get('baseline_job_id')
+    job_config['kernel_info'] = kernel_info_format(job_config['kernel_info'])
     suite_config = list()
     tag_config = [tag.tag_id for tag in JobTagRelation.objects.filter(job_id=job_id) if
                   JobTag.objects.filter(id=tag.tag_id, source_tag='custom_tag').exists()]

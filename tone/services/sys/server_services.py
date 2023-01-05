@@ -9,6 +9,7 @@ import requests
 from django.db.models import Q
 
 from tone import settings
+from tone.core.common.constant import SERVER_REAL_STATE_PUT_MAP
 from tone.core.common.info_map import get_result_map
 from tone.core.common.services import CommonService
 from tone.core.common.toneagent import server_check, remove_server_from_toneagent, deploy_agent_by_ecs_assistant, \
@@ -107,9 +108,20 @@ class TestServerService(CommonService):
                                            Q(first_name__icontains=data.get('owner'))).values_list('id', flat=True)
                 q &= Q(owner__in=user)
             flag = True
-        for item in ['state', 'real_state', 'channel_type', 'device_type']:
+        if data.get('channel_type'):
+            channel_type_list = data.get('channel_type').split(',')
+            q &= Q(channel_type__in=channel_type_list)
+            flag = True
+        if data.get('device_type'):
+            device_type_list = data.get('device_type').split(',')
+            q &= Q(device_type__in=device_type_list)
+            flag = True
+        for item in ['state', 'real_state']:
             if data.get(item):
-                q &= Q(**{'{}__in'.format(item): data.getlist(item)})
+                search_list = data.getlist(item)
+                if item == 'real_state':
+                    search_list = [SERVER_REAL_STATE_PUT_MAP.get(i) for i in data.getlist(item)]
+                q &= Q(**{'{}__in'.format(item): search_list})
                 flag = True
         tags = data.getlist('tags')
         if len(tags) == 1 and tags != ['']:
@@ -339,6 +351,13 @@ class TestServerService(CommonService):
                                         run_mode='standalone',
                                         server_object_id=pk).update(server_object_id=None)
             TestServer.objects.filter(id=pk).delete()
+            # 调用接口，将机器从toneagent系统移除
+            try:
+                server = test_server.first()
+                remove_server_from_toneagent(server.ip, server.tsn)
+            except Exception as e:
+                error_logger.error(f'remove server from toneagent failed!server:'
+                                   f'{server.ip}, error:{str(e)}')
             operation_li = list()
             log_data = {
                 'creator': user_id,
@@ -561,7 +580,10 @@ class CloudServerService(CommonService):
             q &= Q(ws_id=data.get('ws_id'))
         for item in ['state', 'real_state']:
             if data.get(item):
-                q &= Q(**{'{}__in'.format(item): data.getlist(item)})
+                state_list = data.getlist(item)
+                if item == 'real_state':
+                    state_list = [SERVER_REAL_STATE_PUT_MAP.get(i) for i in data.getlist(item)]
+                q &= Q(**{'{}__in'.format(item): state_list})
         if data.get('release_rule'):
             q &= Q(release_rule=data.get('release_rule'))
         if data.get('manufacturer_ak_name'):
@@ -1272,7 +1294,7 @@ class TestClusterService(CommonService):
                     TestServer.objects.filter(id__in=cluster_servers, in_pool=0).delete()
                 TestCluster.objects.filter(id=pk).delete()
                 server_ids = list(TestClusterServer.objects.filter(cluster_id=pk).values_list('server_id', flat=True))
-                CloudServer.objects.filter(id__in=server_ids).delete()
+                CloudServer.objects.filter(id__in=server_ids, in_pool=0).delete()
                 TestClusterServer.objects.filter(cluster_id=pk).delete()
                 operation(operation_li)
 
@@ -1532,7 +1554,14 @@ class TestClusterServerService(CommonService):
                     # 单机池机器仅修改占用状态
                     test_server.update(spec_use=0)
             else:
-                CloudServer.objects.filter(id=server.server_id).update(spec_use=0)
+                test_server = CloudServer.objects.filter(id=server.server_id)
+                test_server_obj = test_server.first()
+                if test_server_obj is not None and not test_server_obj.in_pool:
+                    if test_server_obj.state == 'Occupied':
+                        return False, '机器被占用'
+                    test_server.delete()
+                else:
+                    test_server.update(spec_use=0)
             with transaction.atomic():
                 operation_li = list()
                 log_data = {

@@ -524,10 +524,12 @@ class TestSuiteService(CommonService):
         suite.doc = suite_data.description
         suite.save()
         case_name_list = CaseData.objects.filter(suite_id=suite_data.id).values_list('name', flat=True)
+        exist_test_case_id_list = []
         for case_name in case_name_list:
             short_name = '-'.join([item.split('=')[-1] for item in case_name.split(',')])
             cases = TestCase.objects.filter(test_suite_id=suite_id, name=case_name)
             if cases.exists():
+                exist_test_case_id_list.append(cases.first().id)
                 cases.update(doc=suite_data.description, short_name=short_name)
                 continue
             case_obj_list.append(TestCase(
@@ -543,6 +545,11 @@ class TestSuiteService(CommonService):
         with transaction.atomic():
             TestCase.objects.bulk_create(case_obj_list)
             TestCase.objects.filter(test_suite_id=suite.id).exclude(name__in=case_name_list).delete()
+            # 用例库conf用例被删除时，点击同步后，同步删除所有job模板中的用例和ws TestSuite管理里的用例
+            TestTmplCase.objects.filter(test_suite_id=suite.id).exclude(
+                test_case_id__in=exist_test_case_id_list).delete()
+            WorkspaceCaseRelation.objects.filter(test_suite_id=suite.id).exclude(
+                test_case_id__in=exist_test_case_id_list).delete()
         return 200, 'sync case success'
 
     def _sync_case_from_aktf(self, pk):
@@ -763,10 +770,26 @@ class TestMetricService(CommonService):
     @staticmethod
     def delete(data, pk):
         TestMetric.objects.filter(id=pk).delete()
-        if data.get('object_type') == 'suite' and data.get('is_sync'):
+        if data.get('object_type') == 'suite' and data.get('is_sync') == 1:
             test_case = TestCase.objects.filter(test_suite_id=data.get('object_id'))
             for case in test_case:
                 TestMetric.objects.filter(name=data.get('name'), object_type='case', object_id=case.id).delete()
+
+    @staticmethod
+    def batch_delete(data):
+        if data.get('object_type') == 'suite' and data.get('is_sync') == 1:
+            suite_metric = TestMetric.objects.filter(id__in=data.get('id_list'))
+            metric_name_list = list()
+            for metric in suite_metric:
+                metric_name_list.append(metric.name)
+            test_case = TestCase.objects.filter(test_suite_id=data.get('object_id'))
+            case_id_list = list()
+            for case in test_case:
+                case_id_list.append(case.id)
+            TestMetric.objects.filter(name__in=metric_name_list, object_type='case',
+                                      object_id__in=case_id_list).delete()
+        else:
+            TestMetric.objects.filter(id__in=data.get('id_list')).delete()
 
     @staticmethod
     def get_metric_list(data):

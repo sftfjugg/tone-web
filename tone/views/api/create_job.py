@@ -8,6 +8,7 @@ import json
 
 from django.db import transaction
 
+from tone.core.utils.common_utils import kernel_info_format
 from tone.models import TestJob, TestJobCase, TestJobSuite, JobTagRelation, Project, JobTag, Baseline, TestTemplate, \
     JobType, TestSuite, TestCase, TestServer, CloudServer, TestCluster, ServerTag, Workspace, KernelInfo
 from tone.core.utils.helper import CommResp
@@ -138,17 +139,28 @@ def conversion_data(data):  # noqa: C901
                     server_config.pop('tsn')
                 else:
                     pass
-    if data.get('kernel_id') and KernelInfo.objects.filter(id=data.get('kernel_id')).exists():
+    if data.get('kernel_id'):
+        if not KernelInfo.objects.filter(id=data.get('kernel_id')).exists():
+            raise ValueError(ErrorCode.KERNELID_NOT_EXISTS)
         kernel_info_obj = KernelInfo.objects.get(id=data.get('kernel_id'))
         data['kernel_version'] = kernel_info_obj.version
         kernel_info = data.get('kernel_info', dict())
-        kernel_info['kernel'] = kernel_info_obj.kernel_link
-        kernel_info['devel'] = kernel_info_obj.devel_link
-        kernel_info['headers'] = kernel_info_obj.headers_link
-        data['kernel_info'] = kernel_info
+        if kernel_info_obj.kernel_packages:
+            kernel_info['kernel_packages'] = kernel_info_obj.kernel_packages
+            data['kernel_info'] = kernel_info
+        else:
+            kernel_info['kernel_packages'] = []
+            if kernel_info_obj.kernel_link:
+                kernel_info['kernel_packages'].append(kernel_info_obj.kernel_link)
+            if kernel_info_obj.devel_link:
+                kernel_info['kernel_packages'].append(kernel_info_obj.devel_link)
+            if kernel_info_obj.headers_link:
+                kernel_info['kernel_packages'].append(kernel_info_obj.headers_link)
+            data['kernel_info'] = kernel_info
     else:
-        data['kernel_version'] = None
-        data['kernel_info'] = data.get('kernel_info', dict())
+        data['kernel_info'] = kernel_info_format(data.get('kernel_info', dict()))
+        if data['kernel_info']:
+            data['kernel_version'] = None
 
 
 def get_template(template, ws_id):

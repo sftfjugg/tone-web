@@ -36,7 +36,10 @@ class AllBaselineView(CommonAPIView):
         参数：id、name、version用于筛选
         """
         baseline_list = self.service.filter(self.get_queryset(), request.GET)
-        response_data = self.get_response_data(baseline_list, many=True, page=True)
+        if request.GET.get('page_size') and request.GET.get('page_num'):
+            response_data = self.get_response_data(baseline_list, many=True, page=True)
+        else:
+            response_data = self.get_response_data(baseline_list, page=False)
         return Response(response_data)
 
     @method_decorator(views_catch_error)

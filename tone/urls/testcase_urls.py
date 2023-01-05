@@ -15,6 +15,7 @@ urlpatterns = [
          name='test_suite_exist'),
     path('test_metric/', testcase_views.TestMetricView.as_view(), name='test_metric'),
     path('test_metric/<int:pk>/', testcase_views.TestMetricDetailView.as_view(), name='test_metric_detail'),
+    path('test_metric/batch/del/', testcase_views.TestMetricDetailView.as_view(), name='test_metric_del'),
     path('workspace/case/', testcase_views.WorkspaceCaseView.as_view(), name='workspace_case'),
     path('workspace/has_record/', testcase_views.WorkspaceCaseHasRecordView.as_view(), name='workspace_has_record'),
     path('workspace/case/batch/add/', testcase_views.WorkspaceCaseBatchAddView.as_view(), name='workspace_batch_add'),

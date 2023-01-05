@@ -124,7 +124,7 @@ class RedisCache(RedisControl):
             self.pool = redis.ConnectionPool(host=settings.REDIS_HOST, port=int(settings.REDIS_PORT),
                                              password=settings.REDIS_PASSWORD, decode_responses=True,
                                              db=int(cache_db))
-            self.cursor = redis.Redis(connection_pool=self.pool)
+            self.cursor = redis.Redis(connection_pool=self.pool, socket_timeout=10)
 
     def get(self, key, serialize_mode="json"):
         if not settings.REDIS_CACHE_SWITCH:
@@ -183,4 +183,4 @@ class RedisCache(RedisControl):
 
 redis_cache = RedisCache()
 
-redis_cache_6 = RedisCache(cache_db=6, key_perfix="")
+runner_redis_cache = RedisCache(cache_db=settings.RUNNER_REDIS_CACHE_DB, key_perfix="")

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from tone.core.common.constant import SERVER_REAL_STATE_RETURN_MAP
 from tone.core.common.serializers import CommonSerializer
 from tone.models import TestServer, CloudServer, TestCluster, TestClusterServer, \
     ServerTag, ServerTagRelation, CloudAk, User, CloudImage
@@ -13,10 +14,15 @@ class TestServerSerializer(CommonSerializer):
     tag_list = serializers.SerializerMethodField()
     sub_server_list = serializers.SerializerMethodField()
     emp_id = serializers.SerializerMethodField()
+    real_state = serializers.SerializerMethodField()
 
     class Meta:
         model = TestServer
         exclude = ['is_deleted']
+
+    @staticmethod
+    def get_real_state(obj):
+        return SERVER_REAL_STATE_RETURN_MAP.get(obj.real_state)
 
     @staticmethod
     def get_emp_id(obj):
@@ -91,10 +97,15 @@ class TestSubServerSerializer(CommonSerializer):
     use_type = serializers.CharField(source='get_use_type_display')
     tag_list = serializers.SerializerMethodField()
     emp_id = serializers.SerializerMethodField()
+    real_state = serializers.SerializerMethodField()
 
     class Meta:
         model = TestServer
         exclude = ['is_deleted']
+
+    @staticmethod
+    def get_real_state(obj):
+        return SERVER_REAL_STATE_RETURN_MAP.get(obj.real_state)
 
     @staticmethod
     def get_emp_id(obj):
@@ -136,10 +147,15 @@ class CloudServerSerializer(CommonSerializer):
     image_name = serializers.SerializerMethodField()
     pub_ip = serializers.SerializerMethodField()
     extra_param = serializers.JSONField()
+    real_state = serializers.SerializerMethodField()
 
     class Meta:
         model = CloudServer
         exclude = ['is_deleted']
+
+    @staticmethod
+    def get_real_state(obj):
+        return SERVER_REAL_STATE_RETURN_MAP.get(obj.real_state)
 
     @staticmethod
     def get_pub_ip(obj):

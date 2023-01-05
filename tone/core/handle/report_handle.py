@@ -6,15 +6,17 @@ Author: Yfh
 """
 import random
 import string
+import json
 from datetime import datetime
 import logging
+from tone.core.utils.common_utils import query_all_dict
 
 from django.db import transaction
 
 from tone.models import TestJob, ReportTemplate, Report, TestServerSnapshot, CloudServerSnapshot, ReportItemConf, \
     ReportItemSuite, ReportItem, ReportItemMetric, ReportItemSubCase, ReportObjectRelation, ReportTmplItem, \
     ReportTmplItemSuite, TestJobCase, TestJobSuite, TestCase, FuncResult, PerfResult, TestSuite, TestMetric, \
-    PerfBaselineDetail, Baseline
+    PerfBaselineDetail, Baseline, ReportDetail, FuncBaselineDetail
 from tone.core.common.constant import FUNC_CASE_RESULT_TYPE_MAP
 from tone.views.api.get_domain_group import get_domain_group
 
@@ -67,7 +69,12 @@ class ReportHandle(object):
             report.save()
             func_all = fail = success = warn = 0
             perf_all = decline = increase = 0
-            if self.report_template_obj.is_default:
+            is_default_tmp = self.report_template_obj.is_default
+            if not is_default_tmp:
+                report_tmpl_items = ReportTmplItem.objects.filter(tmpl_id=self.report_template_obj.id)
+                if len(report_tmpl_items) == 0:
+                    is_default_tmp = True
+            if is_default_tmp:
                 conf_list = [job_case.test_case_id for job_case in TestJobCase.objects.filter(job_id=self.job_id)]
                 domain_group = get_domain_group(conf_list)
                 func_data = domain_group.get('functional')
@@ -201,6 +208,7 @@ class ReportHandle(object):
                 ReportObjectRelation.objects.create(object_type='job', object_id=self.job_id, report_id=report.id)
             self.job_obj.report_is_saved = True
             self.job_obj.save()
+            save_report_detail(report.id, 0, 0, 1)
 
     def get_suite_env(self, test_suite_id):
         test_env = ''
@@ -214,7 +222,7 @@ class ReportHandle(object):
                 snapshot = CloudServerSnapshot.objects.filter(
                     id=test_job_case.server_object_id).first()
                 if snapshot:
-                    test_env = snapshot.pub_ip
+                    test_env = snapshot.private_ip
         return test_env
 
     def create_report_item(self, conf_id, conf_source, report_item_suite):
@@ -229,6 +237,7 @@ class ReportHandle(object):
         metric_obj = TestMetric.objects.filter(name=perf_result.metric, object_type='case', object_id=conf_id).first()
         decline = increase = 0
         compare_obj = dict()
+        compare_data = list()
         if self.job_obj.baseline_id:
             perf_baseline = PerfBaselineDetail.objects.filter(baseline_id=perf_result.compare_baseline,
                                                               metric=perf_result.metric).first()
@@ -245,6 +254,16 @@ class ReportHandle(object):
                     decline += 1
                 if compare_obj['compare_result'] == 'increase':
                     increase += 1
+        compare_data.append(dict(
+            test_value=format(float(perf_result.test_value), '.2f'),
+            cv_value=perf_result.cv_value.replace('±', ''),
+            unit=perf_result.unit,
+            max_value=format(float(perf_result.max_value), '.2f'),
+            min_value=format(float(perf_result.min_value), '.2f'),
+            value_list=perf_result.value_list,
+            compare_value=compare_obj.get('compare_value', None),
+            compare_result=compare_obj.get('compare_result', None)
+        ))
         ReportItemMetric.objects.create(report_item_conf_id=report_item_conf.id,
                                         test_metric=perf_result.metric,
                                         test_value=perf_result.test_value,
@@ -254,7 +273,7 @@ class ReportHandle(object):
                                         min_value=perf_result.min_value,
                                         value_list=perf_result.value_list,
                                         direction=metric_obj.direction if metric_obj else None,
-                                        compare_data=list())
+                                        compare_data=compare_data)
         return decline, increase
 
     def handle_func_result(self, func_result, report_item_conf):
@@ -267,11 +286,12 @@ class ReportHandle(object):
                                          compare_data=compare_data)
 
     def get_test_env(self):
+        server_info = get_server_info(self.job_obj.product_version, [{'is_baseline': 0, 'obj_id': self.job_id}])
         env_info = {
-            'base_group': self.get_server_info(),
+            'base_group': server_info,
             'compare_groups': list(),
         }
-        count = len(self.get_server_info().get('server_info'))
+        count = len(server_info.get('server_info'))
         env_info['count'] = count
         return env_info
 
@@ -281,7 +301,7 @@ class ReportHandle(object):
             'summary': {
                 'base_group': {
                     'tag': report.product_version,
-                    'is_job': 1,
+                    'is_baseline': 0,
                     'func_data': func_count,
                     'perf_data': perf_count
                 },
@@ -297,7 +317,7 @@ class ReportHandle(object):
         env_info = {
             'tag': self.job_obj.product_version,
             'server_info': server_li,
-            'is_job': 1
+            'is_baseline': 0
         }
         return env_info
 
@@ -346,3 +366,375 @@ class ReportHandle(object):
             logging.error(f"err: {err}")
             res = _change_rate = 'na'
         return _change_rate, res
+
+
+def save_report_detail(report_id, base_index, is_old_report, is_automatic):
+    detail_perf_data = get_perf_data(report_id, base_index, is_old_report, is_automatic)
+    detail_func_data = get_func_data(report_id, base_index, is_old_report, is_automatic)
+    report_detail = ReportDetail.objects.filter(report_id=report_id).first()
+    if report_detail:
+        report_detail.func_data = detail_func_data
+        report_detail.perf_data = detail_perf_data
+        report_detail.save()
+    else:
+        ReportDetail.objects.create(report_id=report_id, perf_data=detail_perf_data, func_data=detail_func_data)
+
+
+def get_perf_data(report_id, base_index, is_old_report, is_automatic):
+    item_map = dict()
+    item_objs = ReportItem.objects.filter(report_id=report_id, test_type='performance')
+    for item in item_objs:
+        name = item.name
+        name_li = name.split(':')
+        if is_old_report:
+            package_name(0, item_map, name_li, item.id, 'performance', base_index)
+        else:
+            package_name_v1(0, item_map, name_li, item.id, 'performance', base_index, is_automatic)
+    return item_map
+
+
+def get_func_data(report_id, base_index, is_old_report, is_automatic):
+    item_map = dict()
+    item_objs = ReportItem.objects.filter(report_id=report_id, test_type='functional')
+    for item in item_objs:
+        name = item.name
+        name_li = name.split(':')
+        if is_old_report:
+            package_name(0, item_map, name_li, item.id, 'functional', base_index)
+        else:
+            package_name_v1(0, item_map, name_li, item.id, 'functional', base_index, is_automatic)
+    return item_map
+
+
+def get_old_report(report):
+    return 1 if report.gmt_created < datetime.strptime('2022-09-13', '%Y-%m-%d') else 0
+
+
+def package_name(index, _data, name_li, report_item_id, test_type, base_index):
+    if index == len(name_li) - 1:
+        _data[name_li[index]] = get_func_suite_list(
+            report_item_id, base_index) if test_type == 'functional' else get_perf_suite_list(report_item_id)
+    else:
+        if name_li[index] in _data:
+            package_name(index + 1, _data[name_li[index]], name_li, report_item_id, test_type, base_index)
+        else:
+            _data[name_li[index]] = dict()
+            package_name(index + 1, _data[name_li[index]], name_li, report_item_id, test_type, base_index)
+
+
+def get_func_suite_list(report_item_id, base_index):
+    suite_list = list()
+    test_suite_objs = ReportItemSuite.objects.filter(report_item_id=report_item_id)
+    for test_suite_obj in test_suite_objs:
+        suite_data = dict()
+        suite_data['item_suite_id'] = test_suite_obj.id
+        suite_data['suite_id'] = test_suite_obj.test_suite_id
+        suite_data['suite_name'] = test_suite_obj.test_suite_name
+        conf_list = list()
+        test_conf_objs = ReportItemConf.objects.filter(report_item_suite_id=test_suite_obj.id)
+        for test_conf_obj in test_conf_objs:
+            conf_data = dict()
+            conf_data['item_conf_id'] = test_conf_obj.id
+            conf_data['conf_id'] = test_conf_obj.test_conf_id
+            conf_data['conf_name'] = test_conf_obj.test_conf_name
+            conf_data['conf_source'] = test_conf_obj.conf_source
+            conf_data['compare_conf_list'] = test_conf_obj.compare_conf_list
+            sub_case_list = list()
+            sub_case_objs = ReportItemSubCase.objects.filter(report_item_conf_id=test_conf_obj.id)
+            for sub_case_obj in sub_case_objs:
+                sub_case_data = dict()
+                sub_case_data['sub_case_name'] = sub_case_obj.sub_case_name
+                sub_case_data['result'] = sub_case_obj.result
+                sub_case_data['compare_data'] = sub_case_obj.compare_data
+                sub_case_list.append(sub_case_data)
+            conf_data['sub_case_list'] = sub_case_list
+            conf_list.append(conf_data)
+        suite_data['conf_list'] = conf_list
+        suite_list.append(suite_data)
+    return suite_list
+
+
+def package_name_v1(index, _data, name_li, report_item_id, test_type, base_index, is_automatic):
+    if index == len(name_li) - 1:
+        _data[name_li[index]] = get_func_suite_list_v1(
+            report_item_id) if test_type == 'functional' else \
+            get_perf_suite_list_v1(report_item_id, base_index, is_automatic)
+    else:
+        if name_li[index] in _data:
+            package_name_v1(index + 1, _data[name_li[index]], name_li, report_item_id, test_type, base_index,
+                            is_automatic)
+        else:
+            _data[name_li[index]] = dict()
+            package_name_v1(index + 1, _data[name_li[index]], name_li, report_item_id, test_type, base_index,
+                            is_automatic)
+
+
+def get_func_suite_list_v1(report_item_id):
+    suite_list = list()
+    raw_sql = 'SELECT a.id AS item_suite_id, a.test_suite_id AS suite_id, a.test_suite_name AS suite_name, ' \
+              'b.id AS item_conf_id, b.test_conf_id AS conf_id,b.test_conf_name AS conf_name, b.conf_source,' \
+              'b.compare_conf_list, c.sub_case_name, c.compare_data,c.result FROM report_item_suite a ' \
+              'LEFT JOIN report_item_conf b ON b.report_item_suite_id=a.id ' \
+              'LEFT JOIN report_item_sub_case c ON c.report_item_conf_id=b.id ' \
+              'WHERE a.report_item_id=%s AND a.is_deleted=0 AND b.is_deleted=0 AND c.is_deleted=0'
+    test_suite_objs = query_all_dict(raw_sql, [report_item_id])
+    for test_suite_obj in test_suite_objs:
+        exist_suite = [suite for suite in suite_list if suite['item_suite_id'] == test_suite_obj['item_suite_id']]
+        if len(exist_suite) > 0:
+            suite_data = exist_suite[0]
+            if 'conf_list' in suite_data:
+                conf_list = suite_data['conf_list']
+            else:
+                conf_list = list()
+        else:
+            suite_data = dict()
+            suite_data['item_suite_id'] = test_suite_obj['item_suite_id']
+            suite_data['suite_id'] = test_suite_obj['suite_id']
+            suite_data['suite_name'] = test_suite_obj['suite_name']
+            conf_list = list()
+            suite_list.append(suite_data)
+        exist_conf = [conf for conf in conf_list if conf['conf_id'] == test_suite_obj['conf_id']]
+        if len(exist_conf) > 0:
+            conf_data = exist_conf[0]
+            if 'sub_case_list' in conf_data:
+                sub_case_list = conf_data['sub_case_list']
+            else:
+                sub_case_list = list()
+        else:
+            compare_conf_list = json.loads(test_suite_obj['compare_conf_list'])
+            conf_data = dict()
+            conf_data['conf_id'] = test_suite_obj['conf_id']
+            conf_data['conf_name'] = test_suite_obj['conf_name']
+            conf_data['compare_conf_list'] = compare_conf_list
+            sub_case_list = list()
+            conf_list.append(conf_data)
+        compare_data = list()
+        if test_suite_obj['compare_data']:
+            compare_data = json.loads(test_suite_obj['compare_data'])
+        sub_case_data = dict()
+        sub_case_data['sub_case_name'] = test_suite_obj['sub_case_name']
+        sub_case_data['compare_data'] = compare_data
+        sub_case_list.append(sub_case_data)
+        conf_data['sub_case_list'] = sub_case_list
+        suite_data['conf_list'] = conf_list
+    return suite_list
+
+
+def _get_compare_data(metric_obj):
+    compare_data = list()
+    for item in metric_obj:
+        if item:
+            metric_cmp = dict()
+            metric_cmp['test_value'] = item.get('test_value')
+            metric_cmp['cv_value'] = item.get('cv_value')
+            metric_cmp['compare_result'] = item.get('compare_result')
+            metric_cmp['compare_value'] = item.get('compare_value')
+            metric_cmp['compare_value'] = item['compare_value'].strip('-') if item.get('compare_value') else ''
+            compare_data.append(metric_cmp)
+        else:
+            compare_data.append(dict())
+    return compare_data
+
+
+def get_perf_suite_list(report_item_id):
+    suite_list = list()
+    test_suite_objs = ReportItemSuite.objects.filter(report_item_id=report_item_id)
+    for test_suite_obj in test_suite_objs:
+        suite_data = dict()
+        suite_data['item_suite_id'] = test_suite_obj.id
+        suite_data['suite_name'] = test_suite_obj.test_suite_name
+        suite_data['suite_id'] = test_suite_obj.test_suite_id
+        suite_data['show_type'] = test_suite_obj.show_type
+        # suite_data['test_suite_description'] = test_suite_obj.test_suite_description
+        suite_data['test_suite_description'] = TestSuite.objects.filter(name=test_suite_obj.test_suite_name).first().doc
+        suite_data['test_env'] = test_suite_obj.test_env
+        suite_data['test_description'] = test_suite_obj.test_description
+        suite_data['test_conclusion'] = test_suite_obj.test_conclusion
+        conf_list = list()
+        test_conf_objs = ReportItemConf.objects.filter(report_item_suite_id=test_suite_obj.id)
+        for test_conf_obj in test_conf_objs:
+            conf_data = dict()
+            conf_data['item_conf_id'] = test_conf_obj.id
+            conf_data['conf_id'] = test_conf_obj.test_conf_id
+            conf_data['conf_name'] = test_conf_obj.test_conf_name
+            conf_data['conf_source'] = test_conf_obj.conf_source
+            conf_data['compare_conf_list'] = test_conf_obj.compare_conf_list
+            metric_list = list()
+            metric_objs = ReportItemMetric.objects.filter(report_item_conf_id=test_conf_obj.id)
+            for metric_obj in metric_objs:
+                test_metric = TestMetric.objects.filter(name=metric_obj.test_metric, object_type='case').first()
+                compare_data = _get_compare_data(metric_obj.compare_data)
+                metric_data = dict()
+                metric_data['metric'] = metric_obj.test_metric
+                metric_data['test_value'] = format(float(metric_obj.test_value), '.2f')
+                metric_data['cv_value'] = metric_obj.cv_value
+                metric_data['unit'] = metric_obj.unit
+                metric_data['max_value'] = metric_obj.max_value
+                metric_data['min_value'] = metric_obj.min_value
+                metric_data['value_list'] = metric_obj.value_list
+                metric_data['direction'] = metric_obj.direction
+                metric_data['cv_threshold'] = test_metric.cv_threshold if test_metric else None
+                metric_data['cmp_threshold'] = test_metric.cmp_threshold if test_metric else None
+                metric_data['compare_data'] = compare_data
+                metric_list.append(metric_data)
+            conf_data['metric_list'] = metric_list
+            conf_list.append(conf_data)
+        suite_data['conf_list'] = conf_list
+        suite_list.append(suite_data)
+    return suite_list
+
+
+def get_perf_suite_list_v1(report_item_id, base_index, is_automatic):
+    suite_list = list()
+    case_metric_sql = 'SELECT c.test_metric' \
+                      ' FROM report_item_suite a ' \
+                      'LEFT JOIN report_item_conf b ON b.report_item_suite_id=a.id ' \
+                      'LEFT JOIN report_item_metric c ON c.report_item_conf_id=b.id ' \
+                      'LEFT JOIN test_suite d ON a.test_suite_name=d.name ' \
+                      'LEFT JOIN test_track_metric e ON c.test_metric=e.name AND e.object_id=b.test_conf_id ' \
+                      'WHERE e.object_type="case" AND a.report_item_id=%s AND a.is_deleted=0 AND b.is_deleted=0 ' \
+                      'AND c.is_deleted=0 AND d.is_deleted=0 AND e.is_deleted=0'
+    raw_sql = 'SELECT a.id AS item_suite_id, a.test_suite_id AS suite_id, a.test_suite_name AS suite_name,' \
+              'a.show_type, a.test_env, a.test_description, a.test_conclusion, ' \
+              'b.id AS item_conf_id, b.test_conf_id AS conf_id,b.test_conf_name AS conf_name, b.conf_source,' \
+              'b.compare_conf_list, c.test_metric,c.test_value,c.cv_value,d.doc AS test_suite_description,' \
+              'c.compare_data,e.cv_threshold,e.cmp_threshold,e.unit,e.direction' \
+              ' FROM report_item_suite a ' \
+              'LEFT JOIN report_item_conf b ON b.report_item_suite_id=a.id ' \
+              'LEFT JOIN report_item_metric c ON c.report_item_conf_id=b.id ' \
+              'LEFT JOIN test_suite d ON a.test_suite_name=d.name ' \
+              'LEFT JOIN test_track_metric e ON c.test_metric=e.name AND e.object_id=b.test_conf_id ' \
+              'WHERE e.object_type="case" AND a.report_item_id=%s AND a.is_deleted=0 AND b.is_deleted=0 ' \
+              'AND c.is_deleted=0 AND d.is_deleted=0 AND e.is_deleted=0'
+    raw_sql += " union "
+    raw_sql += 'SELECT a.id AS item_suite_id, a.test_suite_id AS suite_id, a.test_suite_name AS suite_name,' \
+               'a.show_type, a.test_env, a.test_description, a.test_conclusion, ' \
+               'b.id AS item_conf_id, b.test_conf_id AS conf_id,b.test_conf_name AS conf_name, b.conf_source,' \
+               'b.compare_conf_list, c.test_metric,c.test_value,c.cv_value,d.doc AS test_suite_description,' \
+               'c.compare_data,e.cv_threshold,e.cmp_threshold,e.unit,e.direction' \
+               ' FROM report_item_suite a ' \
+               'LEFT JOIN report_item_conf b ON b.report_item_suite_id=a.id ' \
+               'LEFT JOIN report_item_metric c ON c.report_item_conf_id=b.id ' \
+               'LEFT JOIN test_suite d ON a.test_suite_name=d.name ' \
+               'LEFT JOIN test_track_metric e ON c.test_metric=e.name AND e.object_id=a.test_suite_id ' \
+               'WHERE e.object_type="suite" AND a.report_item_id=%s AND a.is_deleted=0 AND b.is_deleted=0 ' \
+               'AND c.is_deleted=0 AND d.is_deleted=0 AND e.is_deleted=0 AND c.test_metric not in (' + \
+               case_metric_sql + ')'
+    test_suite_objs = query_all_dict(raw_sql, [report_item_id, report_item_id, report_item_id])
+    for test_suite_obj in test_suite_objs:
+        exist_suite = [suite for suite in suite_list if suite['item_suite_id'] == test_suite_obj['item_suite_id']]
+        if len(exist_suite) > 0:
+            suite_data = exist_suite[0]
+            if 'conf_list' in suite_data:
+                conf_list = suite_data['conf_list']
+            else:
+                conf_list = list()
+        else:
+            suite_data = dict()
+            suite_data['item_suite_id'] = test_suite_obj['item_suite_id']
+            suite_data['suite_name'] = test_suite_obj['suite_name']
+            suite_data['suite_id'] = test_suite_obj['suite_id']
+            suite_data['show_type'] = test_suite_obj['show_type']
+            suite_data['test_suite_description'] = test_suite_obj['test_suite_description']
+            suite_data['test_env'] = test_suite_obj['test_env']
+            suite_data['test_description'] = test_suite_obj['test_description']
+            suite_data['test_conclusion'] = test_suite_obj['test_conclusion']
+            conf_list = list()
+            suite_list.append(suite_data)
+        exist_conf = [conf for conf in conf_list if conf['conf_id'] == test_suite_obj['conf_id']]
+        if len(exist_conf) > 0:
+            conf_data = exist_conf[0]
+            if 'metric_list' in conf_data:
+                metric_list = conf_data['metric_list']
+            else:
+                metric_list = list()
+        else:
+            compare_conf_list = json.loads(test_suite_obj['compare_conf_list'])
+            conf_data = dict()
+            conf_data['conf_id'] = test_suite_obj['conf_id']
+            conf_data['conf_name'] = test_suite_obj['conf_name']
+            conf_data['compare_conf_list'] = compare_conf_list
+            metric_list = list()
+            conf_list.append(conf_data)
+        compare_data = list()
+        suite_compare_data = json.loads(test_suite_obj['compare_data'])
+        if suite_compare_data:
+            compare_data = _get_compare_data(suite_compare_data)
+        metric_base_data = dict()
+        metric_base_data['test_value'] = format(float(test_suite_obj['test_value']), '.2f')
+        metric_base_data['cv_value'] = test_suite_obj['cv_value'].split('±')[-1] if test_suite_obj[
+            'cv_value'] else None,
+        if not is_automatic:
+            compare_data.insert(base_index, metric_base_data)
+        metric_data = dict()
+        metric_data['metric'] = test_suite_obj['test_metric']
+        metric_data['cv_threshold'] = test_suite_obj['cv_threshold']
+        metric_data['cmp_threshold'] = test_suite_obj['cmp_threshold']
+        metric_data['unit'] = test_suite_obj['unit']
+        metric_data['direction'] = test_suite_obj['direction']
+        metric_data['compare_data'] = compare_data
+        metric_list.append(metric_data)
+        conf_data['metric_list'] = metric_list
+        suite_data['conf_list'] = conf_list
+    return suite_list
+
+
+def get_server_info(tag, objs):  # nq  c901
+    server_li = list()
+    baseline_id_list = list()
+    job_id_list = list()
+    ip_list = list()
+    for obj in objs:
+        is_baseline = obj.get('is_baseline')
+        obj_id = obj.get('obj_id')
+        if is_baseline:
+            baseline_id_list.append(obj_id)
+        else:
+            job_id_list.append(obj_id)
+    job_id_str = ','.join(str(e) for e in job_id_list)
+    if baseline_id_list:
+        perf_base_detail = PerfBaselineDetail.objects.filter(baseline_id__in=baseline_id_list).values_list(
+            'test_job_id', flat=True).distinct()
+        if perf_base_detail.exists():
+            job_id_str = ','.join(str(e) for e in perf_base_detail)
+        func_base_detail = FuncBaselineDetail.objects.filter(baseline_id__in=baseline_id_list).values_list(
+            'test_job_id', flat=True).distinct()
+        if func_base_detail.exists():
+            job_id_str = ','.join(str(e) for e in func_base_detail)
+    if job_id_str:
+        raw_sql = 'SELECT ip,sm_name,distro,rpm_list,kernel_version,gcc,' \
+                  'glibc,memory_info,disk,cpu_info,ether FROM test_server_snapshot ' \
+                  'WHERE is_deleted=0  AND ' \
+                  'job_id IN (' + job_id_str + ') AND distro IS NOT NULL UNION ' \
+                  'SELECT private_ip AS ip,instance_type AS sm_name,distro,rpm_list,' \
+                  'kernel_version,gcc,glibc,memory_info,disk,cpu_info,ether ' \
+                  'FROM cloud_server_snapshot ' \
+                  'WHERE is_deleted=0 AND ' \
+                  'job_id IN (' + job_id_str + ') AND distro IS NOT null'
+        all_server_info = query_all_dict(raw_sql.replace('\'', ''), params=None)
+        for server_info in all_server_info:
+            ip = server_info.get('ip')
+            if not (server_info.get('distro') or server_info.get('rpm_list') or server_info.get('gcc')) or \
+                    ip in ip_list:
+                continue
+            ip_list.append(ip)
+            server_li.append({
+                'ip/sn': ip,
+                'distro': server_info.get('sm_name'),
+                'os': server_info.get('distro'),
+                'rpm': server_info.get('rpm_list').split('\n') if server_info.get('rpm_list') else list(),
+                'kernel': server_info.get('kernel_version'),
+                'gcc': server_info.get('gcc'),
+                'glibc': server_info.get('glibc'),
+                'memory_info': server_info.get('memory_info'),
+                'disk': server_info.get('disk'),
+                'cpu_info': server_info.get('cpu_info'),
+                'ether': server_info.get('ether')
+            })
+    env_info = {
+        'tag': tag,
+        'server_info': server_li,
+        'is_baseline': objs[0].get('is_baseline') if objs else 0,
+        'base_objs': objs
+    }
+    return env_info

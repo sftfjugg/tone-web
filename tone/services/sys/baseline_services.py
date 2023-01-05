@@ -153,6 +153,11 @@ class FuncBaselineService(CommonService):
                 # 被删除suite的基线不再展示
                 if not TestSuite.objects.filter(id=suite_id).exists():
                     continue
+                # 被删除case的基线suite不再展示
+                case_id_list = queryset.filter(test_suite_id=suite_id).values_list("test_case_id", flat=True)
+                if not TestCase.objects.filter(id__in=case_id_list).exists():
+                    continue
+
                 suite_data = {}
                 suite_name = TestSuite.objects.get(id=suite_id).name
                 suite_data["test_suite_name"] = suite_name
@@ -493,8 +498,8 @@ class PerfBaselineService(CommonService):
                                                    test_case_id=case_id).first()
         job_case_id = test_job_case.id
         test_step_case = TestStep.objects.filter(job_id=job_id, job_case_id=job_case_id).first()
-        server_object_id = test_step_case.server
-        if server_object_id:
+        if test_step_case and test_step_case.server:
+            server_object_id = test_step_case.server
             if server_provider == "aligroup":
                 machine = TestServerSnapshot.objects.filter(id=server_object_id, query_scope='all').first()
                 if machine is not None:
@@ -704,7 +709,7 @@ class PerfBaselineService(CommonService):
         perf_detail = PerfBaselineDetail.objects.filter(baseline_id=baseline_id, test_suite_id=suite_id,
                                                         test_case_id=case_id, metric=perf_result.metric)
         # 重复详情不再加入
-        if not perf_detail.first():
+        if not perf_detail.exists():
             perf_baseline_detail_obj = PerfBaselineDetail(
                 baseline_id=baseline_id,
                 test_job_id=job_id,
@@ -732,7 +737,7 @@ class PerfBaselineService(CommonService):
                 perf_result.save()
             return perf_baseline_detail_obj
         else:
-            PerfBaselineDetail.objects.filter(id=perf_detail.first().id).update(
+            PerfBaselineDetail.objects.filter(id=perf_detail[0].id).update(
                 baseline_id=baseline_id,
                 test_job_id=job_id,
                 test_suite_id=suite_id,
