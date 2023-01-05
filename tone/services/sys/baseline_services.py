@@ -153,6 +153,11 @@ class FuncBaselineService(CommonService):
                 # 被删除suite的基线不再展示
                 if not TestSuite.objects.filter(id=suite_id).exists():
                     continue
+                # 被删除case的基线suite不再展示
+                case_id_list = queryset.filter(test_suite_id=suite_id).values_list("test_case_id", flat=True)
+                if not TestCase.objects.filter(id__in=case_id_list).exists():
+                    continue
+
                 suite_data = {}
                 suite_name = TestSuite.objects.get(id=suite_id).name
                 suite_data["test_suite_name"] = suite_name
