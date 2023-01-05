@@ -90,6 +90,7 @@ class JobTestService(CommonService):
         create_name_map = {}
         project_name_map = {}
         product_name_map = {}
+        pass_test_type = ""
         test_type_map = {
             'functional': '功能测试',
             'performance': '性能测试',
@@ -117,7 +118,10 @@ class JobTestService(CommonService):
                     job_id = 0
             query_sql.append('AND id="{}"'.format(job_id))
         if data.get('state'):
-            state_list = data.get('state').split(',')
+            input_state_list = data.get('state').split(',')
+            if 'pass' in input_state_list:
+                pass_test_type = 'functional'
+            state_list = ['success' if state == 'pass' else state for state in input_state_list]
             if 'pending' in state_list:
                 state_list.append('pending_q')
             if len(state_list) == 1:
@@ -187,7 +191,10 @@ class JobTestService(CommonService):
         if data.get('creators'):
             creators = json.loads(data.get('creators'))
             query_sql.append('AND creator IN ({})'.format(','.join(str(creator) for creator in creators)))
-        filter_fields = ['project_id', 'job_type_id', 'product_id', 'server_provider', 'test_type', 'product_version',
+        if data.get('test_type') or pass_test_type:
+            test_type = data.get('test_type') if data.get('test_type') else pass_test_type
+            query_sql.append('AND test_type="{}"'.format(test_type))
+        filter_fields = ['project_id', 'job_type_id', 'product_id', 'server_provider', 'product_version',
                          'ws_id']
         for filter_field in filter_fields:
             if data.get(filter_field):
