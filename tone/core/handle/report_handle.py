@@ -16,7 +16,7 @@ from django.db import transaction
 from tone.models import TestJob, ReportTemplate, Report, TestServerSnapshot, CloudServerSnapshot, ReportItemConf, \
     ReportItemSuite, ReportItem, ReportItemMetric, ReportItemSubCase, ReportObjectRelation, ReportTmplItem, \
     ReportTmplItemSuite, TestJobCase, TestJobSuite, TestCase, FuncResult, PerfResult, TestSuite, TestMetric, \
-    PerfBaselineDetail, Baseline, ReportDetail
+    PerfBaselineDetail, Baseline, ReportDetail, FuncBaselineDetail
 from tone.core.common.constant import FUNC_CASE_RESULT_TYPE_MAP
 from tone.views.api.get_domain_group import get_domain_group
 
@@ -222,7 +222,7 @@ class ReportHandle(object):
                 snapshot = CloudServerSnapshot.objects.filter(
                     id=test_job_case.server_object_id).first()
                 if snapshot:
-                    test_env = snapshot.pub_ip
+                    test_env = snapshot.private_ip
         return test_env
 
     def create_report_item(self, conf_id, conf_source, report_item_suite):
@@ -255,11 +255,11 @@ class ReportHandle(object):
                 if compare_obj['compare_result'] == 'increase':
                     increase += 1
         compare_data.append(dict(
-            test_value=perf_result.test_value,
+            test_value=format(float(perf_result.test_value), '.2f'),
             cv_value=perf_result.cv_value.replace('±', ''),
             unit=perf_result.unit,
-            max_value=perf_result.max_value,
-            min_value=perf_result.min_value,
+            max_value=format(float(perf_result.max_value), '.2f'),
+            min_value=format(float(perf_result.min_value), '.2f'),
             value_list=perf_result.value_list,
             compare_value=compare_obj.get('compare_value', None),
             compare_result=compare_obj.get('compare_result', None)
@@ -286,11 +286,12 @@ class ReportHandle(object):
                                          compare_data=compare_data)
 
     def get_test_env(self):
+        server_info = get_server_info(self.job_obj.product_version, [{'is_baseline': 0, 'obj_id': self.job_id}])
         env_info = {
-            'base_group': self.get_server_info(),
+            'base_group': server_info,
             'compare_groups': list(),
         }
-        count = len(self.get_server_info().get('server_info'))
+        count = len(server_info.get('server_info'))
         env_info['count'] = count
         return env_info
 
@@ -300,7 +301,7 @@ class ReportHandle(object):
             'summary': {
                 'base_group': {
                     'tag': report.product_version,
-                    'is_job': 1,
+                    'is_baseline': 0,
                     'func_data': func_count,
                     'perf_data': perf_count
                 },
@@ -316,7 +317,7 @@ class ReportHandle(object):
         env_info = {
             'tag': self.job_obj.product_version,
             'server_info': server_li,
-            'is_job': 1
+            'is_baseline': 0
         }
         return env_info
 
@@ -325,7 +326,7 @@ class ReportHandle(object):
         snap_shot_objs = TestServerSnapshot.objects.filter(
             job_id=job.id) if job.server_provider == 'aligroup' else CloudServerSnapshot.objects.filter(job_id=job.id)
         for snap_shot_obj in snap_shot_objs:
-            ip = snap_shot_obj.ip if job.server_provider == 'aligroup' else snap_shot_obj.pub_ip
+            ip = snap_shot_obj.ip if job.server_provider == 'aligroup' else snap_shot_obj.private_ip
             if ip not in ip_li:
                 if not (snap_shot_obj.distro or snap_shot_obj.rpm_list or snap_shot_obj.gcc):
                     continue
@@ -383,13 +384,12 @@ def get_perf_data(report_id, base_index, is_old_report, is_automatic):
     item_map = dict()
     item_objs = ReportItem.objects.filter(report_id=report_id, test_type='performance')
     for item in item_objs:
-        for item in item_objs:
-            name = item.name
-            name_li = name.split(':')
-            if is_old_report:
-                package_name(0, item_map, name_li, item.id, 'performance', base_index)
-            else:
-                package_name_v1(0, item_map, name_li, item.id, 'performance', base_index, is_automatic)
+        name = item.name
+        name_li = name.split(':')
+        if is_old_report:
+            package_name(0, item_map, name_li, item.id, 'performance', base_index)
+        else:
+            package_name_v1(0, item_map, name_li, item.id, 'performance', base_index, is_automatic)
     return item_map
 
 
@@ -664,9 +664,7 @@ def get_perf_suite_list_v1(report_item_id, base_index, is_automatic):
         metric_base_data['test_value'] = format(float(test_suite_obj['test_value']), '.2f')
         metric_base_data['cv_value'] = test_suite_obj['cv_value'].split('±')[-1] if test_suite_obj[
             'cv_value'] else None,
-        if is_automatic:
-            compare_data.append(metric_base_data)
-        else:
+        if not is_automatic:
             compare_data.insert(base_index, metric_base_data)
         metric_data = dict()
         metric_data['metric'] = test_suite_obj['test_metric']
@@ -679,3 +677,64 @@ def get_perf_suite_list_v1(report_item_id, base_index, is_automatic):
         conf_data['metric_list'] = metric_list
         suite_data['conf_list'] = conf_list
     return suite_list
+
+
+def get_server_info(tag, objs):  # nq  c901
+    server_li = list()
+    baseline_id_list = list()
+    job_id_list = list()
+    ip_list = list()
+    for obj in objs:
+        is_baseline = obj.get('is_baseline')
+        obj_id = obj.get('obj_id')
+        if is_baseline:
+            baseline_id_list.append(obj_id)
+        else:
+            job_id_list.append(obj_id)
+    job_id_str = ','.join(str(e) for e in job_id_list)
+    if baseline_id_list:
+        perf_base_detail = PerfBaselineDetail.objects.filter(baseline_id__in=baseline_id_list).values_list(
+            'test_job_id', flat=True).distinct()
+        if perf_base_detail.exists():
+            job_id_str = ','.join(str(e) for e in perf_base_detail)
+        func_base_detail = FuncBaselineDetail.objects.filter(baseline_id__in=baseline_id_list).values_list(
+            'test_job_id', flat=True).distinct()
+        if func_base_detail.exists():
+            job_id_str = ','.join(str(e) for e in func_base_detail)
+    if job_id_str:
+        raw_sql = 'SELECT ip,sm_name,distro,rpm_list,kernel_version,gcc,' \
+                  'glibc,memory_info,disk,cpu_info,ether FROM test_server_snapshot ' \
+                  'WHERE is_deleted=0  AND ' \
+                  'job_id IN (' + job_id_str + ') AND distro IS NOT NULL UNION ' \
+                  'SELECT private_ip AS ip,instance_type AS sm_name,distro,rpm_list,' \
+                  'kernel_version,gcc,glibc,memory_info,disk,cpu_info,ether ' \
+                  'FROM cloud_server_snapshot ' \
+                  'WHERE is_deleted=0 AND ' \
+                  'job_id IN (' + job_id_str + ') AND distro IS NOT null'
+        all_server_info = query_all_dict(raw_sql.replace('\'', ''), params=None)
+        for server_info in all_server_info:
+            ip = server_info.get('ip')
+            if not (server_info.get('distro') or server_info.get('rpm_list') or server_info.get('gcc')) or \
+                    ip in ip_list:
+                continue
+            ip_list.append(ip)
+            server_li.append({
+                'ip/sn': ip,
+                'distro': server_info.get('sm_name'),
+                'os': server_info.get('distro'),
+                'rpm': server_info.get('rpm_list').split('\n') if server_info.get('rpm_list') else list(),
+                'kernel': server_info.get('kernel_version'),
+                'gcc': server_info.get('gcc'),
+                'glibc': server_info.get('glibc'),
+                'memory_info': server_info.get('memory_info'),
+                'disk': server_info.get('disk'),
+                'cpu_info': server_info.get('cpu_info'),
+                'ether': server_info.get('ether')
+            })
+    env_info = {
+        'tag': tag,
+        'server_info': server_li,
+        'is_baseline': objs[0].get('is_baseline') if objs else 0,
+        'base_objs': objs
+    }
+    return env_info
