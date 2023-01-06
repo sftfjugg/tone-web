@@ -69,11 +69,8 @@ class BaselineService(CommonService):
     def create(data, operator):
         creator = operator.id
         name = data.get('name')
-        test_type = data.get('test_type')
         ws_id = data.get('ws_id')
-        server_provider = data.get('server_provider')
-        baseline = Baseline.objects.filter(name=name, test_type=test_type, ws_id=ws_id,
-                                           server_provider=server_provider).first()
+        baseline = Baseline.objects.filter(name=name, ws_id=ws_id).first()
         if baseline:
             return False, '基线已存在'
         data.update({'creator': creator})
@@ -208,24 +205,24 @@ class FuncBaselineService(CommonService):
         return tmp_baseline
 
     @staticmethod
-    def back_fill_version(tmp_baseline, data):
+    def back_fill_version(baseline_id_list, data):
         """回填Job版本号"""
         # 详情加入成功后，会填基线版本
-        if tmp_baseline is not None and not tmp_baseline.version:
-            test_job_id = data.get('test_job_id')
-            test_job = TestJob.objects.filter(id=test_job_id).first()
-            if test_job is not None:
-                project_id = test_job.project_id
-                project = Project.objects.filter(id=project_id).first()
-                if project is not None:
-                    tmp_baseline.version = project.product_version
-                    tmp_baseline.save()
+        tmp_baselines = Baseline.objects.filter(id__in=baseline_id_list)
+        for tmp_baseline in tmp_baselines:
+            if tmp_baseline is not None and not tmp_baseline.version:
+                test_job_id = data.get('test_job_id')
+                test_job = TestJob.objects.filter(id=test_job_id).first()
+                if test_job is not None:
+                    project_id = test_job.project_id
+                    project = Project.objects.filter(id=project_id).first()
+                    if project is not None:
+                        tmp_baseline.version = project.product_version
+                        tmp_baseline.save()
 
     def create(self, data):
-        comp_baseline_id = data.get('baseline_id')  # 兼容线上版本
-        baseline_name_list = data.get('baseline_name_list', [])
+        baseline_id_list = data.get('baseline_id', [])
         test_type = data.get('test_type', 'functional')
-        server_provider = data.get('server_provider', 'aligroup')
         ws_id = data.get('ws_id', 'xwgpiwkk')
         test_job_id = data.get('test_job_id')
         test_suite_id = data.get('test_suite_id')
@@ -240,17 +237,9 @@ class FuncBaselineService(CommonService):
                 sub_case_name = func_result.sub_case_name
         func_baseline_detail_list = list()
         msg = 'Required request parameters'
-        if not comp_baseline_id and not all([baseline_name_list, test_type, server_provider, ws_id, test_job_id,
-                                             test_suite_id, test_case_id, sub_case_name]):
+        if not all([baseline_id_list, test_type, ws_id, test_job_id, test_suite_id, test_case_id, sub_case_name]):
             return False, msg
-        # 兼容线上版本
-        if comp_baseline_id is not None:
-            baseline_name_list.append(Baseline.objects.filter(id=comp_baseline_id).first().name)
-        for baseline_name in baseline_name_list:
-            tmp_baseline = self.get_tmp_baseline_obj(comp_baseline_id, baseline_name, test_type,
-                                                     server_provider, ws_id)
-            baseline_id = tmp_baseline.id
-            # 同一个功能基线中，对同一个testcase，可以在不同的job加入，重复加入覆盖
+        for baseline_id in baseline_id_list:
             func_baseline_detail = FuncBaselineDetail.objects.filter(
                 baseline_id=baseline_id, test_suite_id=test_suite_id,
                 test_case_id=test_case_id, sub_case_name=sub_case_name).first()
@@ -277,7 +266,7 @@ class FuncBaselineService(CommonService):
             for field in form_fields:
                 create_data.update({field: data.get(field)})
             func_baseline_detail_list.append(FuncBaselineDetail(**create_data))
-            self.back_fill_version(tmp_baseline, data)
+            self.back_fill_version(baseline_id_list, data)
             # 加入基线和测试基线相同时，匹配基线
         return True, FuncBaselineDetail.objects.bulk_create(func_baseline_detail_list)
 
@@ -346,15 +335,7 @@ class PerfBaselineService(CommonService):
         """获取性能基线详情"""
         baseline_id = data.get("baseline_id")
         # 查询集团/云上
-        baseline = Baseline.objects.all().filter(id=baseline_id).first()
         queryset = queryset.filter(baseline_id=baseline_id)
-        server_provider = baseline.server_provider
-        # docker虚拟机的机型和规格都为空,修改按照sn分类
-        if server_provider == "aligroup":
-            queryset = queryset.filter(~Q(server_instance_type='') | ~Q(server_instance_type=None))
-        else:
-            queryset = queryset.filter(~Q(server_sm_name='') | ~Q(server_sm_name=None))
-
         response_data = []
         test_suite_id = data.get("test_suite_id")
         test_case_id = data.get("test_case_id")
@@ -364,9 +345,6 @@ class PerfBaselineService(CommonService):
             response_data = self.get_test_suite_name(queryset)
         elif test_suite_id:
             queryset = queryset.filter(test_suite_id=test_suite_id)
-            # 通过job过滤机器类型
-            job_id_list = TestJob.objects.filter(server_provider=server_provider).values_list('id', flat=True)
-            queryset = queryset.filter(test_job_id__in=job_id_list)
             if machine is not None:
                 queryset = queryset.filter(server_sn=machine)
                 # 展开conf
@@ -378,8 +356,11 @@ class PerfBaselineService(CommonService):
                     return True, queryset
             # 展开机器
             else:
-                queryset = self.get_machine_info(queryset)
-                return True, queryset
+                if test_case_id:
+                    queryset = queryset.filter(test_case_id=test_case_id)
+                    return True, queryset
+                else:
+                    response_data = self.get_conf_info(queryset)
         return False, response_data
 
     def create(self, data):
@@ -481,8 +462,7 @@ class PerfBaselineService(CommonService):
         bandwidth = 10
         machine = None
         machine_ip = ''
-        baseline_id = self.get_baseline_id(data)
-        server_provider = Baseline.objects.filter(id=baseline_id).first().server_provider
+        baseline_id = data.get('baseline_id')
         job_id = data.get('job_id')
         suite_id = data.get('suite_id')
         case_id = data.get('case_id')
@@ -500,11 +480,10 @@ class PerfBaselineService(CommonService):
         test_step_case = TestStep.objects.filter(job_id=job_id, job_case_id=job_case_id).first()
         if test_step_case and test_step_case.server:
             server_object_id = test_step_case.server
-            if server_provider == "aligroup":
-                machine = TestServerSnapshot.objects.filter(id=server_object_id, query_scope='all').first()
-                if machine is not None:
-                    sm_name = machine.sm_name
-                    machine_ip = machine.ip
+            machine = TestServerSnapshot.objects.filter(id=server_object_id, query_scope='all').first()
+            if machine is not None:
+                sm_name = machine.sm_name
+                machine_ip = machine.ip
             else:
                 machine = CloudServerSnapshot.objects.filter(id=server_object_id, query_scope='all').first()
                 if machine is not None:
@@ -575,7 +554,7 @@ class PerfBaselineService(CommonService):
             id_list = list(update_dict.keys())
             perf_detail = PerfBaselineDetail.objects.filter(id__in=id_list)
             for perf_obj in perf_detail:
-                update_data = update_dict.get(perf_obj.id)
+                update_data = update_dict.get(str(perf_obj.id))
                 if update_data:
                     perf_obj.baseline_id = update_data.baseline_id
                     perf_obj.test_job_id = update_data.test_job_id
