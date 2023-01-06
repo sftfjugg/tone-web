@@ -803,7 +803,7 @@ class JobTestCaseResultSerializer(CommonSerializer):
                                 'test_type': baseline_obj.test_type,
                                 'test_suite_id': obj.test_suite_id,
                                 'test_case_id': obj.test_case_id,
-                                'baseline_id': baseline_id,
+                                'baseline_id': func_detail.baseline_id,
                                 'sub_case_name': obj.sub_case_name
                                 }
 
