@@ -573,16 +573,17 @@ class JobTestPrepareService(CommonService):
         provider = obj.server_provider
         for cluster_id in cluster_id_list:
             cluster_steps = steps.filter(cluster_id=cluster_id)
+            final_state = JobTestPrepareService.get_final_state(cluster_steps)
             if cluster_id:
                 cluster_name = JobPrepareInfo.get_cluster_name_for_test_cluster_snapshot_id(cluster_id)
                 step_cluster = cluster_steps.order_by('gmt_created')
                 last_step = step_cluster.last()
                 step_end = cluster_steps.filter(state__in=['success', 'fail', 'stop']).order_by('-gmt_modified').first()
+                final_stage = JobTestPrepareService.get_final_stage(final_state, last_step)
                 date = {'server_type': 'cluster',
                         'server': cluster_name,
-                        'stage': PREPARE_STEP_STAGE_MAP.get(
-                            last_step.stage) if last_step.state == 'running' else 'done',
-                        'state': last_step.state,
+                        'stage': final_stage,
+                        'state': final_state,
                         'result': get_result_map("test_prepare",
                                                  last_step.result) if last_step.state == 'running' else "",
                         'gmt_created': datetime.strftime(step_cluster.first().gmt_created, "%Y-%m-%d %H:%M:%S"),
@@ -600,12 +601,12 @@ class JobTestPrepareService(CommonService):
                     last_step = step_server_order.last()
                     step_end = server_steps.filter(state__in=['success', 'fail', 'stop']).order_by(
                         '-gmt_modified').first()
+                    final_stage = JobTestPrepareService.get_final_stage(final_state, last_step)
                     date = {'server_type': 'standalone',
                             'server': server,
                             'server_id': int(server_id),
-                            'stage': PREPARE_STEP_STAGE_MAP.get(
-                                last_step.stage) if last_step.state == 'running' else 'done',
-                            'state': last_step.state,
+                            'stage': final_stage,
+                            'state': final_state,
                             'result': get_result_map("test_prepare",
                                                      last_step.result) if last_step.state == 'running' else "",
                             'gmt_created': datetime.strftime(step_server_order.first().gmt_created,
@@ -617,6 +618,34 @@ class JobTestPrepareService(CommonService):
                             }
                     date_list.append(date)
         return date_list
+
+    @staticmethod
+    def get_final_stage(final_state, last_step):
+        final_stage = ""
+        if final_state == "running":
+            final_stage = PREPARE_STEP_STAGE_MAP.get(last_step.stage)
+        elif final_state in ['fail', 'stop']:
+            final_stage = 'done'
+        elif final_state == 'success':
+            if PREPARE_STEP_STAGE_MAP.get(last_step.stage) == PREPARE_STEP_STAGE_MAP['prepare']:
+                final_stage = 'done'
+            else:
+                final_stage = PREPARE_STEP_STAGE_MAP.get(last_step.stage)
+        return final_stage
+
+    @staticmethod
+    def get_final_state(cluster_steps):
+        state_list = cluster_steps.values_list('state', flat=True).distinct()
+        final_state = 'success'
+        if 'fail' in state_list:
+            final_state = 'fail'
+        elif 'stop' in state_list:
+            final_state = 'stop'
+        elif 'running' in state_list:
+            final_state = 'running'
+        elif set(state_list) == {'success'}:
+            final_state = 'success'
+        return final_state
 
 
 class JobTestProcessSuiteService(CommonService):
@@ -1405,7 +1434,8 @@ class JobPrepareInfo:
             'server_description': get_check_server_ip(step.server, provider,
                                                       return_field='description') if step.server.isdigit() else "",
             'gmt_created': datetime.strftime(step.gmt_created, "%Y-%m-%d %H:%M:%S"),
-            'gmt_modified': datetime.strftime(step.gmt_modified, "%Y-%m-%d %H:%M:%S")
+            'gmt_modified': datetime.strftime(step.gmt_modified, "%Y-%m-%d %H:%M:%S"
+                                              ) if step.state in ['success', 'fail', 'stop'] else ""
         }
 
     @staticmethod
