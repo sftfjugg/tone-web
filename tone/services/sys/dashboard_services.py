@@ -41,16 +41,19 @@ class DashboardService(CommonService):
                                                   end_time__gt=end_time).order_by(
                 '-end_time')
             for each_job in end_job_list:
-                total_duration += (each_job.end_time - each_job.start_time).seconds
-            if end_job_list:
+                if each_job:
+                    total_duration += (each_job.end_time - each_job.start_time).seconds
+            if end_job_list.first() and end_job_list.first().end_time:
                 redis_cache.set(redis_test_duration, [total_duration, str(end_job_list.first().end_time)], nx=False)
         else:
             end_job_list = TestJob.objects.filter(start_time__isnull=False, end_time__isnull=False).order_by(
                 '-end_time')
             total_duration = 0
             for each_job in end_job_list:
-                total_duration += (each_job.end_time - each_job.start_time).seconds
-            redis_cache.set(redis_test_duration, [total_duration, str(end_job_list.first().end_time)], nx=False)
+                if each_job:
+                    total_duration += (each_job.end_time - each_job.start_time).seconds
+            if end_job_list.first() and end_job_list.first().end_time:
+                redis_cache.set(redis_test_duration, [total_duration, str(end_job_list.first().end_time)], nx=False)
 
         return {
             'job_total_num': job_total_num,
