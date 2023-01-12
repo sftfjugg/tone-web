@@ -400,16 +400,6 @@ class PerfBaselineService(CommonService):
         return conf_list
 
     @staticmethod
-    def get_machine_info(queryset):
-        """展开机器信息"""
-        machine_queryset = list()
-        distinct_field = 'server_sn'
-        machine_list = queryset.values_list(distinct_field, flat=True)
-        for machine in set(machine_list):
-            machine_queryset.append(queryset.filter(**{distinct_field: machine}).first())
-        return machine_queryset
-
-    @staticmethod
     def get_baseline_id(data):
         """baseline_id不存在, 则创建基线"""
         baseline_id = data.get('baseline_id')
