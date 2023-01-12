@@ -906,7 +906,7 @@ class JobTestCasePerResultSerializer(CommonSerializer):
                                                    object_type=object_type).cmp_threshold
             cv_threshold = TestMetric.objects.get(object_id=object_id, name=obj.metric,
                                                   object_type=object_type).cv_threshold
-            threshold = '{}%/{}%'.format(str(cmp_threshold * 100), str(cv_threshold * 100))
+            threshold = '{:.2f}%/{:.2f}%'.format((cmp_threshold * 100), (cv_threshold * 100))
         return threshold
 
 
