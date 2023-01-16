@@ -67,7 +67,7 @@ def config_query(request):
                 'test_case_id': job_case.test_case_id,
                 'repeat': job_case.repeat,
                 'customer_server': get_custom_server(job_case.id),
-                'server_object_id': get_server_object_id(job_case),
+                'server_object_id': None if ip == '随机' else get_server_object_id(job_case),
                 'server_tag_id': list() if not job_case.server_tag_id else [
                     int(tag_id) for tag_id in job_case.server_tag_id.split(',') if tag_id.isdigit()],
                 'env_info': job_case.env_info,
