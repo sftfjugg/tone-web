@@ -15,16 +15,16 @@ from tone.core.common.constant import CASE_STEP_STAGE_MAP, PREPARE_STEP_STAGE_MA
     FUNC_CASE_RESULT_TYPE_MAP, PERF_CASE_RESULT_TYPE_MAP, SUITE_STEP_PREPARE_MAP
 from tone.core.common.enums.job_enums import JobState
 from tone.core.common.info_map import get_result_map
-from tone.core.common.job_result_helper import calc_job_suite, calc_job_case, calc_job, get_job_case_server, \
-    get_job_case_run_server
+from tone.core.common.job_result_helper import calc_job_suite, calc_job_case, calc_job, get_job_case_run_server,\
+    get_test_config
 from tone.core.common.serializers import CommonSerializer
 from tone.core.utils.common_utils import kernel_info_format
 from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestJob, JobType, Project, Product, TestJobCase, TestJobSuite, TestCase, TestSuite, \
     JobTagRelation, JobTag, TestStep, FuncResult, PerfResult, ResultFile, User, TestMetric, FuncBaselineDetail, \
     TestServerSnapshot, CloudServerSnapshot, PlanInstanceTestRelation, PlanInstance, ReportObjectRelation, Report, \
-    BusinessSuiteRelation, TestBusiness, WorkspaceCaseRelation, JobMonitorItem, MonitorInfo, BaseConfig, \
-    TestClusterSnapshot, TestCluster, CloudServer
+    BusinessSuiteRelation, TestBusiness, JobMonitorItem, MonitorInfo, BaseConfig, TestClusterSnapshot, TestCluster,\
+    CloudServer
 from tone.models.sys.baseline_models import Baseline, PerfBaselineDetail
 
 
@@ -134,57 +134,7 @@ class JobTestConfigSerializer(CommonSerializer):
 
     @staticmethod
     def get_test_config(obj):
-        test_config = list()
-        job_suites = TestJobSuite.objects.filter(job_id=obj.id)
-        job_cases = TestJobCase.objects.filter(job_id=obj.id)
-        for job_suite in job_suites:
-            obj_dict = {
-                'test_suite_id': job_suite.test_suite_id,
-                'test_suite_name': TestSuite.objects.get_value(
-                    id=job_suite.test_suite_id) and TestSuite.objects.get_value(id=job_suite.test_suite_id).name,
-                'need_reboot': job_suite.need_reboot,
-                'setup_info': job_suite.setup_info,
-                'cleanup_info': job_suite.cleanup_info,
-                'monitor_info': job_suite.monitor_info,
-                'priority': job_suite.priority,
-                'run_mode': TestSuite.objects.get_value(id=job_suite.test_suite_id) and TestSuite.objects.get_value(
-                    id=job_suite.test_suite_id).run_mode,
-            }
-            if WorkspaceCaseRelation.objects.filter(test_type='business',
-                                                    test_suite_id=job_suite.test_suite_id,
-                                                    query_scope='all').exists():
-                business_relation = BusinessSuiteRelation.objects.filter(test_suite_id=obj.id,
-                                                                         query_scope='all').first()
-                if business_relation:
-                    test_business = TestBusiness.objects.filter(id=business_relation.business_id,
-                                                                query_scope='all').first()
-                    if test_business:
-                        obj_dict.update({'business_name': test_business.name})
-            cases = list()
-            for case in job_cases.filter(test_suite_id=job_suite.test_suite_id):
-                ip = get_job_case_server(case.id, is_config=True)[0]
-                is_instance = get_job_case_server(case.id, is_config=True)[1]
-                cases.append({
-                    'test_case_id': case.test_case_id,
-                    'test_case_name': TestCase.objects.get_value(id=case.test_case_id) and TestCase.objects.get_value(
-                        id=case.test_case_id).name,
-                    'setup_info': case.setup_info,
-                    'cleanup_info': case.cleanup_info,
-                    'server_ip': ip,
-                    'server_id': get_job_case_run_server(case.id, return_field='id'),
-                    'server_description': get_job_case_run_server(case.id, return_field='description'),
-                    'is_instance': is_instance,
-                    'need_reboot': case.need_reboot,
-                    'console': case.console,
-                    'monitor_info': case.monitor_info,
-                    'priority': case.priority,
-                    'env_info': case.env_info,
-                    'repeat': case.repeat,
-                    'run_mode': case.run_mode,
-                })
-            obj_dict['cases'] = cases
-            test_config.append(obj_dict)
-        return test_config
+        return get_test_config(obj.id)
 
 
 class JobTestSummarySerializer(CommonSerializer):
