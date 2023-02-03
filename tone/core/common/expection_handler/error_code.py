@@ -268,3 +268,6 @@ class ErrorCode(object):
     SYNC_SERVER_STATE_ERROR = (1381, "同步机器状态失败")
 
     KERNELID_NOT_EXISTS = (1382, "kernel_id不存在！")
+
+    TONE_AGENT_ERROR = (1383, "IP/SN 在toneagent中不存在！")
+    STAR_AGENT_ERROR = (1384, "IP/SN 在staragent中不存在！")
