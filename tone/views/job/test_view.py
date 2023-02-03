@@ -14,7 +14,7 @@ from tone.core.common.exceptions import exception_code
 from tone.core.common.views import CommonAPIView, BaseView
 from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestJob, TestJobCase, FuncResult, ResultFile, PerfResult, \
-    JobCollection, TestJobSuite, MonitorInfo
+    JobCollection, TestJobSuite, MonitorInfo, JobDownloadRecord
 from tone.serializers.job.test_serializers import JobTestSerializer, JobTestSummarySerializer, \
     JobTestConfigSerializer, JobTestResultSerializer, JobTestConfResultSerializer, \
     JobTestCaseResultSerializer, JobTestCaseVersionSerializer, JobTestCaseFileSerializer, \
@@ -64,9 +64,8 @@ class JobTestView(CommonAPIView):
         """
         try:
             self.service.create(request.data, operator=request.user)
-        except JobTestException:
-            return Response(self.get_response_code(code=ErrorCode.GLOBAL_VARIABLES_ERROR[0],
-                                                   msg=ErrorCode.GLOBAL_VARIABLES_ERROR[1]))
+        except JobTestException as e:
+            return Response(self.get_response_code(code=e.args[0][0], msg=e.args[0][1]))
         return Response(self.get_response_code())
 
     @method_decorator(views_catch_error)
@@ -568,4 +567,27 @@ class JobStateView(CommonAPIView):
         response_data = self.get_response_only_for_data(
             data=self.serializer_class(test_job, many=False).data
         )
+        return Response(response_data)
+
+
+class JobDownloadView(CommonAPIView):
+    service_class = JobTestService
+
+    def get(self, request):
+        job_id = request.GET.get('job_id')
+        self.service.download(job_id)
+        response_data = self.get_response_code(code=200)
+        return Response(response_data)
+
+
+class JobDownloadRecordView(CommonAPIView):
+
+    @method_decorator(views_catch_error)
+    def get(self, request):
+        test_job_id = request.GET.get('job_id')
+        record = JobDownloadRecord.objects.filter(job_id=test_job_id).first()
+        if record:
+            response_data = self.get_response_only_for_data(record.to_dict())
+        else:
+            response_data = self.get_response_only_for_data(None)
         return Response(response_data)
