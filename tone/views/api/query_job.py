@@ -67,8 +67,12 @@ def job_query(request):
         suite_result = FuncResult.objects.filter(test_job_id=job_id)
     job_cases = TestJobCase.objects.filter(job_id=job_id)
     for job_case in job_cases:
-        test_suite = TestSuite.objects.filter(id=job_case.test_suite_id)
-        test_case = TestCase.objects.filter(id=job_case.test_case_id)
+        test_suite = TestSuite.objects.filter(id=job_case.test_suite_id, query_scope='all')
+        test_case = TestCase.objects.filter(id=job_case.test_case_id, query_scope='all')
+        if not test_suite.exists():
+            raise f'test_suite_id: {job_case.test_suite_id}不存在'
+        if not test_case.exists():
+            raise f'test_case_id: {job_case.test_case_id}不存在'
         ip, is_instance, _, _ = get_job_case_server(job_case.id)
         suite_result = suite_result.filter(test_suite_id=job_case.test_suite_id)
         case_state, case_statics = calc_job_case(job_case, suite_result, job.test_type, is_api=True)
@@ -79,10 +83,10 @@ def job_query(request):
         if job_case.end_time:
             end_time = datetime.strftime(job_case.end_time, "%Y-%m-%d %H:%M:%S")
         result_item = {
-            'test_suite_id': test_suite.first().id if test_suite.exists() else None,
-            'test_suite': test_suite.first().name if test_suite.exists() else None,
-            'test_case_id': test_case.first().id if test_case.exists() else None,
-            'test_case': test_case.first().name if test_case.exists() else None,
+            'test_suite_id': test_suite.first().id,
+            'test_suite': test_suite.first().name,
+            'test_case_id': test_case.first().id,
+            'test_case': test_case.first().name,
             'start_time': start_time,
             'end_time': end_time,
             'result_statistics': case_statics,
@@ -115,7 +119,7 @@ def job_query(request):
         elif job.test_type == 'functional':
             sub_case_results = FuncResult.objects.filter(test_job_id=job.id, test_case_id=job_case.test_case_id)
             statistic_file = ''
-            statistic_result = ResultFile.objects.filter(test_job_id=job_id, test_suite_id=test_suite.id,
+            statistic_result = ResultFile.objects.filter(test_job_id=job_id, test_suite_id=job_case.test_suite_id,
                                                          test_case_id=job_case.test_case_id,
                                                          result_file='statistic.json').first()
             if statistic_result:
