@@ -8,6 +8,8 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from queue import Queue
+from tone.core.common.expection_handler.error_code import ErrorCode
+from tone.core.common.expection_handler.custom_error import JobTestException
 
 import requests
 from django.db.models import Count, Case, When, Q
@@ -21,7 +23,8 @@ from tone.core.common.toneagent import tone_agent_info
 from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestJobCase, TestJob, FuncResult, PerfResult, TestServerSnapshot, \
     CloudServerSnapshot, ServerTag, TestTmplCase, TestServer, PerfBaselineDetail, \
-    CloudServer, TestMetric, FuncBaselineDetail, TestCluster, TestStep, BusinessResult
+    CloudServer, TestMetric, FuncBaselineDetail, TestCluster, TestStep, BusinessResult, TestSuite, TestCase, \
+    WorkspaceCaseRelation, BusinessSuiteRelation, TestBusiness, TestJobSuite
 
 logger = get_logger('error')
 
@@ -356,6 +359,84 @@ def get_job_case_run_server(job_case_id, return_field='ip'):
     return server
 
 
+def get_test_config(test_job_id, detail_server=False):
+    test_config = list()
+    job_suites = TestJobSuite.objects.filter(job_id=test_job_id)
+    job_cases = TestJobCase.objects.filter(job_id=test_job_id)
+    for job_suite in job_suites:
+        test_suite_name = TestSuite.objects.get_value(
+                id=job_suite.test_suite_id) and TestSuite.objects.get_value(id=job_suite.test_suite_id).name
+        obj_dict = {
+            'test_suite_id': job_suite.test_suite_id,
+            'test_suite_name': test_suite_name,
+            'test_suite': test_suite_name,
+            'need_reboot': job_suite.need_reboot,
+            'setup_info': job_suite.setup_info,
+            'cleanup_info': job_suite.cleanup_info,
+            'monitor_info': list(job_suite.monitor_info),
+            'priority': job_suite.priority,
+            'run_mode': TestSuite.objects.get_value(id=job_suite.test_suite_id) and TestSuite.objects.get_value(
+                id=job_suite.test_suite_id).run_mode,
+        }
+        if WorkspaceCaseRelation.objects.filter(test_type='business',
+                                                test_suite_id=job_suite.test_suite_id,
+                                                query_scope='all').exists():
+            business_relation = BusinessSuiteRelation.objects.filter(test_suite_id=test_job_id,
+                                                                     query_scope='all').first()
+            if business_relation:
+                test_business = TestBusiness.objects.filter(id=business_relation.business_id,
+                                                            query_scope='all').first()
+                if test_business:
+                    obj_dict.update({'business_name': test_business.name})
+        cases = list()
+        for case in job_cases.filter(test_suite_id=job_suite.test_suite_id):
+            ip = get_job_case_server(case.id, is_config=True)[0]
+            is_instance = get_job_case_server(case.id, is_config=True)[1]
+            test_case_name = TestCase.objects.get_value(id=case.test_case_id) and TestCase.objects.get_value(
+                    id=case.test_case_id).name
+            server_info = get_job_case_run_server(case.id, return_field='obj')
+            server = ({
+                'ip': ip
+            })
+            if detail_server and server_info:
+                if type(server_info) is CloudServerSnapshot:
+                    server = ({
+                        'instance': server_info.instance_id
+                    })
+                else:
+                    server['ip'] = server_info.ip
+                server['distro'] = server_info.distro
+                server['kernel_version'] = server_info.kernel_version
+                server['glibc'] = server_info.glibc
+                server['gcc'] = server_info.gcc
+                server['memory_info'] = server_info.memory_info
+                server['disk'] = server_info.disk
+                server['cpu_info'] = server_info.cpu_info
+                server['ether'] = server_info.ether
+            cases.append({
+                'test_case_id': case.test_case_id,
+                'test_case_name': test_case_name,
+                'test_case': test_case_name,
+                'setup_info': case.setup_info,
+                'cleanup_info': case.cleanup_info,
+                'server_ip': ip,
+                'server_id': server_info.id if server_info else None,
+                'server_description': get_job_case_run_server(case.id, return_field='description'),
+                'is_instance': is_instance,
+                'need_reboot': case.need_reboot,
+                'console': case.console,
+                'monitor_info': list(case.monitor_info),
+                'priority': case.priority,
+                'env_info': list(case.env_info),
+                'repeat': case.repeat,
+                'run_mode': case.run_mode,
+                'server': server
+            })
+        obj_dict['cases'] = cases
+        test_config.append(obj_dict)
+    return test_config
+
+
 def __get_server_value(server, server_provider, return_field):
     if return_field == 'ip':
         if server_provider == 'aligroup':
@@ -376,13 +457,19 @@ def get_server_ip_sn(server, channel_type):
     elif ip and channel_type == 'toneagent':
         agent_url = tone_agent_info(ip=server)
         res = json.loads(requests.get(url=agent_url, verify=False).text)
-        sn = res.get('RESULT').get('TSN')
+        if res['SUCCESS']:
+            sn = res.get('RESULT').get('TSN')
+        else:
+            raise JobTestException(ErrorCode.TONE_AGENT_ERROR)
     elif sn and channel_type == 'otheragent':
         pass
     else:
         agent_url = tone_agent_info(tsn=server)
         res = json.loads(requests.get(url=agent_url, verify=False).text)
-        ip = res.get('RESULT').get('IP')
+        if res['SUCCESS']:
+            ip = res.get('RESULT').get('IP')
+        else:
+            raise JobTestException(ErrorCode.TONE_AGENT_ERROR)
     return ip, sn
 
 
