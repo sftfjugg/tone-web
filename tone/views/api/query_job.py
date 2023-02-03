@@ -67,8 +67,8 @@ def job_query(request):
         suite_result = FuncResult.objects.filter(test_job_id=job_id)
     job_cases = TestJobCase.objects.filter(job_id=job_id)
     for job_case in job_cases:
-        test_suite = TestSuite.objects.get(id=job_case.test_suite_id)
-        test_case = TestCase.objects.get(id=job_case.test_case_id)
+        test_suite = TestSuite.objects.filter(id=job_case.test_suite_id)
+        test_case = TestCase.objects.filter(id=job_case.test_case_id)
         ip, is_instance, _, _ = get_job_case_server(job_case.id)
         suite_result = suite_result.filter(test_suite_id=job_case.test_suite_id)
         case_state, case_statics = calc_job_case(job_case, suite_result, job.test_type, is_api=True)
@@ -79,10 +79,10 @@ def job_query(request):
         if job_case.end_time:
             end_time = datetime.strftime(job_case.end_time, "%Y-%m-%d %H:%M:%S")
         result_item = {
-            'test_suite_id': test_suite.id,
-            'test_suite': test_suite.name,
-            'test_case_id': test_case.id,
-            'test_case': test_case.name,
+            'test_suite_id': test_suite.first().id if test_suite.exists() else None,
+            'test_suite': test_suite.first().name if test_suite.exists() else None,
+            'test_case_id': test_case.first().id if test_case.exists() else None,
+            'test_case': test_case.first().name if test_case.exists() else None,
             'start_time': start_time,
             'end_time': end_time,
             'result_statistics': case_statics,
