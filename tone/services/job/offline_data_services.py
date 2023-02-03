@@ -19,7 +19,6 @@ from tone import settings
 from tone.core.utils.sftp_client import sftp_client
 from tone.models.job.upload_models import OfflineUpload
 from tone.models.job.job_models import TestJob, TestJobCase, TestJobSuite, TestStep
-from tone.models.sys.workspace_models import Project
 from tone.models.sys.testcase_model import TestSuite, TestCase, TestMetric
 from tone.models.sys.server_models import TestServer, TestServerSnapshot, CloudServer, CloudServerSnapshot,\
     TestCluster, TestClusterServer
@@ -260,14 +259,9 @@ class OfflineDataUploadService(object):
         job_data['build_pkg_info'] = job_info.get('build_pkg_info', dict())
         job_data['need_reboot'] = job_info.get('need_reboot', 0)
         job_data['kernel_version'] = job_info.get('kernel_version', '')
-        job_data['project_id'] = 0
-        project = Project.objects.filter(id=data.get('project_id')).first()
-        if project:
-            job_data['project_id'] = project.id
-        job_data['baseline_id'] = 0
-        baseline = Baseline.objects.filter(name=data.get('baseline')).first()
-        if baseline:
-            job_data['baseline_id'] = baseline.id
+        job_data['project_id'] = data.get('project_id', '0')
+        job_data['baseline_id'] = data.get('baseline_id', 0)
+        job_data['product_version'] = data.get('product_version', None)
         job_data['test_config'] = test_config
         job_data['data_from'] = 'import'
         job_data['test_result'] = self.get_suite_summary(test_config)
@@ -321,7 +315,7 @@ class OfflineDataUploadService(object):
                     continue
                 test_case = TestCase.objects.filter(short_name=case_short_name, test_suite_id=test_suite.id).first()
                 if not test_case:
-                    return 201, '', 'case [%s] not exist error.' % case_short_name
+                    continue
                 case_index = filename.find(case_short_name)
                 result_file = filename[(len(case_short_name) + case_index + 1):]
                 local_dir = '%s%d/%s_%d/%s' % (MEDIA_ROOT, test_job_id, case_short_name, _timestamp, result_file)
@@ -445,30 +439,45 @@ class OfflineDataUploadService(object):
         ip = case_info['ip']
         if req_ip:
             ip = req_ip
-        test_server_snapshot = TestServerSnapshot.objects.filter(ip=ip, ws_id=ws_id).first()
-        if not test_server_snapshot:
-            server_dict = dict(
-                ip=ip,
-                ws_id=ws_id,
-                job_id=test_job_id
-            )
-            test_server_snapshot = TestServerSnapshot.objects.create(**server_dict)
+        server_dict = dict(
+            ip=ip,
+            ws_id=ws_id,
+            job_id=test_job_id,
+            arch=case_info.get('arch', None),
+            rpm_list=case_info.get('rpm_list', None),
+            distro=case_info.get('distro', None),
+            kernel_version=case_info.get('kernel_version', None),
+            glibc=case_info.get('glibc', None),
+            gcc=case_info.get('gcc', None),
+            memory_info=case_info.get('memory_info', None),
+            disk=case_info.get('disk', None),
+            cpu_info=case_info.get('cpu_info', None),
+            ether=case_info.get('ether', None)
+        )
+        test_server_snapshot = TestServerSnapshot.objects.create(**server_dict)
         return test_server_snapshot.id
 
     def _save_cloud_snapshot(self, args, req_ip, ws_id, test_job_id):
         instance = args['instance']
         if req_ip:
             instance = req_ip
-        cloud_server_snapshot = CloudServerSnapshot.objects.filter(job_id=test_job_id,
-                                                                   instance_id=instance, ws_id=ws_id).first()
-        if not cloud_server_snapshot:
-            cloud_server_dict = dict(
-                private_ip=instance,
-                pub_ip=instance,
-                ws_id=ws_id,
-                job_id=test_job_id
-            )
-            cloud_server_snapshot = CloudServerSnapshot.objects.create(**cloud_server_dict)
+        cloud_server_dict = dict(
+            private_ip=instance,
+            pub_ip=instance,
+            ws_id=ws_id,
+            job_id=test_job_id,
+            arch=args.get('arch', None),
+            rpm_list=args.get('rpm_list', None),
+            distro=args.get('distro', None),
+            kernel_version=args.get('kernel_version', None),
+            glibc=args.get('glibc', None),
+            gcc=args.get('gcc', None),
+            memory_info=args.get('memory_info', None),
+            disk=args.get('disk', None),
+            cpu_info=args.get('cpu_info', None),
+            ether=args.get('ether', None)
+        )
+        cloud_server_snapshot = CloudServerSnapshot.objects.create(**cloud_server_dict)
         return cloud_server_snapshot.id
 
     def _valid_tar(self, msg, result_file, tar_index):
