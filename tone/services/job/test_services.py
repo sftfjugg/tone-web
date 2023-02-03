@@ -7,14 +7,20 @@ Author: Yfh
 """
 import json
 import logging
+import shutil
+import os
+import stat
 from datetime import datetime
-
+import tarfile
 import yaml
+import requests
 from django.db.models import Q
 from django.db import transaction, connection
 from itertools import chain
+from threading import Thread
 
 from tone.core.common.callback import CallBackType, JobCallBack
+from tone.core.utils.common_utils import query_all_dict
 from tone.core.common.enums.job_enums import JobCaseState, JobState
 from tone.core.common.enums.ts_enums import TestServerState
 from tone.core.common.info_map import get_result_map
@@ -24,7 +30,7 @@ from tone.core.utils.permission_manage import check_operator_permission
 from tone.core.utils.tone_thread import ToneThread
 from tone.core.utils.verify_tools import check_contains_chinese
 from tone.models import TestJob, TestJobCase, TestJobSuite, JobCollection, TestServerSnapshot, CloudServerSnapshot, \
-    PerfResult, TestServer, CloudServer, BaseConfig, TestClusterSnapshot
+    PerfResult, TestServer, CloudServer, BaseConfig, TestClusterSnapshot, JobDownloadRecord
 from tone.models import JobType, User, FuncResult, Baseline, BuildJob, Project, Product, ReportObjectRelation, \
     Report, MonitorInfo, Workspace, TestSuite, TestCase, ServerTag, ReportTemplate, TestCluster, TestStep, \
     PlanInstanceTestRelation
@@ -35,6 +41,10 @@ from tone.core.common.expection_handler.custom_error import JobTestException
 from tone.serializers.job.test_serializers import get_time, get_check_server_ip
 from tone.settings import cp
 from tone.core.common.redis_cache import runner_redis_cache
+from tone.core.common.constant import OFFLINE_DATA_DIR
+from tone.settings import MEDIA_ROOT
+from tone.core.common.job_result_helper import get_test_config
+from tone.core.utils.sftp_client import sftp_client
 
 
 logger = logging.getLogger()
@@ -483,6 +493,86 @@ class JobTestService(CommonService):
         obj = TestJob.objects.filter(id=job_id)
         if not obj.exists():
             raise JobTestException(ErrorCode.TEST_JOB_NONEXISTENT)
+
+    def download(self, test_job_id):
+        if JobDownloadRecord.objects.filter(job_id=test_job_id).exists():
+            JobDownloadRecord.objects.filter(job_id=test_job_id).update(state='running')
+        else:
+            JobDownloadRecord.objects.create(**dict({'job_id': test_job_id, 'state': 'running'}))
+        upload_thread = Thread(target=self._post_background, args=(test_job_id,))
+        upload_thread.start()
+
+    def _post_background(self, test_job_id):
+        try:
+            offline_path = MEDIA_ROOT + OFFLINE_DATA_DIR
+            if not os.path.exists(offline_path):
+                os.makedirs(offline_path)
+            job_path = offline_path + '/' + str(test_job_id)
+            self.del_dir(job_path)
+            os.makedirs(job_path)
+            job_yaml = job_path + '/job.yaml'
+            tar_file_name = '/job_%s.tar.gz' % test_job_id
+            target_file = job_path + tar_file_name
+            result_dir = job_path + '/result'
+            if os.path.exists(result_dir):
+                os.remove(result_dir)
+            os.makedirs(result_dir)
+            job = TestJob.objects.filter(id=test_job_id).first()
+            if job:
+                job_yaml_dict = dict(
+                    name=job.name,
+                    need_reboot=job.need_reboot,
+                    test_config=get_test_config(test_job_id, detail_server=True)
+                )
+                with open(job_yaml, 'w', encoding='utf-8') as f:
+                    yaml.dump(job_yaml_dict, f)
+                raw_sql = 'SELECT a.result_path,a.result_file,b.name AS test_suite_name, c.name AS test_case_name ' \
+                          'FROM result_file a left join test_suite b ON a.test_suite_id=b.id ' \
+                          'LEFT JOIN test_case c ON a.test_case_id=c.id where test_job_id=%s'
+                result_files = query_all_dict(raw_sql.replace('\'', ''), [test_job_id])
+                for res_file in result_files:
+                    oss_file = res_file['result_path'] + res_file['result_file']
+                    local_suite_dir = os.path.join(result_dir, res_file['test_suite_name'])
+                    if not os.path.exists(local_suite_dir):
+                        os.makedirs(local_suite_dir)
+                    local_case_dir = os.path.join(local_suite_dir, res_file['test_case_name'])
+                    if not os.path.exists(local_case_dir):
+                        os.makedirs(local_case_dir)
+                    local_file = os.path.join(local_case_dir, res_file['result_file'])
+                    file_dir = os.path.dirname(local_file)
+                    if not os.path.exists(file_dir):
+                        os.makedirs(file_dir)
+                    self.download_file(oss_file, local_file)
+                tf = tarfile.open(name=target_file, mode='w:gz')
+                tf.add(job_yaml, arcname='job.yaml')
+                tf.add(result_dir, arcname='result')
+                tf.close()
+                oss_file = OFFLINE_DATA_DIR + tar_file_name
+                ftp_path = '/' + oss_file.replace(MEDIA_ROOT.strip('/'))
+                sftp_client.upload_file(target_file, ftp_path)
+                oss_link = sftp_client.host+':'+sftp_client.port + ftp_path
+                self.del_dir(job_path)
+                JobDownloadRecord.objects.filter(job_id=test_job_id).update(state='success', job_url=oss_link)
+            else:
+                JobDownloadRecord.objects.filter(job_id=test_job_id).update(state='fail', job_url='job not exists')
+        except Exception as e:
+            JobDownloadRecord.objects.filter(job_id=test_job_id).update(state='fail', job_url=str(e))
+
+    def download_file(self, url, target_file):
+        req = requests.get(url)
+        with open(target_file, 'wb') as f:
+            f.write(req.content)
+
+    def del_dir(self, path):
+        while 1:
+            if not os.path.exists(path):
+                break
+            try:
+                shutil.rmtree(path)
+            except PermissionError as e:
+                err_file_path = str(e).split("\'", 2)[1]
+                if os.path.exists(err_file_path):
+                    os.chmod(err_file_path, stat.S_IWUSR)
 
 
 class JobTestConfigService(CommonService):
