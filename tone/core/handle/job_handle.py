@@ -245,15 +245,16 @@ class JobDataHandle(BaseHandle):
                 'env_info') else dict()
             self.data_dic['server_provider'] = self.provider = job_type.server_type
             self.data_dic['test_type'] = job_type.test_type
-            product_version = None
-            if self.data.get('project_id'):
-                project_id = self.data.get('project_id')
-                project = Project.objects.filter(id=project_id).first()
-                if project:
-                    product_version = project.product_version
-            else:
-                project_id = Project.objects.filter(is_default=True, ws_id=self.ws_id).first().id \
-                    if Project.objects.filter(is_default=True, ws_id=self.ws_id).exists() else None
+            product_version = self.data.get('product_version', None)
+            project_id = self.data.get('project_id')
+            if not product_version:
+                if self.data.get('project_id'):
+                    project = Project.objects.filter(id=project_id).first()
+                    if project and not product_version:
+                        product_version = project.product_version
+                else:
+                    project_id = Project.objects.filter(is_default=True, ws_id=self.ws_id).first().id \
+                        if Project.objects.filter(is_default=True, ws_id=self.ws_id).exists() else None
             self.data_dic['project_id'] = project_id
             self.data_dic['product_version'] = product_version
             self.data_dic['product_id'] = self.get_product(self.data_dic['project_id'])
@@ -264,7 +265,7 @@ class JobDataHandle(BaseHandle):
         else:
             pass
 
-        if self.data_dic.get('project_id'):
+        if self.data_dic.get('project_id') and not self.data.get('product_version', None):
             project = Project.objects.get(id=self.data_dic['project_id'])
             self.data_dic['product_version'] = project.product_version
 
