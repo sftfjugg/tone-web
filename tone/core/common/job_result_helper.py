@@ -1132,7 +1132,7 @@ def get_suite_conf_sub_case_v1(suite_id, suite_name, base_index, group_job_list,
                   'COUNT(a.test_case_id ) AS total_count ' \
                   'FROM func_baseline_detail a LEFT JOIN test_case b ON a.test_case_id = b.id ' \
                   'WHERE a.is_deleted=0 AND b.is_deleted=0 AND a.test_suite_id=%s AND a.baseline_id IN (' + \
-                  job_id_list + ') GROUP BY a.baseline_id'
+                  job_id_list + ') GROUP BY a.baseline_id, a.test_case_id'
     else:
         raw_sql = 'SELECT distinct a.test_job_id,a.test_case_id,b.name AS test_case_name, ' \
                   'SUM(case when a.sub_case_result=1 then 1 ELSE 0 END ) AS success_case ,' \
@@ -1140,7 +1140,7 @@ def get_suite_conf_sub_case_v1(suite_id, suite_name, base_index, group_job_list,
                   'COUNT(a.test_case_id ) AS total_count ' \
                   'FROM func_result a LEFT JOIN test_case b ON a.test_case_id = b.id ' \
                   'WHERE a.is_deleted=0 AND b.is_deleted=0 AND a.test_suite_id=%s AND a.test_job_id IN (' + \
-                  job_id_list + ') GROUP BY a.test_job_id'
+                  job_id_list + ') GROUP BY a.test_job_id, a.test_case_id'
     if not is_all:
         conf_id_list = list()
         for conf in suite_info:
@@ -1327,6 +1327,9 @@ def get_conf_compare_data_v1(compare_objs, suite_id, conf_id, compare_count):
         group_data['all_case'] = all_case
         group_data['success_case'] = success_case
         group_data['fail_case'] = fail_case
+        obj_id = group_obj.get('job_list')[0]
+        if len(func_results) > 0:
+            obj_id = func_results[0][0]
         d_conf = [d for d in duplicate_conf if conf_id == d['conf_id']] if duplicate_conf else list()
         if has_duplicate > 0 and len(d_conf) > 0:
             if is_baseline:
@@ -1337,10 +1340,10 @@ def get_conf_compare_data_v1(compare_objs, suite_id, conf_id, compare_count):
                 group_data['obj_id'] = d_conf[0]['job_id']
                 compare_data.append(group_data)
             else:
-                group_data['obj_id'] = group_obj.get('job_list')[0]
+                group_data['obj_id'] = obj_id
                 compare_data.append(group_data)
         else:
-            group_data['obj_id'] = group_obj.get('job_list')[0]
+            group_data['obj_id'] = obj_id
             compare_data.append(group_data)
     return compare_data
 
