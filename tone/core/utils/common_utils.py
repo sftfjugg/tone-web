@@ -1,6 +1,7 @@
 import re
 import shlex
 
+from django.db import connection
 from tone.core.common.expection_handler.custom_error import JobTestException
 from tone.core.common.expection_handler.error_code import ErrorCode
 
