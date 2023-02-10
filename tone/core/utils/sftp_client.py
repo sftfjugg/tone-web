@@ -8,11 +8,12 @@ logger = logging.getLogger('sftp')
 
 
 class SFTPClient(object):
-    def __init__(self, host, user, password, port=22):
+    def __init__(self, host, user, password, port=22, proxy_port=8888):
         self.host = host
         self.port = port
         self.user = user
         self.password = password
+        self.proxy_port = proxy_port
 
     def upload_file(self, local_path, server_path, timeout=10):
         """
@@ -73,5 +74,6 @@ sftp_client = SFTPClient(
     settings.TONE_STORAGE_HOST,
     settings.TONE_STORAGE_USER,
     settings.TONE_STORAGE_PASSWORD,
-    settings.TONE_STORAGE_SFTP_PORT
+    settings.TONE_STORAGE_SFTP_PORT,
+    settings.TONE_STORAGE_PROXY_PORT
 )
