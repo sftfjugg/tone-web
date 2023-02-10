@@ -350,7 +350,6 @@ class TestServerService(CommonService):
             TestTmplCase.objects.filter(server_provider='aligroup',
                                         run_mode='standalone',
                                         server_object_id=pk).update(server_object_id=None)
-            TestServer.objects.filter(id=pk).delete()
             # 调用接口，将机器从toneagent系统移除
             try:
                 server = test_server.first()
@@ -358,6 +357,7 @@ class TestServerService(CommonService):
             except Exception as e:
                 error_logger.error(f'remove server from toneagent failed!server:'
                                    f'{server.ip}, error:{str(e)}')
+            TestServer.objects.filter(id=pk).delete()
             operation_li = list()
             log_data = {
                 'creator': user_id,
