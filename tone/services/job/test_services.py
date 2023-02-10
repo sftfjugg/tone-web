@@ -548,11 +548,14 @@ class JobTestService(CommonService):
                 tf.add(result_dir, arcname='result')
                 tf.close()
                 oss_file = OFFLINE_DATA_DIR + tar_file_name
-                ftp_path = '/' + oss_file.replace(MEDIA_ROOT.strip('/'))
-                sftp_client.upload_file(target_file, ftp_path)
-                oss_link = sftp_client.host+':'+sftp_client.port + ftp_path
-                self.del_dir(job_path)
-                JobDownloadRecord.objects.filter(job_id=test_job_id).update(state='success', job_url=oss_link)
+                ftp_path = oss_file.replace(MEDIA_ROOT.strip('/'), '')
+                res = sftp_client.upload_file(target_file, ftp_path)
+                if res:
+                    oss_link = 'http://' + sftp_client.host + ':' + str(sftp_client.port) + ftp_path
+                    self.del_dir(job_path)
+                    JobDownloadRecord.objects.filter(job_id=test_job_id).update(state='success', job_url=oss_link)
+                else:
+                    JobDownloadRecord.objects.filter(job_id=test_job_id).update(state='success', job_url='ftp upload fail.')
             else:
                 JobDownloadRecord.objects.filter(job_id=test_job_id).update(state='fail', job_url='job not exists')
         except Exception as e:
