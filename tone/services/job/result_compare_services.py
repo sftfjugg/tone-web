@@ -40,7 +40,7 @@ class CompareSuiteInfoService(CommonService):
 
     def pack_suite_dic(self, data, data_dic, is_func):
         base_obj_li = data.get('base_job')
-        if len(base_obj_li) == 0:
+        if not base_obj_li or len(base_obj_li) == 0:
             return
         is_baseline = data.get('is_baseline', 0)
         base_id_list = ','.join(str(e) for e in base_obj_li)
