@@ -4,10 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="referrer" content="unsafe-url" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="keywords" content="T-One Openanolis openanolis anolis 自动化测试 操作系统" />
+    <meta name="description" content="T-One（testing in one）提供一站式自动化测试集成、管理、执行、分析，以及跨团队、跨企业质量协作能力。" />
+    <meta name="description" content="T-One(Testing in One) provides one-stop automatic test integration, management, execution, analysis and quality collaboration capabilities across teams and enterprises." />
+    <meta property="og:description" content="T-One（testing in one）提供一站式自动化测试集成、管理、执行、分析，以及跨团队、跨企业质量协作能力。" />
+    <meta property="og:description" content="T-One(Testing in One) provides one-stop automatic test integration, management, execution, analysis and quality collaboration capabilities across teams and enterprises." />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"
     />
+    <meta property="og:image" content="/{{ static_url }}/front/favicon.png">
+    <link href="/{{ static_url }}/front/favicon.png" rel="shortcut icon" type="image/png" />
     <title>T-One</title>
     <link rel="shortcut icon" type="image/x-icon" href="/{{ static_url }}/front/favicon.ico" />
     <link rel="stylesheet" href="/{{ static_url }}/front/umi.css" />
@@ -17,12 +24,12 @@
     <script>
       window.publicPath = window.resourceBaseUrl || "/{{ static_url }}/front/";
     </script>
-    <script>
-      //! umi version: 3.5.14
-    </script>
   </head>
   <body>
-    <noscript>Missing network , Please refresh this page!</noscript>
+    <noscript>
+      网络错误，请刷新页面！
+      Missing network , Please refresh this page!
+    </noscript>
     <div id="root">
       <style>
         html,
@@ -203,7 +210,6 @@
         </div>
       </div>
     </div>
-    <div id="router-prompt"></div>
 
     <script src="/{{ static_url }}/front/umi.js"></script>
   </body>
