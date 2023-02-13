@@ -479,7 +479,7 @@ def get_test_config(test_job_id, detail_server=False):
                 'console': case.console,
                 'monitor_info': list(case.monitor_info),
                 'priority': case.priority,
-                'env_info': list(case.env_info),
+                'env_info': dict(case.env_info),
                 'repeat': case.repeat,
                 'run_mode': case.run_mode,
                 'server': server
