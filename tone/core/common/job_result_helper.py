@@ -176,7 +176,7 @@ def calc_job_suite(job_id, test_suite_id, ws_id, test_type, test_result=None):
                 result = 'success'
                 count_case = TestJobCase.objects.filter(job_id=job_id,
                                                         test_suite_id=test_suite_id).count()
-                if count_case > len(func_result):
+                if count_case > total:
                     # 如果conf在FuncResult表中没有测试结果，则该suite状态也是fail
                     result = 'fail'
             else:
