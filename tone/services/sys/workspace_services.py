@@ -125,7 +125,8 @@ class WorkspaceService(CommonService):
             config_list.append(data.get('id'))
             workspace.update(is_show=True)
         else:
-            config_list.remove(data.get('id'))
+            if data.get('id') in config_list:
+                config_list.remove(data.get('id'))
             workspace.update(is_show=False)
         if BaseConfig.objects.filter(config_key='SHOW_WS_ID_LIST'):
             BaseConfig.objects.filter(config_key='SHOW_WS_ID_LIST').update(config_value=json.dumps(config_list))
@@ -240,6 +241,8 @@ class WorkspaceService(CommonService):
         # self.delete_in_site_msg(ws_id)
         # delete simple msg
         self.delete_simple_msg(ws_id)
+        # delete ws is_show
+        self.update_ws_is_show({'id': ws_id})
 
     @staticmethod
     def delete_simple_msg(ws_id):
