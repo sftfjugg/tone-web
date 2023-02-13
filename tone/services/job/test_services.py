@@ -666,8 +666,8 @@ class JobTestPrepareService(CommonService):
         provider = obj.server_provider
         for cluster_id in cluster_id_list:
             cluster_steps = steps.filter(cluster_id=cluster_id)
-            final_state = JobTestPrepareService.get_final_state(cluster_steps)
             if cluster_id:
+                final_state = JobTestPrepareService.get_final_state(cluster_steps)
                 cluster_name = JobPrepareInfo.get_cluster_name_for_test_cluster_snapshot_id(cluster_id)
                 step_cluster = cluster_steps.order_by('gmt_created')
                 last_step = step_cluster.last()
@@ -689,6 +689,7 @@ class JobTestPrepareService(CommonService):
                 server_id_list = cluster_steps.values_list('server', flat=True).distinct()
                 for server_id in server_id_list:
                     server_steps = cluster_steps.filter(server=server_id)
+                    final_state = JobTestPrepareService.get_final_state(server_steps)
                     server = JobPrepareInfo.get_server_ip_for_snapshot_id(provider, server_id)
                     step_server_order = server_steps.order_by('gmt_created')
                     last_step = step_server_order.last()
