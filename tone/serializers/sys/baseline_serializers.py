@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from tone.core.common.serializers import CommonSerializer
-from tone.models import Baseline, FuncBaselineDetail, PerfBaselineDetail, TestSuite, TestCase, TestJob, User
+from tone.models import Baseline, FuncBaselineDetail, PerfBaselineDetail, TestSuite, TestCase, TestJob, User, \
+    CloudServerSnapshot, TestServerSnapshot
 
 
 class BaselineSerializer(CommonSerializer):
@@ -76,6 +77,7 @@ class PerfBaselineDetialSerializer(CommonSerializer):
     test_suite_name = serializers.SerializerMethodField()
     test_case_name = serializers.SerializerMethodField()
     job_name = serializers.SerializerMethodField()
+    env_info = serializers.SerializerMethodField()
 
     class Meta:
         model = PerfBaselineDetail
@@ -104,3 +106,30 @@ class PerfBaselineDetialSerializer(CommonSerializer):
         if test_job is None:
             return None
         return test_job.name
+
+    @staticmethod
+    def get_env_info(obj):
+        env = dict()
+        test_job = TestJob.objects.filter(id=obj.source_job_id).first()
+        if test_job is None:
+            return env
+        if test_job.server_provider == 'aliyun':
+            snapshot_obj = CloudServerSnapshot
+        else:
+            snapshot_obj = TestServerSnapshot
+        snapshot_detail = snapshot_obj.objects.filter(job_id=obj.source_job_id)
+        if snapshot_detail.exists():
+            env = dict({
+                'sn': snapshot_detail[0].sn,
+                'ip': snapshot_detail[0].private_ip if test_job.server_provider == 'aliyun' else snapshot_detail[0].ip,
+                'cpu': snapshot_detail[0].cpu if test_job.server_provider == 'aligroup' else '',
+                'memory': snapshot_detail[0].memory_info,
+                'disk': snapshot_detail[0].disk,
+                'image': snapshot_detail[0].image if test_job.server_provider == 'aliyun' else '',
+                'bandwidth': snapshot_detail[0].bandwidth if test_job.server_provider == 'aliyun' else '',
+                'distro': snapshot_detail[0].distro,
+                'kernel_version': snapshot_detail[0].kernel_version,
+                'glibc': snapshot_detail[0].glibc,
+                'gcc': snapshot_detail[0].gcc,
+            })
+        return env

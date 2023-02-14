@@ -351,7 +351,7 @@ class ReportService(CommonService):
             name = item.get('name')
             suite_list = item.get('suite_list', list())
             assert name, ReportException(ErrorCode.ITEM_NAME_NEED)
-            report_item = ReportItem.objects.filter(report_id=report_id).first()
+            report_item = ReportItem.objects.filter(report_id=report_id, test_type=test_type).first()
             if not report_item:
                 report_item = ReportItem.objects.create(name=name, report_id=report_id, test_type=test_type)
             report_item_id = report_item.id

@@ -22,7 +22,7 @@ class Baseline(BaseModel):
     description = models.TextField(null=True, blank=True, help_text='基线描述')
     test_type = models.CharField(max_length=64, choices=TEST_TYPE_CHOICES, db_index=True, help_text='测试类型')
     server_provider = models.CharField(max_length=64, choices=SERVER_PROVIDER_CHOICES,
-                                       default='aligroup', db_index=True, help_text='机器类型')
+                                       default='aligroup', null=True, help_text='机器类型')
     ws_id = models.CharField(null=True, blank=True, max_length=64, db_index=True, help_text='所属Workspace')
     creator = models.IntegerField(help_text='创建者', null=True)
     update_user = models.IntegerField(help_text='修改者', null=True)

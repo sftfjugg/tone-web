@@ -50,7 +50,7 @@ def get_domain_group(conf_list):
 
 
 def get_domain_group_v1(suite_list):
-    res_data = {'functional': dict(), 'performance': dict()}
+    res_data = {'functional': dict(), 'performance': dict(), 'business': dict()}
     conf_id_list = list()
     sql_filter = '1=1'
     suite_id_list = list()

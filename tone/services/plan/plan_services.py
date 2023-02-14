@@ -357,7 +357,10 @@ class PlanService(CommonService):
         PlanStageTestRelation.objects.filter(plan_id=test_plan.id).delete()
         PlanStagePrepareRelation.objects.filter(plan_id=test_plan.id).delete()
         self.create_plan_relation(data, test_plan.id)
-        self.modify_plan_schedule(plan_id, origin_cron_info)
+        try:
+            self.modify_plan_schedule(plan_id, origin_cron_info)
+        except Exception:
+            return False, '修改定时任务失败，请检查表达式格式'
         return True, None
 
     @staticmethod
@@ -551,8 +554,12 @@ class PlanService(CommonService):
             CronTrigger.from_crontab(cron_express)
         except ValueError:
             return False, 'Crontab 表达式格式错误'
-        cron = croniter.croniter(cron_express, datetime.now())
-        return True, [cron.get_next(datetime).strftime(time_fmt) for _ in range(query_times)]
+        try:
+            cron = croniter.croniter(cron_express, datetime.now())
+            data_list = [cron.get_next(datetime).strftime(time_fmt) for _ in range(query_times)]
+        except Exception:
+            return False, 'Crontab 日期设置错误'
+        return True, data_list
 
     @staticmethod
     def get_schedule_job_id(plan_id):

@@ -496,3 +496,23 @@ class JobMonitorItem(BaseModel):
         managed = True
         db_table = 'job_monitor_item'
         verbose_name = verbose_name_plural = 'job监控项表'
+
+
+class JobDownloadRecord(BaseModel):
+    DOWNLOAD_STATE_CHOICES = (
+        ('running', '文件打包中'),
+        ('success', '成功'),
+        ('fail', '失败')
+    )
+    job_id = models.IntegerField(help_text='job id', db_index=True)
+    state = models.CharField(max_length=64, choices=DOWNLOAD_STATE_CHOICES, default='running', help_text='state')
+    job_url = models.CharField(max_length=256, null=True, help_text='job下载链接')
+
+    class Meta:
+        db_table = 'job_download_record'
+
+    def to_dict(self):
+        job_dict = model_to_dict(self)
+        job_dict['gmt_modified'] = datetime.strftime(self.gmt_modified, "%Y-%m-%d %H:%M:%S")
+        job_dict['gmt_created'] = datetime.strftime(self.gmt_created, "%Y-%m-%d %H:%M:%S")
+        return job_dict

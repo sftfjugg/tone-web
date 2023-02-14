@@ -62,4 +62,6 @@ urlpatterns = [
     path('test/upload/offline/', offline_data_view.OfflineDataView.as_view(), name='offline_upload'),
 
     path('state/', test_view.JobStateView.as_view(), name='job_state'),
+    path('download/', test_view.JobDownloadView.as_view(), name='job_download'),
+    path('download/query/', test_view.JobDownloadRecordView.as_view(), name='download_query')
 ]

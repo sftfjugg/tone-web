@@ -142,7 +142,10 @@ class HomeUserView(CommonAPIView):
         response_data['data'].update(user_info)
         if request.GET.get('ws_id'):
             response_data['data'].update(
-                {'first_entry': WorkspaceAccessHistory.objects.filter(ws_id=request.GET.get('ws_id')).exists()}
+                {
+                    'first_entry': not WorkspaceAccessHistory.objects.filter(
+                        ws_id=request.GET.get('ws_id')).exists()
+                }
             )
         return Response(response_data)
 

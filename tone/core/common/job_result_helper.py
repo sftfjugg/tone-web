@@ -8,9 +8,12 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from queue import Queue
+from tone.core.common.expection_handler.error_code import ErrorCode
+from tone.core.common.expection_handler.custom_error import JobTestException
 
 import requests
 from django.db.models import Count, Case, When, Q
+from django.db import connection
 from tone.core.utils.common_utils import query_all_dict
 
 from tone import settings
@@ -21,7 +24,8 @@ from tone.core.common.toneagent import tone_agent_info
 from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestJobCase, TestJob, FuncResult, PerfResult, TestServerSnapshot, \
     CloudServerSnapshot, ServerTag, TestTmplCase, TestServer, PerfBaselineDetail, \
-    CloudServer, TestMetric, FuncBaselineDetail, TestCluster, TestStep, BusinessResult
+    CloudServer, TestMetric, FuncBaselineDetail, TestCluster, TestStep, BusinessResult, TestSuite, TestCase, \
+    WorkspaceCaseRelation, BusinessSuiteRelation, TestBusiness, TestJobSuite
 
 logger = get_logger('error')
 
@@ -32,15 +36,12 @@ def calc_job(job_id):
     """
     test_type = TestJob.objects.get(id=job_id).test_type
     if test_type == 'performance':
-        per_results = PerfResult.objects.filter(test_job_id=job_id)
-        count = len(per_results)
-        increase = len(list(filter(lambda x: x.track_result == 'increase', per_results)))
-        decline = len(list(filter(lambda x: x.track_result == 'decline', per_results)))
-        normal = len(list(filter(lambda x: x.track_result == 'normal', per_results)))
-        invalid = len(list(filter(lambda x: x.track_result == 'invalid', per_results)))
-        na = count - increase - decline - normal - invalid
-        result = {'count': count, 'increase': increase, 'decline': decline, 'normal': normal, 'invalid': invalid,
-                  'na': na}
+        count_dict, total = count_prefresult_state_num(job_id)
+        na = total - count_dict.get('increase_count', 0) - count_dict.get('decline_count', 0) - count_dict.get(
+            'normal_count', 0) - count_dict.get('invalid_count', 0)
+        result = {'count': total, 'increase': count_dict.get('increase_count', 0), 'decline':
+            count_dict.get('decline_count', 0), 'normal': count_dict.get('normal_count', 0), 'invalid':
+                      count_dict.get('invalid_count', 0), 'na': na}
     elif test_type == BUSINESS:
         job_case_queryset = TestJobCase.objects.filter(job_id=job_id)
         count = len(job_case_queryset)
@@ -49,15 +50,81 @@ def calc_job(job_id):
         success = len(list(filter(lambda x: x.state == 'success', job_case_queryset)))
         result = {'count': count, 'success': success, 'fail': fail, 'skip': skip}
     else:
-        sub_case_result = FuncResult.objects.filter(test_job_id=job_id).values_list('sub_case_result', flat=True)
-        sub_case_result_list = list(sub_case_result)
-        count = len(sub_case_result_list)
-        success = sub_case_result_list.count(1)
-        fail = sub_case_result_list.count(2)
-        skip = sub_case_result_list.count(5)
-        warn = sub_case_result_list.count(6)
-        result = {'count': count, 'success': success, 'fail': fail, 'skip': skip, 'warn': warn}
+        count_dict, total = count_funcresult_state_num(job_id)
+        result = {'count': total, 'success': count_dict.get("1", 0),
+                  'fail': count_dict.get("2", 0), 'skip': count_dict.get("5", 0), 'warn': count_dict.get("6", 0)}
     return result
+
+
+def count_prefresult_state_num(job_id, test_suite_id=None, test_case_id=None):
+    count_dict = {}
+    search = """ and test_job_id={} """.format(job_id)
+    if test_suite_id:
+        search += """ and test_suite_id={} """.format(test_suite_id)
+    if test_case_id:
+        search += """ and test_case_id={} """.format(test_case_id)
+    with connection.cursor() as cursor:
+        search_sql = """
+                SELECT track_result,COUNT(*)
+                FROM perf_result  
+                WHERE 
+                id >=(SELECT id 
+                    FROM perf_result 
+                    WHERE 
+                    is_deleted is False 
+                    AND test_job_id={} 
+                    ORDER BY `id` asc limit 0, 1) 
+                and id<=(SELECT id 
+                    FROM perf_result 
+                    WHERE 
+                    is_deleted is False AND test_job_id={} 
+                    ORDER BY `id` desc limit 0, 1) 
+                {} 
+                and is_deleted is False 
+                group by `track_result`
+            """.format(job_id, job_id, search)
+        cursor.execute(search_sql)
+        count = cursor.fetchall()
+        for i in count:
+            count_dict[str(i[0])+'_count'] = i[1]
+        total = sum(count_dict.values())
+    return count_dict, total
+
+
+def count_funcresult_state_num(job_id, test_suite_id=None, test_case_id=None):
+    count_dict = {}
+    search = """ and test_job_id={} """.format(job_id)
+    if test_suite_id:
+        search += """ and test_suite_id={} """.format(test_suite_id)
+    if test_case_id:
+        search += """ and test_case_id={} """.format(test_case_id)
+    with connection.cursor() as cursor:
+        search_sql = """
+                SELECT sub_case_result,COUNT(*)
+                FROM func_result  
+                WHERE 
+                id >=(SELECT id 
+                    FROM func_result 
+                    WHERE 
+                    is_deleted is False 
+                    AND test_job_id={} 
+                    ORDER BY `id` asc limit 0, 1) 
+                and id<=(SELECT id 
+                    FROM func_result 
+                    WHERE 
+                    is_deleted is False AND test_job_id={} 
+                    ORDER BY `id` desc limit 0, 1) 
+                {} 
+                and is_deleted is False 
+                group by `sub_case_result`
+            """.format(job_id, job_id, search)
+        cursor.execute(search_sql)
+        count = cursor.fetchall()
+        for i in count:
+            count_dict[str(i[0])] = i[1]
+        total = count_dict.get("1", 0) + count_dict.get("2", 0) + count_dict.get("3", 0) + count_dict.get("4", 0) + \
+                count_dict.get("5", 0) + count_dict.get("6", 0)
+    return count_dict, total
 
 
 def calc_job_suite(job_id, test_suite_id, ws_id, test_type, test_result=None):
@@ -67,18 +134,14 @@ def calc_job_suite(job_id, test_suite_id, ws_id, test_type, test_result=None):
     count_data = dict()
     result = None
     if test_type == PERFORMANCE:
-        per_result = test_result
-        count = len(per_result)
-        increase = len(list(filter(lambda x: x.track_result == 'increase', per_result)))
-        decline = len(list(filter(lambda x: x.track_result == 'decline', per_result)))
-        normal = len(list(filter(lambda x: x.track_result == 'normal', per_result)))
-        invalid = len(list(filter(lambda x: x.track_result == 'invalid', per_result)))
-        na = count - increase - decline - normal - invalid
-        count_data['count'] = count
-        count_data['increase'] = increase
-        count_data['decline'] = decline
-        count_data['normal'] = normal
-        count_data['invalid'] = invalid
+        count_dict, total = count_prefresult_state_num(job_id, test_suite_id)
+        na = total - count_dict.get('increase_count', 0) - count_dict.get('decline_count', 0) - count_dict.get(
+            'normal_count', 0) - count_dict.get('invalid_count', 0)
+        count_data['count'] = total
+        count_data['increase'] = count_dict.get('increase_count', 0)
+        count_data['decline'] = count_dict.get('decline_count', 0)
+        count_data['normal'] = count_dict.get('normal_count', 0)
+        count_data['invalid'] = count_dict.get('invalid_count', 0)
         count_data['na'] = na
     elif test_type == BUSINESS:
         job_case_queryset = TestJobCase.objects.filter(job_id=job_id, test_suite_id=test_suite_id)
@@ -97,29 +160,27 @@ def calc_job_suite(job_id, test_suite_id, ws_id, test_type, test_result=None):
         count_data['conf_skip'] = conf_skip
     else:
         func_result = test_result
+        count_dict, total = count_funcresult_state_num(job_id, test_suite_id)
+        count_data = {'conf_count': total, 'conf_success': count_dict.get("1", 0),
+                      'conf_fail': count_dict.get("2", 0), 'conf_skip': count_dict.get("5", 0),
+                      'conf_warn': count_dict.get("6", 0)}
         baseline_id = TestJob.objects.get_value(id=job_id).baseline_id
-        impact_baseline = calc_impact_baseline(func_result, baseline_id, ws_id, job_id)
-        conf_count = len(func_result)
-        conf_fail = len(list(
-            filter(lambda x: x.sub_case_result == 2 and not x.match_baseline, func_result))) + impact_baseline
-        conf_skip = len(list(filter(lambda x: x.sub_case_result == 5, func_result)))
-        conf_warn = len(list(filter(lambda x: x.sub_case_result == 6, func_result)))
+        conf_fail = func_result.filter(sub_case_result=2, match_baseline=False).count()
         if conf_fail > 0:
             result = 'fail'
-        elif conf_count > 0 and conf_fail == 0:
-            result = 'success'
-            count_case = TestJobCase.objects.filter(job_id=job_id,
-                                                    test_suite_id=test_suite_id).count()
-            if count_case > conf_count:
-                # 如果conf在FuncResult表中没有测试结果，则该suite状态也是fail
-                result = 'fail'
         else:
-            result = '-'
-        count_data['conf_count'] = conf_count
-        count_data['conf_success'] = len(list(filter(lambda x: x.sub_case_result == 1, func_result)))
-        count_data['conf_fail'] = len(list(filter(lambda x: x.sub_case_result == 2, func_result)))
-        count_data['conf_warn'] = conf_warn
-        count_data['conf_skip'] = conf_skip
+            impact_baseline = calc_impact_baseline(func_result, baseline_id, ws_id, job_id)
+            if impact_baseline > 0:
+                result = 'fail'
+            elif total > 0:
+                result = 'success'
+                count_case = TestJobCase.objects.filter(job_id=job_id,
+                                                        test_suite_id=test_suite_id).count()
+                if count_case > total:
+                    # 如果conf在FuncResult表中没有测试结果，则该suite状态也是fail
+                    result = 'fail'
+            else:
+                result = '-'
     return result, count_data
 
 
@@ -130,19 +191,14 @@ def calc_job_case(job_case, suite_result, test_type, is_api=False):
     count_data = dict()
     result = None
     if test_type == PERFORMANCE:
-        per_result = suite_result.filter(test_case_id=job_case.test_case_id).values_list('track_result', flat=True)
-        per_result = list(per_result)
-        count = len(per_result)
-        increase = per_result.count('increase')
-        decline = per_result.count('decline')
-        normal = per_result.count('normal')
-        invalid = per_result.count('invalid')
-        na = count - increase - decline - normal - invalid
-        count_data['count'] = count
-        count_data['increase'] = increase
-        count_data['decline'] = decline
-        count_data['normal'] = normal
-        count_data['invalid'] = invalid
+        count_dict, total = count_prefresult_state_num(job_case.job_id, job_case.test_suite_id, job_case.test_case_id)
+        na = total - count_dict.get('increase_count', 0) - count_dict.get('decline_count', 0) - count_dict.get(
+            'normal_count', 0) - count_dict.get('invalid_count', 0)
+        count_data['count'] = total
+        count_data['increase'] = count_dict.get('increase_count', 0)
+        count_data['decline'] = count_dict.get('decline_count', 0)
+        count_data['normal'] = count_dict.get('normal_count', 0)
+        count_data['invalid'] = count_dict.get('invalid_count', 0)
         count_data['na'] = na
     elif test_type == BUSINESS:
         if job_case.state not in ['fail', 'success']:
@@ -158,25 +214,24 @@ def calc_job_case(job_case, suite_result, test_type, is_api=False):
             count_data['ci_result'] = business_result.ci_result
             count_data['ci_detail'] = business_result.ci_detail
     else:
-        func_result = suite_result.filter(test_case_id=job_case.test_case_id)
-        case_count = func_result.count()
+        count_dict, total = count_funcresult_state_num(job_case.job_id, job_case.test_suite_id, job_case.test_case_id)
+        count_data = {'case_count': total, 'case_success': count_dict.get("1", 0),
+                      'case_fail': count_dict.get("2", 0), 'case_skip': count_dict.get("5", 0),
+                      'case_warn': count_dict.get("6", 0)}
         baseline_id = TestJob.objects.get_value(id=job_case.job_id).baseline_id
         ws_id = TestJob.objects.get(id=job_case.job_id).ws_id
-        impact_baseline = calc_impact_baseline(func_result, baseline_id, ws_id, job_case.job_id)
-        # case_success = func_result.filter(sub_case_result='1').count() + impact_baseline
-        case_fail = func_result.filter(sub_case_result='2', match_baseline=False).count() + impact_baseline
-        case_skip = func_result.filter(sub_case_result='5').count()
+        func_result = suite_result.filter(test_case_id=job_case.test_case_id)
+        case_fail = func_result.filter(sub_case_result='2', match_baseline=False).count()
         if case_fail > 0:
             result = 'fail'
-        elif case_count > 0 and case_fail == 0:
-            result = 'success'
         else:
-            result = 'fail' if is_api else '-'
-        count_data['case_count'] = case_count
-        count_data['case_success'] = func_result.filter(sub_case_result='1').count()
-        count_data['case_fail'] = func_result.filter(sub_case_result='2').count()
-        count_data['case_warn'] = func_result.filter(sub_case_result='6').count()
-        count_data['case_skip'] = case_skip
+            impact_baseline = calc_impact_baseline(func_result, baseline_id, ws_id, job_case.job_id)
+            if impact_baseline > 0:
+                result = 'fail'
+            elif total > 0:
+                result = 'success'
+            else:
+                result = 'fail' if is_api else '-'
     return result, count_data
 
 
@@ -356,6 +411,84 @@ def get_job_case_run_server(job_case_id, return_field='ip'):
     return server
 
 
+def get_test_config(test_job_id, detail_server=False):
+    test_config = list()
+    job_suites = TestJobSuite.objects.filter(job_id=test_job_id)
+    job_cases = TestJobCase.objects.filter(job_id=test_job_id)
+    for job_suite in job_suites:
+        test_suite_name = TestSuite.objects.get_value(
+                id=job_suite.test_suite_id) and TestSuite.objects.get_value(id=job_suite.test_suite_id).name
+        obj_dict = {
+            'test_suite_id': job_suite.test_suite_id,
+            'test_suite_name': test_suite_name,
+            'test_suite': test_suite_name,
+            'need_reboot': job_suite.need_reboot,
+            'setup_info': job_suite.setup_info,
+            'cleanup_info': job_suite.cleanup_info,
+            'monitor_info': list(job_suite.monitor_info),
+            'priority': job_suite.priority,
+            'run_mode': TestSuite.objects.get_value(id=job_suite.test_suite_id) and TestSuite.objects.get_value(
+                id=job_suite.test_suite_id).run_mode,
+        }
+        if WorkspaceCaseRelation.objects.filter(test_type='business',
+                                                test_suite_id=job_suite.test_suite_id,
+                                                query_scope='all').exists():
+            business_relation = BusinessSuiteRelation.objects.filter(test_suite_id=test_job_id,
+                                                                     query_scope='all').first()
+            if business_relation:
+                test_business = TestBusiness.objects.filter(id=business_relation.business_id,
+                                                            query_scope='all').first()
+                if test_business:
+                    obj_dict.update({'business_name': test_business.name})
+        cases = list()
+        for case in job_cases.filter(test_suite_id=job_suite.test_suite_id):
+            ip = get_job_case_server(case.id, is_config=True)[0]
+            is_instance = get_job_case_server(case.id, is_config=True)[1]
+            test_case_name = TestCase.objects.get_value(id=case.test_case_id) and TestCase.objects.get_value(
+                    id=case.test_case_id).name
+            server_info = get_job_case_run_server(case.id, return_field='obj')
+            server = ({
+                'ip': ip
+            })
+            if detail_server and server_info:
+                if type(server_info) is CloudServerSnapshot:
+                    server = ({
+                        'instance': server_info.instance_id
+                    })
+                else:
+                    server['ip'] = server_info.ip
+                server['distro'] = server_info.distro
+                server['kernel_version'] = server_info.kernel_version
+                server['glibc'] = server_info.glibc
+                server['gcc'] = server_info.gcc
+                server['memory_info'] = server_info.memory_info
+                server['disk'] = server_info.disk
+                server['cpu_info'] = server_info.cpu_info
+                server['ether'] = server_info.ether
+            cases.append({
+                'test_case_id': case.test_case_id,
+                'test_case_name': test_case_name,
+                'test_case': test_case_name,
+                'setup_info': case.setup_info,
+                'cleanup_info': case.cleanup_info,
+                'server_ip': ip,
+                'server_id': server_info.id if server_info else None,
+                'server_description': get_job_case_run_server(case.id, return_field='description'),
+                'is_instance': is_instance,
+                'need_reboot': case.need_reboot,
+                'console': case.console,
+                'monitor_info': list(case.monitor_info),
+                'priority': case.priority,
+                'env_info': dict(case.env_info),
+                'repeat': case.repeat,
+                'run_mode': case.run_mode,
+                'server': server
+            })
+        obj_dict['cases'] = cases
+        test_config.append(obj_dict)
+    return test_config
+
+
 def __get_server_value(server, server_provider, return_field):
     if return_field == 'ip':
         if server_provider == 'aligroup':
@@ -376,13 +509,19 @@ def get_server_ip_sn(server, channel_type):
     elif ip and channel_type == 'toneagent':
         agent_url = tone_agent_info(ip=server)
         res = json.loads(requests.get(url=agent_url, verify=False).text)
-        sn = res.get('RESULT').get('TSN')
+        if res['SUCCESS']:
+            sn = res.get('RESULT').get('TSN')
+        else:
+            raise JobTestException(ErrorCode.TONE_AGENT_ERROR)
     elif sn and channel_type == 'otheragent':
         pass
     else:
         agent_url = tone_agent_info(tsn=server)
         res = json.loads(requests.get(url=agent_url, verify=False).text)
-        ip = res.get('RESULT').get('IP')
+        if res['SUCCESS']:
+            ip = res.get('RESULT').get('IP')
+        else:
+            raise JobTestException(ErrorCode.TONE_AGENT_ERROR)
     return ip, sn
 
 
@@ -993,7 +1132,7 @@ def get_suite_conf_sub_case_v1(suite_id, suite_name, base_index, group_job_list,
                   'COUNT(a.test_case_id ) AS total_count ' \
                   'FROM func_baseline_detail a LEFT JOIN test_case b ON a.test_case_id = b.id ' \
                   'WHERE a.is_deleted=0 AND b.is_deleted=0 AND a.test_suite_id=%s AND a.baseline_id IN (' + \
-                  job_id_list + ') GROUP BY a.baseline_id'
+                  job_id_list + ') GROUP BY a.baseline_id, a.test_case_id'
     else:
         raw_sql = 'SELECT distinct a.test_job_id,a.test_case_id,b.name AS test_case_name, ' \
                   'SUM(case when a.sub_case_result=1 then 1 ELSE 0 END ) AS success_case ,' \
@@ -1001,7 +1140,7 @@ def get_suite_conf_sub_case_v1(suite_id, suite_name, base_index, group_job_list,
                   'COUNT(a.test_case_id ) AS total_count ' \
                   'FROM func_result a LEFT JOIN test_case b ON a.test_case_id = b.id ' \
                   'WHERE a.is_deleted=0 AND b.is_deleted=0 AND a.test_suite_id=%s AND a.test_job_id IN (' + \
-                  job_id_list + ') GROUP BY a.test_job_id'
+                  job_id_list + ') GROUP BY a.test_job_id, a.test_case_id'
     if not is_all:
         conf_id_list = list()
         for conf in suite_info:
@@ -1188,6 +1327,9 @@ def get_conf_compare_data_v1(compare_objs, suite_id, conf_id, compare_count):
         group_data['all_case'] = all_case
         group_data['success_case'] = success_case
         group_data['fail_case'] = fail_case
+        obj_id = group_obj.get('job_list')[0]
+        if len(func_results) > 0:
+            obj_id = func_results[0][0]
         d_conf = [d for d in duplicate_conf if conf_id == d['conf_id']] if duplicate_conf else list()
         if has_duplicate > 0 and len(d_conf) > 0:
             if is_baseline:
@@ -1198,10 +1340,10 @@ def get_conf_compare_data_v1(compare_objs, suite_id, conf_id, compare_count):
                 group_data['obj_id'] = d_conf[0]['job_id']
                 compare_data.append(group_data)
             else:
-                group_data['obj_id'] = group_obj.get('job_list')[0]
+                group_data['obj_id'] = obj_id
                 compare_data.append(group_data)
         else:
-            group_data['obj_id'] = group_obj.get('job_list')[0]
+            group_data['obj_id'] = obj_id
             compare_data.append(group_data)
     return compare_data
 
