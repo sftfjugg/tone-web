@@ -277,7 +277,7 @@ class JobTestService(CommonService):
             'id': job_id,
             'name': row_data[1],
             'ws_id': row_data[2],
-            'state': self.get_job_state(fun_result, test_job_case, job_id, row_data[5], row_data[3], func_view_config),
+            'state': self.get_job_state(job_id, row_data[5], row_data[3], func_view_config),
             'state_desc': row_data[4],
             'test_type': test_type_map.get(row_data[5]),
             'test_result': row_data[6],
@@ -301,23 +301,23 @@ class JobTestService(CommonService):
             'report_li': self.get_report_li(job_id, create_name_map)
         })
 
-    def get_job_state(self, fun_result, test_job_case, test_job_id, test_type, state, func_view_config):
+    def get_job_state(self, test_job_id, test_type, state, func_view_config):
         if state == 'pending_q':
             state = 'pending'
         if test_type == 'functional' and (state == 'fail' or state == 'success'):
             if func_view_config and func_view_config.config_value == '2':
-                if not list(filter(lambda x: x.test_job_id == test_job_id, fun_result)):
+                fun_result = FuncResult.objects.filter(test_job_id=test_job_id)
+                if not fun_result:
                     state = 'fail'
                     return state
-                if list(filter(lambda x: x.job_id == test_job_id and x.state == 'fail', test_job_case)):
+                if TestJobCase.objects.filter(job_id=test_job_id, state='fail').exists():
                     state = 'fail'
                 else:
-                    if not list(
-                            filter(lambda x: x.test_job_id == test_job_id and x.sub_case_result == 2, fun_result)):
+                    fun_result_fail = list(filter(lambda x: x.sub_case_result == 2, fun_result))
+                    if not fun_result_fail:
                         state = 'pass'
                     else:
-                        if list(filter(lambda x: x.test_job_id == test_job_id and x.sub_case_result == 2
-                                                 and x.match_baseline == 0, fun_result)):
+                        if list(filter(lambda x: x.sub_case_result == 2 and x.match_baseline == 0, fun_result)):
                             state = 'fail'
                         else:
                             state = 'pass'
