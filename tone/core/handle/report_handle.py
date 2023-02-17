@@ -525,7 +525,7 @@ def _get_compare_data(metric_obj):
     for item in metric_obj:
         if item:
             metric_cmp = dict()
-            metric_cmp['test_value'] = item.get('test_value')
+            metric_cmp['test_value'] = format(float(item.get('test_value')), '.2f')
             metric_cmp['cv_value'] = item.get('cv_value')
             metric_cmp['compare_result'] = item.get('compare_result')
             metric_cmp['compare_value'] = item.get('compare_value')
