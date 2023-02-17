@@ -274,9 +274,8 @@ class FuncAnalysisService(CommonService):
         if show_type != 'pass_rate':
             func_results_q &= Q(sub_case_name=sub_case_name)
         func_job_ids = FuncResult.objects.filter(func_results_q).values_list('test_job_id', flat=True).distinct()
-        job_queryset = TestJob.objects.filter(
-            id__in=func_job_ids, project_id=project,
-            state__in=['success', 'fail']).order_by('-id')
+        job_queryset = TestJob.objects.filter(id__in=func_job_ids, project_id=project, state__in=['success', 'fail']).\
+            order_by('-gmt_created')
         job_li = list()
         ws_id = Project.objects.get(id=project).ws_id
         analytics_tag_id_set = {JobTag.objects.get(ws_id=ws_id, name='analytics').id}
