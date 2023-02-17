@@ -316,36 +316,6 @@ class ReportService(CommonService):
         save_report_detail(report_id, base_index, get_old_report(report), report.is_automatic)
         return report
 
-    def package_server_li(self, job_list, server_provider):
-        server_li = list()
-        ip_list = list()
-        snap_shot_objs = TestServerSnapshot.objects.filter(job_id__in=job_list, distro__isnull=False).distinct() \
-            if server_provider == 'aligroup' else CloudServerSnapshot.objects. \
-            filter(job_id__in=job_list, distro__isnull=False).distinct()
-        for snap_shot_obj in snap_shot_objs:
-            ip = snap_shot_obj.ip if server_provider == 'aligroup' else snap_shot_obj.private_ip
-            if ip in ip_list:
-                continue
-            ip_list.append(ip)
-            if not (snap_shot_obj.distro or snap_shot_obj.rpm_list or snap_shot_obj.gcc):
-                continue
-            server = ({
-                'ip/sn': ip,
-                'distro': snap_shot_obj.sm_name if server_provider == 'aligroup' else
-                snap_shot_obj.instance_type,
-                'os': snap_shot_obj.distro,
-                'rpm': snap_shot_obj.rpm_list.split('\n') if snap_shot_obj.rpm_list else list(),
-                'kernel': snap_shot_obj.kernel_version,
-                'gcc': snap_shot_obj.gcc,
-                'glibc': snap_shot_obj.glibc,
-                'memory_info': snap_shot_obj.memory_info,
-                'disk': snap_shot_obj.disk,
-                'cpu_info': snap_shot_obj.cpu_info,
-                'ether': snap_shot_obj.ether,
-            })
-            server_li.append(server)
-        return server_li
-
     def save_test_item_v1(self, data, report_id, test_type, base_index):
         for item in data:
             name = item.get('name')
@@ -506,18 +476,6 @@ class ReportService(CommonService):
                         compare_data_list.append(compare)
                     else:
                         compare_data_list.append(dict())
-                report_metric = ReportItemMetric(
-                    report_item_conf_id=item_conf_id,
-                    test_metric=perf_result.metric,
-                    test_value=perf_result.test_value,
-                    cv_value=perf_result.cv_value,
-                    unit=perf_result.unit,
-                    max_value=perf_result.max_value,
-                    min_value=perf_result.min_value,
-                    value_list=perf_result.value_list,
-                    direction=test_metric.direction,
-                    compare_data=compare_data_list)
-                item_metric_list.append(report_metric)
             if len(base_id_list) > 0:
                 compare_data = PerfBaselineDetail.objects. \
                     filter(baseline_id__in=base_id_list, metric=perf_result.metric, test_suite_id=test_suite_id,
@@ -542,118 +500,20 @@ class ReportService(CommonService):
                         compare_data_list.append(compare)
                     else:
                         compare_data_list.append(dict())
-                report_metric = ReportItemMetric(
-                    report_item_conf_id=item_conf_id,
-                    test_metric=perf_result.metric,
-                    test_value=perf_result.test_value,
-                    cv_value=perf_result.cv_value,
-                    unit=perf_result.unit,
-                    max_value=perf_result.max_value,
-                    min_value=perf_result.min_value,
-                    value_list=perf_result.value_list,
-                    direction=test_metric.direction,
-                    compare_data=compare_data_list)
-                item_metric_list.append(report_metric)
+            report_metric = ReportItemMetric(
+                report_item_conf_id=item_conf_id,
+                test_metric=perf_result.metric,
+                test_value=perf_result.test_value,
+                cv_value=perf_result.cv_value,
+                unit=perf_result.unit,
+                max_value=perf_result.max_value,
+                min_value=perf_result.min_value,
+                value_list=perf_result.value_list,
+                direction=test_metric.direction,
+                compare_data=compare_data_list)
+            item_metric_list.append(report_metric)
         ReportItemMetric.objects.filter(report_item_conf_id=item_conf_id).delete()
         ReportItemMetric.objects.bulk_create(item_metric_list)
-
-    def save_test_item(self, data, report_id, test_type, job_li, plan_li):
-        for item in data:
-            name = item.get('name')
-            suite_list = item.get('suite_list', list())
-            assert name, ReportException(ErrorCode.ITEM_NAME_NEED)
-            report_item = ReportItem.objects.create(name=name, report_id=report_id, test_type=test_type)
-            report_item_id = report_item.id
-            for suite in suite_list:
-                self.save_item_suite(suite, report_item_id, test_type, job_li, plan_li)
-
-    def save_item_suite(self, suite, report_item_id, test_type, job_li, plan_li):
-        test_suite_id = suite.get('suite_id')
-        test_suite_name = suite.get('suite_name')
-        show_type = suite.get('show_type', 0)
-        conf_list = suite.get('conf_list', list())
-        assert test_suite_id, ReportException(ErrorCode.TEST_SUITE_NEED)
-        assert test_suite_name, ReportException(ErrorCode.TEST_SUITE_NAME_NEED)
-        # assert conf_list, ReportException(ErrorCode.CONF_LIST)
-        if test_type == 'functional':
-            item_suite = ReportItemSuite.objects.create(report_item_id=report_item_id, test_suite_id=test_suite_id,
-                                                        test_suite_name=test_suite_name, show_type=show_type)
-        else:
-            test_suite_description = suite.get('test_suite_description')
-            test_env = self.get_suite_env(test_suite_id, job_li, plan_li)
-            test_description = suite.get('test_description')
-            test_conclusion = suite.get('test_conclusion')
-            item_suite = ReportItemSuite.objects.create(report_item_id=report_item_id, test_suite_id=test_suite_id,
-                                                        test_suite_name=test_suite_name, show_type=show_type,
-                                                        test_suite_description=test_suite_description,
-                                                        test_env=test_env, test_description=test_description,
-                                                        test_conclusion=test_conclusion)
-        item_suite_id = item_suite.id
-        for conf in conf_list:
-            self.save_item_conf(conf, item_suite_id, test_type)
-
-    def get_suite_env(self, test_suite_id, job_li, plan_li):
-        test_env = list()
-        if plan_li:
-            plan_id_list = PlanInstance.objects.filter(plan_id__in=plan_li).values_list('id', flat=True)
-            if plan_id_list:
-                job_li = PlanInstanceTestRelation.objects.filter(plan_instance_id__in=plan_id_list). \
-                    values_list('job_id', flat=True)
-        for job_id in job_li:
-            ip = ''
-            test_job_case = TestJobCase.objects.filter(job_id=job_id, test_suite_id=test_suite_id).first()
-            if test_job_case:
-                snapshot = TestServerSnapshot.objects.filter(id=test_job_case.server_object_id).first()
-                if snapshot:
-                    ip = snapshot.ip
-                else:
-                    snapshot = CloudServerSnapshot.objects.filter(id=test_job_case.server_object_id).first()
-                    if snapshot:
-                        ip = snapshot.private_ip
-            test_env.append(ip)
-        return test_env
-
-    def save_item_conf(self, conf, item_suite_id, test_type):
-        test_conf_id = conf.get('conf_id')
-        test_conf_name = conf.get('conf_name')
-        conf_source = conf.get('conf_source', dict())
-        compare_conf_list = conf.get('compare_conf_list', list())
-        item_conf = ReportItemConf.objects.create(report_item_suite_id=item_suite_id, test_conf_id=test_conf_id,
-                                                  test_conf_name=test_conf_name, conf_source=conf_source,
-                                                  compare_conf_list=compare_conf_list)
-        item_conf_id = item_conf.id
-        if test_type == 'functional':
-            sub_case_list = conf.get('sub_case_list', list())
-            for sub_case in sub_case_list:
-                self.save_item_sub_case(sub_case, item_conf_id)
-        else:
-            metric_list = conf.get('metric_list', list())
-            for metric in metric_list:
-                self.save_item_metric(metric, item_conf_id)
-
-    @staticmethod
-    def save_item_sub_case(sub_case, item_conf_id):
-        sub_case_name = sub_case.get('sub_case_name')
-        result = sub_case.get('result')
-        compare_data = sub_case.get('compare_data', list())
-        ReportItemSubCase.objects.create(report_item_conf_id=item_conf_id, sub_case_name=sub_case_name, result=result,
-                                         compare_data=compare_data)
-
-    @staticmethod
-    def save_item_metric(metric, item_conf_id):
-        test_metric = metric.get('metric')
-        test_value = metric.get('test_value')
-        cv_value = metric.get('cv_value')
-        max_value = metric.get('max_value')
-        min_value = metric.get('min_value')
-        value_list = metric.get('value_list', list())
-        unit = metric.get('unit')
-        direction = metric.get('direction')
-        compare_data = metric.get('compare_data', list())
-        ReportItemMetric.objects.create(report_item_conf_id=item_conf_id, test_metric=test_metric,
-                                        test_value=test_value, cv_value=cv_value, unit=unit, max_value=max_value,
-                                        min_value=min_value, value_list=value_list, direction=direction,
-                                        compare_data=compare_data)
 
     def update(self, data):
         report_id = data.get('report_id')
