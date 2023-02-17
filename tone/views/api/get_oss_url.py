@@ -20,6 +20,8 @@ def get_path(request):
     download = request.GET.get('download')
     ftp_url = f"http://{settings.TONE_STORAGE_DOMAIN}:{settings.TONE_STORAGE_PROXY_PORT}{path}"
     if download == '1':
+        resp.data = f"{settings.TONE_OUTSIDE_DOMAIN}/api/get/oss/url/?path={path}&download=2"
+    elif download == '2':
         resp = requests.get(ftp_url)
         tmp_file = path.split('/')
         file_name = tmp_file[len(tmp_file) - 1]
