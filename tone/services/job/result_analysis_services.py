@@ -274,9 +274,8 @@ class FuncAnalysisService(CommonService):
         if show_type != 'pass_rate':
             func_results_q &= Q(sub_case_name=sub_case_name)
         func_job_ids = FuncResult.objects.filter(func_results_q).values_list('test_job_id', flat=True).distinct()
-        job_queryset = TestJob.objects.filter(
-            id__in=func_job_ids, project_id=project,
-            state__in=['success', 'fail']).order_by('-id')
+        job_queryset = TestJob.objects.filter(id__in=func_job_ids, project_id=project, state__in=['success', 'fail']).\
+            order_by('-gmt_created')
         job_li = list()
         ws_id = Project.objects.get(id=project).ws_id
         analytics_tag_id_set = {JobTag.objects.get(ws_id=ws_id, name='analytics').id}
@@ -368,8 +367,8 @@ def get_case_map(sub_case_map, job):
         'job_id': job.id,
         'job_name': job.name,
         'commit_id': job.build_pkg_info.get('commit_id'),
-        'start_time': datetime.strftime(job.gmt_created, "%Y-%m-%d %H:%M:%S"),
-        'end_time': datetime.strftime(job.gmt_modified, "%Y-%m-%d %H:%M:%S"),
+        'start_time': datetime.strftime(job.start_time, "%Y-%m-%d %H:%M:%S"),
+        'end_time': datetime.strftime(job.end_time, "%Y-%m-%d %H:%M:%S"),
         'creator': User.objects.get(id=job.creator).first_name or User.objects.get(
             id=job.creator).last_name,
     }

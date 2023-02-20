@@ -200,7 +200,7 @@ class OfflineDataUploadService(object):
             if code == 200:
                 OfflineUpload.objects.filter(id=offline_id).update(test_job_id=test_job_id,
                                                                    state_desc='begin upload file to ftp.')
-        code = self.upload_result_file(tar_file, test_job_id, test_type)
+        code, msg = self.upload_result_file(tar_file, test_job_id, test_type)
         if code == 200:
             OfflineUpload.objects.filter(id=offline_id).update(test_job_id=test_job_id, state='success',
                                                                state_desc='')
@@ -374,7 +374,7 @@ class OfflineDataUploadService(object):
                     continue
                 test_case = TestCase.objects.filter(short_name=case_short_name, test_suite_id=test_suite.id).first()
                 if not test_case:
-                    return 201, '', 'case [%s] not exist error.' % case_short_name
+                    return 201, 'case [%s] not exist error.' % case_short_name
                 result_file = filename.split(case_short_name)[1][1:]
                 local_dir = '%s%d/%s_%d/%s' % (MEDIA_ROOT, test_job_id, case_short_name, _timestamp, result_file)
                 if not os.path.exists(local_dir.rsplit('/', 1)[0]):
@@ -382,7 +382,7 @@ class OfflineDataUploadService(object):
                 open(local_dir, 'wb').write(tar_file.extractfile(filename).read())
                 sftp_client.upload_file(local_dir, '/' + local_dir.replace(MEDIA_ROOT.strip('/'), RESULTS_DATA_DIR.strip('/')))
         shutil.rmtree(f'{MEDIA_ROOT}{test_job_id}')
-        return code
+        return code, ''
 
     def _create_test_step(self, test_job_id):
         test_step_list = list()

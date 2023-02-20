@@ -217,6 +217,7 @@ class EcsDriver(BaseDriver):
         try:
             request = DeleteInstanceRequest()
             request.set_InstanceId(instance_id)
+            request.set_Force(True)
             response = self.client.do_action_with_exception(request)
             return True, json.loads(response)['RequestId']
         except Exception as e:
@@ -229,7 +230,7 @@ class EcsDriver(BaseDriver):
     def destroy_instance(self, instance_id, timeout=30):
         start_time = time.time()
         while time.time() - start_time < timeout:
-            self.stop_instance(instance_id)
+            # self.stop_instance(instance_id)
             success, msg = self.delete_instance(instance_id)
             if success:
                 break

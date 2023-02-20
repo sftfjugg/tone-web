@@ -776,7 +776,7 @@ class CloudServerService(CommonService):
             return False, '云上机器不存在'
         update_owner(data)
         update_data = dict(
-            owner=data.get('owner'),
+            owner=data.get('owner', cloud_server.first().owner),
             description=data.get('description'),
             channel_type=data.get('channel_type', cloud_server.first().channel_type),
             state=data.get('state', cloud_server.first().state)
