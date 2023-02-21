@@ -550,6 +550,24 @@ class TestSuiteService(CommonService):
                 test_case_id__in=exist_test_case_id_list).delete()
             WorkspaceCaseRelation.objects.filter(test_suite_id=suite.id).exclude(
                 test_case_id__in=exist_test_case_id_list).delete()
+        suite_domain_list = DomainRelation.objects.filter(object_type='suite', object_id=suite_id)
+        suite_domain_id_list = []
+        for suite_domain in suite_domain_list:
+            suite_domain_id_list.append(suite_domain.domain_id)
+        test_case_id_list = list(TestCase.objects.filter(test_suite_id=suite_id).values_list('id', flat=True))
+        case_domain_id = list(DomainRelation.objects.filter(object_type='case',
+                                                            object_id__in=test_case_id_list
+                                                            ).values_list('object_id', flat=True))
+        case_domain_noneid_list = []
+        for test_case_id in test_case_id_list:
+            if test_case_id not in case_domain_id:
+                case_domain_noneid_list.append(test_case_id)
+        for index in range(len(suite_domain_id_list)):
+            for case_domain_noneid in case_domain_noneid_list:
+                update_dict = {'object_type': 'case',
+                               'object_id': case_domain_noneid,
+                               'domain_id': suite_domain_list[index].domain_id}
+                DomainRelation.objects.create(**update_dict)
         return 200, 'sync case success'
 
     def _sync_case_from_aktf(self, pk):
