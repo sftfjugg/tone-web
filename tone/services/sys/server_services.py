@@ -1835,20 +1835,24 @@ def release_cloud_server(cloud_server):
 
 class AgentTaskInfoService(CommonService):
     def get_agent_task_info(self, data):
-        request = QueryTaskRequest(
-            settings.TONEAGENT_ACCESS_KEY,
-            settings.TONEAGENT_SECRET_KEY
-        )
-        request.set_tid(data.get('tid'))
-        request.set_query_detail(True)
-        res = request.send_request()
-        task_info = res.get('data')
-        if task_info.get('env'):
-            new_env_info = self._parse_env_info(task_info.get('env'))
-            task_info['env'] = new_env_info
-        new_script = self._parse_script(task_info.get('script'))
-        task_info['script'] = new_script
-        return task_info
+        try:
+            request = QueryTaskRequest(
+                settings.TONEAGENT_ACCESS_KEY,
+                settings.TONEAGENT_SECRET_KEY
+            )
+            request.set_tid(data.get('tid'))
+            request.set_query_detail(True)
+            res = request.send_request()
+            task_info = res.get('data')
+            if task_info.get('env'):
+                new_env_info = self._parse_env_info(task_info.get('env'))
+                task_info['env'] = new_env_info
+            new_script = self._parse_script(task_info.get('script'))
+            task_info['script'] = new_script
+            return task_info
+        except Exception as e:
+            error_logger.error(f'get agent task info failed:{e}')
+            return dict()
 
     @staticmethod
     def _parse_env_info(env_info):
