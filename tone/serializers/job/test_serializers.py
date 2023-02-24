@@ -15,8 +15,8 @@ from tone.core.common.constant import CASE_STEP_STAGE_MAP, PREPARE_STEP_STAGE_MA
     FUNC_CASE_RESULT_TYPE_MAP, PERF_CASE_RESULT_TYPE_MAP, SUITE_STEP_PREPARE_MAP
 from tone.core.common.enums.job_enums import JobState
 from tone.core.common.info_map import get_result_map
-from tone.core.common.job_result_helper import calc_job_suite, calc_job_case, calc_job, get_job_case_run_server,\
-    get_test_config
+from tone.core.common.job_result_helper import calc_job_suite, calc_job_case, calc_job, get_job_case_run_server, \
+    get_test_config, perse_func_result
 from tone.core.common.serializers import CommonSerializer
 from tone.core.utils.common_utils import kernel_info_format
 from tone.core.utils.tone_thread import ToneThread
@@ -58,18 +58,20 @@ class JobTestSerializer(CommonSerializer):
             func_view_config = BaseConfig.objects.filter(config_type='ws', ws_id=obj.ws_id,
                                                          config_key='FUNC_RESULT_VIEW_TYPE').first()
             if func_view_config and func_view_config.config_value == '2':
-                func_result = FuncResult.objects.filter(test_job_id=obj.id)
-                if func_result.count() == 0:
+                count_case_fail, count_total, count_fail, count_no_match_baseline = perse_func_result(obj.id, 2, 0)
+                if count_total == 0:
                     state = 'fail'
                     return state
-                func_result_list = FuncResult.objects.filter(test_job_id=obj.id, sub_case_result=2)
-                if func_result_list.count() == 0:
-                    state = 'pass'
+                if count_case_fail > 0:
+                    state = 'fail'
                 else:
-                    if func_result_list.filter(match_baseline=0).count() > 0:
-                        state = 'fail'
-                    else:
+                    if count_fail == 0:
                         state = 'pass'
+                    else:
+                        if count_no_match_baseline > 0:
+                            state = 'fail'
+                        else:
+                            state = 'pass'
         return state
 
     @staticmethod
@@ -225,18 +227,17 @@ class JobTestSummarySerializer(CommonSerializer):
             func_view_config = BaseConfig.objects.filter(config_type='ws', ws_id=obj.ws_id,
                                                          config_key='FUNC_RESULT_VIEW_TYPE').first()
             if func_view_config and func_view_config.config_value == '2':
-                fun_result = FuncResult.objects.filter(test_job_id=obj.id)
-                if not fun_result:
+                count_case_fail, count_total, count_fail, count_no_match_baseline = perse_func_result(obj.id, 2, 0)
+                if count_total == 0:
                     state = 'fail'
                     return state
-                if TestJobCase.objects.filter(job_id=obj.id, state='fail').exists():
+                if count_case_fail > 0:
                     state = 'fail'
                 else:
-                    fun_result_fail = list(filter(lambda x: x.sub_case_result == 2, fun_result))
-                    if not fun_result_fail:
+                    if count_fail == 0:
                         state = 'pass'
                     else:
-                        if list(filter(lambda x: x.sub_case_result == 2 and x.match_baseline == 0, fun_result)):
+                        if count_no_match_baseline > 0:
                             state = 'fail'
                         else:
                             state = 'pass'

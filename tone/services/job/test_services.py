@@ -43,7 +43,7 @@ from tone.settings import cp
 from tone.core.common.redis_cache import runner_redis_cache
 from tone.core.common.constant import OFFLINE_DATA_DIR
 from tone.settings import MEDIA_ROOT
-from tone.core.common.job_result_helper import get_test_config
+from tone.core.common.job_result_helper import get_test_config, perse_func_result
 from tone.core.utils.sftp_client import sftp_client
 
 
@@ -306,18 +306,17 @@ class JobTestService(CommonService):
             state = 'pending'
         if test_type == 'functional' and (state == 'fail' or state == 'success'):
             if func_view_config and func_view_config.config_value == '2':
-                fun_result = FuncResult.objects.filter(test_job_id=test_job_id)
-                if not fun_result:
+                count_case_fail, count_total, count_fail, count_no_match_baseline = perse_func_result(test_job_id, 2, 0)
+                if count_total == 0:
                     state = 'fail'
                     return state
-                if TestJobCase.objects.filter(job_id=test_job_id, state='fail').exists():
+                if count_case_fail > 0:
                     state = 'fail'
                 else:
-                    fun_result_fail = list(filter(lambda x: x.sub_case_result == 2, fun_result))
-                    if not fun_result_fail:
+                    if count_fail == 0:
                         state = 'pass'
                     else:
-                        if list(filter(lambda x: x.sub_case_result == 2 and x.match_baseline == 0, fun_result)):
+                        if count_no_match_baseline > 0:
                             state = 'fail'
                         else:
                             state = 'pass'
