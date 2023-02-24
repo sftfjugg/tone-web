@@ -208,37 +208,89 @@ class DashboardService(CommonService):
     def _get_task_execute_trend_data_v2(start_time, day):
         day_start_time = datetime.strptime(start_time, '%Y-%m-%d') + timedelta(days=day)
         day_end_time = day_start_time + timedelta(days=1)
-        job_queryset = TestJob.objects.filter(start_time__gt=day_start_time, start_time__lt=day_end_time)
-        job_ids = job_queryset.values_list('id', flat=True)
-        job_count = job_queryset.count()
-
-        all_metric_count = 0
-        all_sub_case_count = 0
-        all_test_conf_count = 0
-        thread_run_job_num = 30
-        thread_num = (job_count // thread_run_job_num) + 1
-        thread_tasks = []
-        res_data = []
-        for i in range(thread_num):
-            job_id_list = list(job_ids)[thread_run_job_num * i:thread_run_job_num * i + thread_run_job_num]
-            thread_tasks.append(
-                ToneThread(DashboardService._get_result_count, (job_id_list, day))
-            )
-            thread_tasks[-1].start()
-        for thread_task in thread_tasks:
-            thread_task.join()
-            res_data.append(thread_task.get_result())
-        for res in res_data:
-            all_metric_count += res['metric_count']
-            all_sub_case_count += res['sub_case_count']
-            all_test_conf_count += res['test_conf_count']
-        return {
-            'job': job_count,
-            'metric': all_metric_count,
-            'sub_case': all_sub_case_count,
-            'test_conf': all_test_conf_count,
+        search_sql = DashboardService.get_chart_data_sql(day_end_time, day_start_time)
+        data = {
+            'job': 0,
+            'sub_case': 0,
+            'metric': 0,
+            'test_conf': 0,
             'date': datetime.strftime(day_start_time, "%Y-%m-%d"),
         }
+        with connection.cursor() as cursor:
+            cursor.execute(search_sql)
+            rows = cursor.fetchall()
+            if rows:
+                data = {
+                    'job': rows[0][0],
+                    'metric': rows[2][0],
+                    'sub_case': rows[1][0],
+                    'test_conf': rows[3][0],
+                    'date': datetime.strftime(day_start_time, "%Y-%m-%d"),
+                }
+        return data
+
+    @staticmethod
+    def get_chart_data_sql(day_end_time, day_start_time):
+        job_count_sql = """
+            SELECT
+              COUNT(*)
+            FROM
+              test_job
+            WHERE
+              (start_time > '{}')
+              AND (start_time < '{}')
+              AND is_deleted IS FALSE
+        """.format(day_start_time, day_end_time)
+        job_id_sql = """
+            SELECT
+              id
+            FROM
+              test_job
+            WHERE
+              (start_time > '{}')
+              AND (start_time < '{}')
+              AND is_deleted IS FALSE
+        """.format(day_start_time, day_end_time)
+        func_sql = """
+            SELECT
+              COUNT(*)
+            FROM
+              func_result
+            WHERE
+              test_job_id in (
+                {}
+              )
+        """.format(job_id_sql)
+        perf_sql = """
+            SELECT
+              COUNT(*)
+            FROM
+              perf_result
+            WHERE
+              test_job_id in (
+                {}
+              )
+        """.format(job_id_sql)
+        case_sql = """
+            SELECT
+              COUNT(*)
+            FROM
+              test_job_case
+            WHERE
+              job_id in (
+                {}
+              )
+        """.format(job_id_sql)
+        search_sql = """
+            {}
+            UNION ALL
+            {}
+            UNION ALL
+            {}
+            UNION ALL
+            {}
+        """.format(job_count_sql, func_sql, perf_sql, case_sql)
+        return search_sql
 
     @staticmethod
     def _get_result_count(job_id_list, day):
