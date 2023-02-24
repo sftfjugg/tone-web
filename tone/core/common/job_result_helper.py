@@ -882,7 +882,7 @@ def get_suite_conf_metric_v1(suite_id, suite_name, base_index, group_list, suite
     if suite_value:
         for case_info in suite_value:
             case_id_list.append(case_info['conf_id'])
-    case_id_sql = '' if is_all else 'AND a.test_case_id IN (' + ','.join(str(e) for e in case_id_list) + ')'
+    case_id_sql = '' if is_all else ' AND a.test_case_id IN (' + ','.join(str(e) for e in case_id_list) + ')'
     baseline_result_list = None
     job_result_list = None
     if baseline_id_list:
