@@ -88,3 +88,27 @@ class PerfBaselineDetail(BaseModel):
 
     class Meta:
         db_table = 'perf_baseline_detail'
+
+
+class BaselineServerSnapshot(BaseModel):
+    baseline_id = models.IntegerField(db_index=True, help_text='基线Id', null=True, blank=True)
+    test_job_id = models.IntegerField(db_index=True, help_text='关联JOB ID')
+    test_suite_id = models.IntegerField(db_index=True, help_text='关联SUITE ID')
+    test_case_id = models.IntegerField(db_index=True, help_text='关联CASE ID')
+    ip = models.CharField(max_length=64, help_text='IP', null=True, blank=True, db_index=True)
+    sn = models.CharField(max_length=64, null=True, help_text='SN', blank=True)
+    image = models.CharField(max_length=64, help_text='镜像', null=True, blank=True)
+    bandwidth = models.IntegerField(help_text='最大带宽', null=True, blank=True)
+    sm_name = models.CharField(max_length=64, help_text='机型', null=True, blank=True)
+    kernel_version = models.CharField(max_length=64, help_text='内核版本', null=True, blank=True)
+    distro = models.CharField(max_length=256, null=True, help_text='发行版本')
+    gcc = models.TextField(null=True, help_text='gcc版本')
+    rpm_list = models.TextField(null=True, help_text='rpm包')
+    glibc = models.TextField(null=True, help_text='glibc信息')
+    memory_info = models.TextField(null=True, help_text='内存信息')
+    disk = models.TextField(null=True, help_text='磁盘信息')
+    cpu_info = models.TextField(null=True, help_text='CPU信息')
+    ether = models.TextField(null=True, help_text='网卡信息')
+
+    class Meta:
+        db_table = 'baseline_server_snapshot'
