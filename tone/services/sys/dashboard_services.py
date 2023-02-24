@@ -15,24 +15,47 @@ class DashboardService(CommonService):
     @staticmethod
     def get_live_data(_):
         """dashboard实时数据 5s刷新一次"""
-        # job info
-        ws_id_list = Workspace.objects.filter(is_approved=1).values_list('id', flat=True)
-        job_total_num = TestJob.objects.filter(ws_id__in=ws_id_list).count()
-        job_running_num = TestJob.objects.filter(state='running').count()
-        # test run
-        test_run_total_num = TestJobCase.objects.all().count()
-        test_run_running_num = TestJobCase.objects.filter(state='running').count()
-        # server alloc
-        group_num = TestServerSnapshot.objects.all().count()
-        group_running_num = TestServer.objects.filter(state='Occupied').count()
-        cloud_num = CloudServerSnapshot.objects.all().count()
-        cloud_running_num = CloudServer.objects.filter(state='Occupied').count()
-        server_alloc_num = group_num + cloud_num
-        server_running_num = group_running_num + cloud_running_num
-        # test results
-        func_result_num = FuncResult.objects.all().count()
-        perf_result_num = PerfResult.objects.all().count()
-        result_total_num = func_result_num + perf_result_num
+        job_total_num, job_running_num, test_run_total_num, test_run_running_num, server_alloc_num, server_running_num \
+            , total_duration, result_total_num, func_result_num, perf_result_num = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        with connection.cursor() as cursor:
+            search_sql = """
+            SELECT COUNT(*) FROM test_job where ws_id in (
+                SELECT id FROM workspace WHERE is_approved=1 AND is_deleted is False) AND is_deleted is False
+            UNION ALL
+            SELECT COUNT(*) FROM test_job where state='running' AND is_deleted is False
+            UNION ALL
+            SELECT COUNT(*) FROM test_job_case WHERE is_deleted is False
+            UNION ALL
+            SELECT COUNT(*) FROM test_job_case WHERE state='running' AND is_deleted is False
+            UNION ALL
+            SELECT SUM(T) FROM (
+                SELECT COUNT(*) AS T FROM test_server_snapshot WHERE is_deleted is False
+                UNION ALL
+                SELECT COUNT(*) AS T FROM cloud_server_snapshot WHERE is_deleted is False
+            ) AS snapshot_server_total
+            UNION ALL
+            SELECT SUM(T) FROM (
+                SELECT COUNT(*) AS T FROM test_server WHERE state='Occupied' AND is_deleted is False
+                UNION ALL
+                SELECT COUNT(*) AS T FROM cloud_server WHERE state='Occupied' AND is_deleted is False
+            ) AS server_total
+            UNION ALL
+            (SELECT id FROM func_result ORDER BY id DESC LIMIT 0,1)
+            UNION ALL
+            (SELECT id FROM perf_result ORDER BY id DESC LIMIT 0,1)
+            """
+            cursor.execute(search_sql)
+            rows = cursor.fetchall()
+            if rows:
+                job_total_num = rows[0]
+                job_running_num = rows[1]
+                test_run_total_num = rows[2]
+                test_run_running_num = rows[3]
+                server_alloc_num = rows[4]
+                server_running_num = rows[5]
+                func_result_num = rows[6][0] if rows[6] else 0
+                perf_result_num = rows[7][0] if rows[7] else 0
+                result_total_num = int(func_result_num) + int(perf_result_num)
         # test duration
         redis_test_duration = 'test_duration'
         if redis_cache.get(redis_test_duration)[0]:
@@ -65,7 +88,7 @@ class DashboardService(CommonService):
             'total_duration': round(total_duration / 3600 / 24, 2),
             'result_total_num': result_total_num,
             'func_result_num': func_result_num,
-            'perf_result_num': perf_result_num,
+            'perf_result_num': perf_result_num
         }
 
     def get_sys_data_v2(self, params):
