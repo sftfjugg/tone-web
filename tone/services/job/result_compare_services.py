@@ -21,7 +21,7 @@ from tone.core.common.services import CommonService
 from tone.services.job.test_services import JobTestService
 from tone.core.common.expection_handler.error_code import ErrorCode
 from tone.core.common.expection_handler.custom_error import AnalysisException
-from tone.core.handle.report_handle import get_server_info
+from tone.core.handle.report_handle import get_group_server_info
 
 
 class CompareSuiteInfoService(CommonService):
@@ -139,12 +139,7 @@ class CompareEnvInfoService(CommonService):
 
     def get_env_info(self, base_group, compare_groups):
         job_li = list()
-        env_info = {
-            'base_group': get_server_info(base_group.get('tag'), base_group.get('base_objs')),
-            'compare_groups': [get_server_info(group.get('tag'), group.get('base_objs')) for group in
-                               compare_groups],
-            'job_li': list(set(job_li))
-        }
+        env_info = get_group_server_info(base_group, compare_groups)
         count_li = [len(_info.get('server_info')) for _info in env_info.get('compare_groups')]
         count_li.append(len(env_info.get('base_group').get('server_info')))
         count = max(count_li)
@@ -204,7 +199,7 @@ class CompareListService(CommonService):
                     extend([d for d in duplicate_data if d['job_id'] in group_job.get('job_list')])
         is_all = data.get('is_all')
         suite_info = data.get('conf_info')
-        test_suite = TestSuite.objects.filter(id=suite_id).first()
+        test_suite = TestSuite.objects.filter(id=suite_id, query_scope='all').first()
         if not test_suite:
             return dict()
         test_type = test_suite.test_type
