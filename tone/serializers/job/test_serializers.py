@@ -18,7 +18,7 @@ from tone.core.common.info_map import get_result_map
 from tone.core.common.job_result_helper import calc_job_suite, calc_job_case, calc_job, get_job_case_run_server,\
     get_test_config
 from tone.core.common.serializers import CommonSerializer
-from tone.core.utils.common_utils import kernel_info_format
+from tone.core.utils.common_utils import kernel_info_format, format_env_info
 from tone.core.utils.tone_thread import ToneThread
 from tone.models import TestJob, JobType, Project, Product, TestJobCase, TestJobSuite, TestCase, TestSuite, \
     JobTagRelation, JobTag, TestStep, FuncResult, PerfResult, ResultFile, User, TestMetric, FuncBaselineDetail, \
@@ -135,6 +135,10 @@ class JobTestConfigSerializer(CommonSerializer):
     @staticmethod
     def get_test_config(obj):
         return get_test_config(obj.id)
+
+    @staticmethod
+    def get_env_info(obj):
+        return format_env_info(obj.env_info)
 
 
 class JobTestSummarySerializer(CommonSerializer):
