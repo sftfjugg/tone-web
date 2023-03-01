@@ -1,7 +1,7 @@
 # flake8: noqa
 
 RUN_TEST = """
-#!/bin/bashc
+#!/bin/bash
 
 TONE_PATH=$1
 TONE_BIN=/usr/local/bin/tone
