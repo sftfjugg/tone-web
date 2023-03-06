@@ -229,17 +229,15 @@ class TestCaseService(CommonService):
             ws_id=ws_id, test_suite_id=test_suite_id).values_list('test_case_id', flat=True)
         return SimpleCaseSerializer(TestCase.objects.filter(id__in=case_id_list), many=True).data
 
+
 class TestSuiteService(CommonService):
     def filter(self, queryset, data):
         test_framework = get_config_from_db('TEST_FRAMEWORK', 'tone')
         q = Q(test_framework=test_framework)
-        order = ['gmt_created']
-        if data.get('order'):
-            order = data.get('order').split(',')
         if data.get('is_default') is not None:
             q &= Q(is_default=data.get('is_default'))
         q = self.base_filter(data, q)
-        return queryset.filter(q).order_by(*order)
+        return queryset.filter(q)
 
     @staticmethod
     def filter_test_type(data, q):
