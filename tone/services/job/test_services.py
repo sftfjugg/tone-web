@@ -1400,11 +1400,6 @@ class JobDataConversionService(object):
             }
 
     def verify_field_value(self):
-        # 中文校验
-        for field_key in ['name', 'project', 'baseline']:
-            if self.job_data.get(field_key) and check_contains_chinese(self.job_data.get(field_key)):
-                return False, '{}格式不合法'.format(field_key)
-
         # repeat和priority范围校验
         if self.job_data.get('test_config'):
             for suite_item in self.job_data['test_config']:
