@@ -128,6 +128,53 @@ def count_funcresult_state_num(job_id, test_suite_id=None, test_case_id=None):
     return count_dict, total
 
 
+def perse_func_result(job_id, sub_case_result, match_baseline):
+    count_case_fail, count_total, count_fail, count_no_match_baseline = 0, 0, 0, 0
+    id_sql = """
+        id >= (
+            SELECT
+                id
+            FROM
+                func_result
+            WHERE
+               is_deleted is False
+            AND test_job_id = {}
+            ORDER BY
+                id asc
+            limit 0, 1
+        )
+        AND
+        id <= (
+            SELECT
+                id
+            FROM
+                func_result
+            WHERE
+                is_deleted is False
+                AND test_job_id = {}
+            ORDER BY
+                id desc
+            limit 0, 1
+        ) """.format(job_id, job_id)
+    with connection.cursor() as cursor:
+        search_sql = """
+            SELECT COUNT(*) FROM test_job_case WHERE job_id={} AND state='fail'
+            UNION ALL
+            SELECT COUNT(*) FROM func_result WHERE test_job_id={} AND {}
+            UNION ALL
+            SELECT COUNT(*) FROM func_result  WHERE test_job_id={} AND sub_case_result={} AND {}
+            UNION ALL
+            SELECT COUNT(*) FROM func_result  WHERE test_job_id={} AND sub_case_result={} AND match_baseline={} AND {}
+        """.format(job_id, job_id, id_sql, job_id, sub_case_result, id_sql, job_id, sub_case_result, match_baseline,
+                   id_sql)
+        cursor.execute(search_sql)
+        result = cursor.fetchall()
+        if result and len(result) == 4:
+            count_case_fail, count_total, count_fail, count_no_match_baseline = result[0][0], result[1][0], result[2][
+                0], result[3][0]
+    return count_case_fail, count_total, count_fail, count_no_match_baseline
+
+
 def calc_job_suite(job_id, test_suite_id, ws_id, test_type, test_result=None):
     """
     统计JobSuite结果及数据
