@@ -1772,13 +1772,13 @@ class ServerSnapshotService(CommonService):
         if data.get('ws_id'):
             q &= Q(ws_id=data.get('ws_id'))
         test_server_list = TestServerSnapshot.objects.exclude(ip='').filter(q).values_list('ip', flat=True).distinct()
-        cloud_server_list = CloudServerSnapshot.objects.exclude(pub_ip='').filter(q).values_list('pub_ip', flat=True). \
-            distinct()
-        test_server_sn_list = TestServerSnapshot.objects.exclude(sn='').filter(q & Q(ip='') & Q(sn__isnull=False)).\
+        cloud_server_list = CloudServerSnapshot.objects.exclude(private_ip='').filter(q). \
+            values_list('private_ip', flat=True).distinct()
+        test_server_sn_list = TestServerSnapshot.objects.exclude(sn='').filter(q & Q(ip='') & Q(sn__isnull=False)). \
             values_list('sn', flat=True).distinct()
-        cloud_server_sn_list = CloudServerSnapshot.objects.exclude(sn='').\
+        cloud_server_sn_list = CloudServerSnapshot.objects.exclude(sn=''). \
             filter(q & Q(pub_ip='') & Q(sn__isnull=False)).values_list('sn', flat=True).distinct()
-        return list(test_server_list)+list(cloud_server_list)+list(test_server_sn_list)+list(cloud_server_sn_list)
+        return list(test_server_list) + list(cloud_server_list) + list(test_server_sn_list) + list(cloud_server_sn_list)
 
 
 class SyncServerStateService(CommonService):
