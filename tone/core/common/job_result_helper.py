@@ -5,6 +5,7 @@ Date:
 Author: Yfh
 """
 import json
+from functools import reduce
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from queue import Queue
@@ -870,38 +871,65 @@ def get_suite_conf_metric_v1(suite_id, suite_name, base_index, group_list, suite
         'compare_count': list(),
         'base_count': list()
     }
-    thread_tasks = []
+    baseline_id_list = list()
+    job_id_list = list()
+    for group in group_list:
+        if group.get('is_baseline'):
+            baseline_id_list.extend(group.get('job_list'))
+        else:
+            job_id_list.extend(group.get('job_list'))
+    case_id_list = list()
+    if suite_value:
+        for case_info in suite_value:
+            case_id_list.append(case_info['conf_id'])
+    case_id_sql = '' if is_all else ' AND a.test_case_id IN (' + ','.join(str(e) for e in case_id_list) + ')'
+    baseline_result_list = None
+    job_result_list = None
+    if baseline_id_list:
+        baseline_id_str = ','.join(str(e) for e in baseline_id_list)
+        raw_sql = 'SELECT DISTINCT a.baseline_id as test_job_id,a.test_case_id,c.name as test_case_name,' \
+                  'a.test_value,a.cv_value,a.max_value,a.value_list,a.metric,' \
+                  'b.cv_threshold,b.cmp_threshold,b.direction,b.unit FROM perf_baseline_detail a LEFT JOIN ' \
+                  'test_track_metric b ON a.metric = b.name AND ((b.object_type = "case" AND ' \
+                  'b.object_id = a.test_case_id) or (b.object_type = "suite" AND ' \
+                  'b.object_id = a.test_suite_id )) LEFT JOIN test_case c ON a.test_case_id=c.id WHERE ' \
+                  'a.baseline_id IN (' + baseline_id_str + ') AND a.test_suite_id=' + str(suite_id) + case_id_sql + \
+                  ' AND b.cv_threshold > 0 ORDER BY b.object_type'
+        baseline_result_list = query_all_dict(raw_sql.replace('\'', ''), params=None)
+    if job_id_list:
+        job_id_str = ','.join(str(e) for e in job_id_list)
+        raw_sql = 'SELECT DISTINCT a.test_job_id,a.test_case_id,c.name as test_case_name,a.test_value,' \
+                  'a.cv_value,a.max_value,' \
+                  'a.value_list,a.metric,b.cv_threshold,b.cmp_threshold,b.direction,b.unit FROM perf_result a ' \
+                  'LEFT JOIN test_track_metric b ON a.metric = b.name AND ((b.object_type = "case" AND ' \
+                  'b.object_id = a.test_case_id) or (b.object_type = "suite" AND ' \
+                  'b.object_id = a.test_suite_id )) LEFT JOIN test_case c ON a.test_case_id=c.id' \
+                  ' WHERE a.test_job_id IN (' + job_id_str + \
+                  ') AND a.test_suite_id=' + str(suite_id) + case_id_sql + \
+                  ' AND b.cv_threshold > 0 ORDER BY b.object_type'
+        job_result_list = query_all_dict(raw_sql.replace('\'', ''), params=None)
     base_job_list = group_list.pop(base_index)
     base_is_baseline = base_job_list.get('is_baseline', 0)
     duplicate_conf = base_job_list.get('duplicate_conf')
     if is_all:
-        for job_id in base_job_list.get('job_list'):
-            if base_is_baseline:
-                case_list = PerfBaselineDetail.objects.filter(baseline_id=job_id, test_suite_id=suite_id). \
-                    extra(select={'test_case_name': 'test_case.name'},
-                          tables=['test_case'],
-                          where=["perf_baseline_detail.test_case_id = test_case.id"]). \
-                    values_list('baseline_id', 'test_case_id', 'test_case_name').distinct()
-            else:
-                case_list = PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id). \
-                    extra(select={'test_case_name': 'test_case.name'},
-                          tables=['test_case'],
-                          where=["perf_result.test_case_id = test_case.id"]). \
-                    values_list('test_job_id', 'test_case_id', 'test_case_name').distinct()
-            for case_info in case_list:
-                thread_tasks.append(
-                    ToneThread(_get_suite_conf_metric_v1, (suite_id, case_info[1], case_info[2], suite_obj, group_list,
-                                                           case_info[0], base_index, base_is_baseline))
-                )
-                thread_tasks[-1].start()
+        if base_is_baseline:
+            case_list = remove_duplicate_case(baseline_result_list, base_job_list.get('job_list'))
+        else:
+            case_list = remove_duplicate_case(job_result_list, base_job_list.get('job_list'))
     else:
-        for job_id in base_job_list.get('job_list'):
-            for case_info in suite_value:
-                thread_tasks.append(
-                    ToneThread(_get_suite_conf_metric_v1, (suite_id, case_info['conf_id'], case_info['conf_name'],
-                                                           suite_obj, group_list, job_id, base_index, base_is_baseline))
-                )
-                thread_tasks[-1].start()
+        case_list = suite_value
+    thread_tasks = []
+    for case_info in case_list:
+        if base_is_baseline:
+            case_result_list = [result for result in baseline_result_list if result['test_case_id'] ==
+                                case_info['conf_id']]
+        else:
+            case_result_list = [result for result in job_result_list if result['test_case_id'] == case_info['conf_id']]
+        thread_tasks.append(
+            ToneThread(_get_suite_conf_metric_v1, (case_info, suite_obj, group_list, base_index, base_is_baseline,
+                                                   case_result_list, baseline_result_list, job_result_list))
+        )
+        thread_tasks[-1].start()
     for thread_task in thread_tasks:
         thread_task.join()
         conf_obj = thread_task.get_result()
@@ -922,6 +950,12 @@ def get_suite_conf_metric_v1(suite_id, suite_name, base_index, group_list, suite
     return suite_obj
 
 
+def remove_duplicate_case(job_result_list, job_list):
+    job_case_list = [{'conf_id': result.get('test_case_id'), 'conf_name': result.get('test_case_name')} for result in
+                     job_result_list if result.get('test_job_id') in job_list]
+    return reduce(lambda x, y: x if y in x else x + [y], [[], ] + job_case_list)
+
+
 def _check_has_duplicate(duplicate_conf, conf_id):
     if duplicate_conf:
         d_conf = [d for d in duplicate_conf if conf_id == d['conf_id']]
@@ -937,44 +971,15 @@ def _check_duplicate_hit(duplicate_conf, conf_id, test_job_id):
     return False
 
 
-def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_list, base_job_id, base_index,
-                              base_is_baseline):
-    if base_is_baseline:
-        perf_results = PerfBaselineDetail.objects.all(). \
-            extra(select={'cv_threshold': 'test_track_metric.cv_threshold',
-                          'cmp_threshold': 'test_track_metric.cmp_threshold',
-                          'direction': 'test_track_metric.direction'},
-                  tables=['test_track_metric'],
-                  where=["perf_baseline_detail.baseline_id=%s", "perf_baseline_detail.test_suite_id=%s",
-                         "perf_baseline_detail.test_case_id=%s",
-                         "test_track_metric.name = perf_baseline_detail.metric",
-                         "test_track_metric.cv_threshold > 0",
-                         "test_track_metric.is_deleted = 0",
-                         "(object_type='case' AND object_id=%s) or (object_type='suite' AND object_id=%s)"],
-                  order_by=['test_track_metric.object_type'],
-                  params=[base_job_id, suite_id, conf_id, conf_id, suite_id]).distinct()
-    else:
-        perf_results = PerfResult.objects.all(). \
-            extra(select={'cv_threshold': 'test_track_metric.cv_threshold',
-                          'cmp_threshold': 'test_track_metric.cmp_threshold',
-                          'direction': 'test_track_metric.direction'},
-                  tables=['test_track_metric'],
-                  where=["perf_result.test_job_id=%s", "perf_result.test_suite_id=%s",
-                         "perf_result.test_case_id=%s",
-                         "test_track_metric.name = perf_result.metric",
-                         "test_track_metric.cv_threshold > 0",
-                         "test_track_metric.is_deleted = 0",
-                         "(object_type='case' AND object_id=%s) or (object_type='suite' AND object_id=%s)"],
-                  order_by=['test_track_metric.object_type'],
-                  params=[base_job_id, suite_id, conf_id, conf_id, suite_id]).distinct()
-    if not perf_results.exists():
-        return
+def _get_suite_conf_metric_v1(conf_info, suite_obj, group_list, base_index, base_is_baseline, perf_results,
+                              baseline_result_list, job_result_list):
+    conf_id = conf_info['conf_id']
     if not suite_obj.get('compare_count'):
         suite_obj['compare_count'] = [{'all': 0, 'increase': 0, 'decline': 0} for _ in range(len(group_list))]
     if not suite_obj.get('base_count'):
-        suite_obj['base_count'] = {'all': perf_results.count(), 'increase': 0, 'decline': 0}
+        suite_obj['base_count'] = {'all': len(perf_results), 'increase': 0, 'decline': 0}
     else:
-        suite_obj['base_count']['all'] += perf_results.count()
+        suite_obj['base_count']['all'] += len(perf_results)
     compare_job_list = list()
     compare_result_li = list()
     conf_compare_data = list()
@@ -985,51 +990,44 @@ def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_lis
         job_list = compare_job.get('job_list')
         is_baseline = compare_job.get('is_baseline', 0)
         is_job = 0 if is_baseline else 1
-        if not has_duplicate and len(compare_job.get('job_list')) > 0:
-            for job_id in compare_job.get('job_list'):
+        if not has_duplicate and len(job_list) > 0:
+            for job_id in job_list:
                 if is_baseline:
-                    if PerfBaselineDetail.objects.filter(baseline_id=job_id, test_suite_id=suite_id,
-                                                         test_case_id=conf_id).exists():
-                        job_list = [job_id]
-                        compare_job_list.append(job_id)
-                        break
+                    job_result = [result for result in baseline_result_list if result['test_job_id'] == job_id
+                                  and result['test_case_id'] == conf_id]
                 else:
-                    if PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id,
-                                                 test_case_id=conf_id).exists():
-                        job_list = [job_id]
-                        compare_job_list.append(job_id)
-                        break
+                    job_result = [result for result in job_result_list if result['test_job_id'] == job_id
+                                  and result['test_case_id'] == conf_id]
+                if len(job_result) > 0:
+                    job_list = [job_id]
+                    compare_job_list.append(job_id)
+                    break
         group_compare = None
         for job_id in job_list:
             compare_result = None
+            if is_baseline:
+                job_result = [result for result in baseline_result_list if result['test_job_id'] == job_id
+                              and result['test_case_id'] == conf_id]
+            else:
+                job_result = [result for result in job_result_list if result['test_job_id'] == job_id
+                              and result['test_case_id'] == conf_id]
             if has_duplicate:
                 if _check_duplicate_hit(duplicate_conf, conf_id, job_id):
                     compare_job_list.append(job_id)
-                    if is_baseline:
-                        group_compare = compare_result = PerfBaselineDetail.objects.filter(baseline_id=job_id,
-                                                                                           test_suite_id=suite_id,
-                                                                                           test_case_id=conf_id)
-                    else:
-                        group_compare = compare_result = PerfResult.objects.filter(test_job_id=job_id,
-                                                                                   test_suite_id=suite_id,
-                                                                                   test_case_id=conf_id)
+                    group_compare = compare_result = job_result
             else:
-                if is_baseline:
-                    group_compare = compare_result = PerfBaselineDetail.objects. \
-                        filter(baseline_id=job_id, test_suite_id=suite_id, test_case_id=conf_id)
-                else:
-                    group_compare = compare_result = PerfResult.objects. \
-                        filter(test_job_id=job_id, test_suite_id=suite_id, test_case_id=conf_id)
+                group_compare = compare_result = job_result
             if compare_result:
                 compare_result_li.append(compare_result)
         if not group_compare:
             compare_result_li.append(dict())
-        compare_job_id = list(set(compare_job.get('job_list')) & set(compare_job_list))
+        compare_job_id = list(set(job_list) & set(compare_job_list))
         conf_compare_data.append(dict({
             'is_job': is_job,
-            'obj_id': compare_job_id[0] if len(compare_job_id) > 0 else compare_job.get('job_list')[0],
+            'obj_id': compare_job_id[0] if len(compare_job_id) > 0 else job_list[0],
             'is_baseline': is_baseline
         }))
+    base_job_id = perf_results[0].get('test_job_id')
     conf_compare_data.insert(base_index, dict({
         'is_job': base_is_job,
         'obj_id': base_job_id,
@@ -1037,7 +1035,7 @@ def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_lis
     }))
     conf_obj = {
         'conf_id': conf_id,
-        'conf_name': conf_name,
+        'conf_name': conf_info['conf_name'],
         'is_job': base_is_job,
         'obj_id': base_job_id,
         'conf_compare_data': conf_compare_data,
@@ -1051,29 +1049,29 @@ def _get_suite_conf_metric_v1(suite_id, conf_id, conf_name, suite_obj, group_lis
 def get_metric_list_v1(perf_results, compare_result_li, compare_count, base_index):
     metric_list = list()
     for perf_result in perf_results:
-        metric = perf_result.metric
+        metric = perf_result.get('metric')
         exist_metric_list = [m for m in metric_list if m['metric'] == metric]
         if len(exist_metric_list) > 0:
             continue
-        unit = perf_result.unit
-        test_value = round(float(perf_result.test_value), 2)
-        cv_value = perf_result.cv_value
+        unit = perf_result.get('unit')
+        test_value = round(float(perf_result.get('test_value')), 2)
+        cv_value = perf_result.get('cv_value')
         base_metric = {
             'test_value': test_value,
             'cv_value': cv_value.split('±')[-1] if cv_value else None,
-            'max_value': perf_result.max_value,
-            'min_value': perf_result.min_value,
-            'value_list': perf_result.value_list
+            'max_value': perf_result.get('max_value'),
+            'min_value': perf_result.get('min_value'),
+            'value_list': perf_result.get('value_list')
         }
         compare_data = get_compare_data_v1(metric, test_value, perf_result, compare_result_li, compare_count)
         compare_data.insert(base_index, base_metric)
         metric_obj = {
             'metric': metric,
             'test_value': test_value,
-            'cv_threshold': perf_result.cv_threshold,
-            'cmp_threshold': perf_result.cmp_threshold,
+            'cv_threshold': perf_result.get('cv_threshold'),
+            'cmp_threshold': perf_result.get('cmp_threshold'),
             'unit': unit,
-            'direction': perf_result.direction,
+            'direction': perf_result.get('direction'),
             'compare_data': compare_data
         }
         metric_list.append(metric_obj)
@@ -1087,18 +1085,19 @@ def get_compare_data_v1(metric, test_value, base_perf_result, compare_result_li,
         group_data = dict()
         if compare_result:
             _count = compare_count[compare_job_index]
-            perf_results = compare_result.filter(metric=metric)
-            if perf_results.exists():
-                perf_result = perf_results.first()
-                value = round(float(perf_result.test_value), 2)
+            perf_results = [compare for compare in compare_result if compare['metric'] == metric]
+            if len(perf_results) > 0:
+                perf_result = perf_results[0]
+                value = round(float(perf_result.get('test_value')), 2)
                 group_data['test_value'] = value
-                group_data['cv_value'] = perf_result.cv_value.split('±')[-1]
-                group_data['max_value'] = perf_result.max_value
-                group_data['min_value'] = perf_result.min_value
+                group_data['cv_value'] = perf_result.get('cv_value').split('±')[-1]
+                group_data['max_value'] = perf_result.get('max_value')
+                group_data['min_value'] = perf_result.get('min_value')
                 group_data['compare_value'], group_data['compare_result'] = \
-                    get_compare_result(test_value, value, base_perf_result.direction, base_perf_result.cmp_threshold,
-                                       group_data['cv_value'], base_perf_result.cv_threshold)
-                group_data['value_list'] = perf_result.value_list
+                    get_compare_result(test_value, value, base_perf_result.get('direction'),
+                                       base_perf_result.get('cmp_threshold'),
+                                       group_data['cv_value'], base_perf_result.get('cv_threshold'))
+                group_data['value_list'] = perf_result.get('value_list')
                 _count['all'] += 1
                 if group_data['compare_result'] == 'increase':
                     _count['increase'] += 1
@@ -1131,7 +1130,7 @@ def get_suite_conf_sub_case_v1(suite_id, suite_name, base_index, group_job_list,
                   'COUNT(a.test_case_id ) AS fail_case,' \
                   'COUNT(a.test_case_id ) AS total_count ' \
                   'FROM func_baseline_detail a LEFT JOIN test_case b ON a.test_case_id = b.id ' \
-                  'WHERE a.is_deleted=0 AND b.is_deleted=0 AND a.test_suite_id=%s AND a.baseline_id IN (' + \
+                  'WHERE a.is_deleted=0 AND a.test_suite_id=%s AND a.baseline_id IN (' + \
                   job_id_list + ') GROUP BY a.baseline_id, a.test_case_id'
     else:
         raw_sql = 'SELECT distinct a.test_job_id,a.test_case_id,b.name AS test_case_name, ' \
@@ -1139,7 +1138,7 @@ def get_suite_conf_sub_case_v1(suite_id, suite_name, base_index, group_job_list,
                   'SUM(case when a.sub_case_result=2 then 1 ELSE 0 END ) AS fail_case,' \
                   'COUNT(a.test_case_id ) AS total_count ' \
                   'FROM func_result a LEFT JOIN test_case b ON a.test_case_id = b.id ' \
-                  'WHERE a.is_deleted=0 AND b.is_deleted=0 AND a.test_suite_id=%s AND a.test_job_id IN (' + \
+                  'WHERE a.is_deleted=0 AND a.test_suite_id=%s AND a.test_job_id IN (' + \
                   job_id_list + ') GROUP BY a.test_job_id, a.test_case_id'
     if not is_all:
         conf_id_list = list()
