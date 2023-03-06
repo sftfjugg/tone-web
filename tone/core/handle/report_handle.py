@@ -16,7 +16,7 @@ from django.db import transaction
 from tone.models import TestJob, ReportTemplate, Report, TestServerSnapshot, CloudServerSnapshot, ReportItemConf, \
     ReportItemSuite, ReportItem, ReportItemMetric, ReportItemSubCase, ReportObjectRelation, ReportTmplItem, \
     ReportTmplItemSuite, TestJobCase, TestJobSuite, TestCase, FuncResult, PerfResult, TestSuite, TestMetric, \
-    PerfBaselineDetail, Baseline, ReportDetail, FuncBaselineDetail
+    PerfBaselineDetail, Baseline, ReportDetail, FuncBaselineDetail, BaselineServerSnapshot
 from tone.core.common.constant import FUNC_CASE_RESULT_TYPE_MAP
 from tone.views.api.get_domain_group import get_domain_group
 
@@ -737,4 +737,87 @@ def get_server_info(tag, objs):  # nq  c901
         'is_baseline': objs[0].get('is_baseline') if objs else 0,
         'base_objs': objs
     }
+    return env_info
+
+
+def get_group_server_info(base_group, compare_groups):
+    baseline_id_list = list()
+    job_id_list = list()
+    base_group['is_base'] = 1
+    groups = list()
+    groups.append(base_group)
+    for group in compare_groups:
+        group['is_base'] = 0
+        groups.append(group)
+    for group in groups:
+        objs = group.get('base_objs')
+        group['job_id'] = list()
+        for obj in objs:
+            is_baseline = obj.get('is_baseline', 0)
+            group['is_baseline'] = is_baseline
+            obj_id = obj.get('obj_id')
+            group['job_id'].append(obj_id)
+            if is_baseline:
+                baseline_id_list.append(obj_id)
+            else:
+                job_id_list.append(obj_id)
+    env_info = {
+        'base_group': list(),
+        'compare_groups': list()
+    }
+    job_id_str = ','.join(str(e) for e in job_id_list)
+    baseline_server_info = None
+    all_server_info = None
+    if baseline_id_list:
+        baseline_id_str = ','.join(str(e) for e in baseline_id_list)
+        baseline_raw_sql = 'SELECT baseline_id,ip,sm_name,distro,rpm_list,kernel_version,gcc,' \
+                           'glibc,memory_info,disk,cpu_info,ether FROM baseline_server_snapshot ' \
+                           'WHERE baseline_id IN (' + baseline_id_str + ') '
+        baseline_server_info = query_all_dict(baseline_raw_sql.replace('\'', ''), params=None)
+    if job_id_str:
+        raw_sql = 'SELECT job_id,ip,sm_name,distro,rpm_list,kernel_version,gcc,' \
+                  'glibc,memory_info,disk,cpu_info,ether FROM test_server_snapshot ' \
+                  'WHERE job_id IN (' + job_id_str + ') UNION ' \
+                  'SELECT job_id,pub_ip AS ip,instance_type AS sm_name,distro,rpm_list,' \
+                  'kernel_version,gcc,glibc,memory_info,disk,cpu_info,ether ' \
+                  'FROM cloud_server_snapshot ' \
+                  'WHERE job_id IN (' + job_id_str + ')'
+        all_server_info = query_all_dict(raw_sql.replace('\'', ''), params=None)
+    for group in groups:
+        group_ip_list = list()
+        server_li = list()
+        if group.get('is_baseline', 0) and baseline_server_info:
+            group_server_li = [server for server in baseline_server_info if server['baseline_id'] in group['job_id']]
+        else:
+            group_server_li = [server for server in all_server_info if server['job_id'] in group['job_id']] \
+                if all_server_info else list()
+        for server_info in group_server_li:
+            ip = server_info.get('ip')
+            if not (server_info.get('distro') or server_info.get('rpm_list') or server_info.get('gcc')) or \
+                    ip in group_ip_list:
+                continue
+            group_ip_list.append(ip)
+            server_li.append({
+                'ip/sn': ip,
+                'distro': server_info.get('sm_name'),
+                'os': server_info.get('distro'),
+                'rpm': server_info.get('rpm_list').split('\n') if server_info.get('rpm_list') else list(),
+                'kernel': server_info.get('kernel_version'),
+                'gcc': server_info.get('gcc'),
+                'glibc': server_info.get('glibc'),
+                'memory_info': server_info.get('memory_info'),
+                'disk': server_info.get('disk'),
+                'cpu_info': server_info.get('cpu_info'),
+                'ether': server_info.get('ether')
+            })
+        group_env_info = {
+            'tag': group['tag'],
+            'server_info': server_li,
+            'is_baseline': group.get('is_baseline', 0),
+            'base_objs': group.get('base_objs')
+        }
+        if group['is_base']:
+            env_info['base_group'] = group_env_info
+        else:
+            env_info['compare_groups'].append(group_env_info)
     return env_info
