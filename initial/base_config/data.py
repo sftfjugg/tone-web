@@ -15,6 +15,7 @@ from initial.base_config.script.prepare import PREPARE
 from initial.base_config.script.run_test import RUN_TEST
 from initial.base_config.script.upload import UPLOAD
 from initial.base_config.script.sync_case import TONE_SYNC_CASE
+from initial.base_config.script.upload_file import UPLOAD_FILE
 from tone.core.utils.config_parser import cp
 
 BASE_CONFIG_DATA = [
@@ -183,5 +184,18 @@ BASE_CONFIG_DATA = [
         ),
         'bind_stage': '',
         'description': 'Debian系统run case脚本',
-    }
+    },
+    {
+        'config_type': 'script',
+        'config_key': 'UPLOAD_FILE',
+        'config_value': UPLOAD_FILE.format(
+            tone_storage_host=cp.get('tone_storage_host'),
+            tone_storage_sftp_port=cp.get('tone_storage_sftp_port'),
+            tone_storage_proxy_port=cp.get('tone_storage_proxy_port'),
+            tone_storage_user=cp.get('tone_storage_user'),
+            tone_storage_password=cp.get('tone_storage_password')
+        ),
+        'bind_stage': 'upload',
+        'description': '上传日志文件脚本',
+    },
 ]
