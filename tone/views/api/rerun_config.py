@@ -4,7 +4,7 @@ Module Description:
 Date:
 Author: Yfh
 """
-from tone.core.utils.common_utils import kernel_info_format
+from tone.core.utils.common_utils import kernel_info_format, format_env_info
 from django.db.models import Q
 from tone.models import TestJob, TestJobSuite, TestJobCase, JobTagRelation, JobTag, FuncResult
 from tone.core.utils.helper import CommResp
@@ -25,6 +25,7 @@ def config_query(request):
     else:
         job = jobs.first()
     job_config = job.to_dict()
+    job_config['env_info'] = format_env_info(job_config.get('env_info'))
     job_config['baseline'] = job_config.get('baseline_id')
     job_config['baseline_job_id'] = job_config.get('baseline_job_id')
     job_config['kernel_info'] = kernel_info_format(job_config['kernel_info'])

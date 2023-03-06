@@ -71,6 +71,17 @@ def pack_env_infos(data):
     return env_data
 
 
+def format_env_info(env_info):
+    if not env_info:
+        return
+    for k, v in env_info.items():
+        if v == "":
+            env_info[k] = '""'
+        if v == '':
+            env_info[k] = "''"
+    return env_info
+
+
 def query_all_dict(sql, params=None):
     '''
     查询所有结果返回字典类型数据
