@@ -8,9 +8,10 @@ from django.db.models import Q
 
 from tone.core.common.services import CommonService
 from tone.core.utils.tone_thread import ToneThread
+from tone.core.utils.common_utils import query_all_dict
 from tone.models import Baseline, FuncBaselineDetail, PerfBaselineDetail, TestJob, PerfResult, TestJobCase, \
     TestSuite, TestCase, Project, TestStep, FuncResult, TestMetric, TestServerSnapshot, \
-    CloudServerSnapshot
+    CloudServerSnapshot, BaselineServerSnapshot
 from tone.services.portal.sync_portal_task_servers import sync_baseline, sync_baseline_del
 from tone.serializers.sys.baseline_serializers import FuncBaselineDetailSerializer, PerfBaselineDetialSerializer
 
@@ -217,7 +218,9 @@ class FuncBaselineService(CommonService):
         msg = 'Required request parameters'
         if not all([baseline_id_list, test_type, ws_id, test_job_id, test_suite_id, test_case_id, sub_case_name]):
             return False, msg
+        server_provider, machine = self.get_job_server(test_job_id, test_suite_id, test_case_id)
         for baseline_id in baseline_id_list:
+            save_baseline_server(baseline_id, server_provider, machine, test_job_id, test_suite_id, test_case_id)
             func_baseline_detail = FuncBaselineDetail.objects.filter(
                 baseline_id=baseline_id, test_suite_id=test_suite_id,
                 test_case_id=test_case_id, sub_case_name=sub_case_name).first()
@@ -248,6 +251,25 @@ class FuncBaselineService(CommonService):
         # 加入基线和测试基线相同时，匹配基线
         # self.func_match_baseline(func_result, compare_baseline, baseline_id)
         return True, FuncBaselineDetail.objects.bulk_create(func_baseline_detail_list)
+
+    def get_job_server(self, job_id, suite_id, case_id):
+        server_provider = 'aliyun'
+        machine = None
+        test_job_case = TestJobCase.objects.filter(job_id=job_id, test_suite_id=suite_id,
+                                                   test_case_id=case_id).first()
+        job_case_id = test_job_case.id
+        test_step_case = TestStep.objects.filter(job_id=job_id, job_case_id=job_case_id).first()
+        if test_step_case and test_step_case.server:
+            server_object_id = test_step_case.server
+            machine = TestServerSnapshot.objects.filter(id=server_object_id, job_id=job_id, query_scope='all').first()
+            if machine is not None:
+                server_provider = 'aligroup'
+            else:
+                machine = CloudServerSnapshot.objects.filter(id=server_object_id, job_id=job_id, query_scope='all'). \
+                    first()
+                if machine is not None:
+                    server_provider = 'aliyun'
+        return server_provider, machine
 
     @staticmethod
     def func_match_baseline(func_result, compare_baseline, baseline_id):
@@ -288,6 +310,50 @@ class FuncBaselineService(CommonService):
         baseline_id = func_detail.baseline_id
         func_detail.delete()
         sync_baseline.delay(baseline_id)
+
+
+def save_baseline_server(baseline_id, server_provider, machine, job_id, suite_id, case_id):
+    if machine and not BaselineServerSnapshot.objects.filter(baseline_id=baseline_id, test_suite_id=suite_id,
+                                                             test_case_id=case_id).exists():
+        baseline_server = dict(
+            baseline_id=baseline_id,
+            test_job_id=job_id,
+            test_suite_id=suite_id,
+            test_case_id=case_id,
+            ip=machine.ip if server_provider == 'aligroup' else machine.private_ip,
+            sn=machine.sn,
+            sm_name=machine.sm_name if server_provider == 'aligroup' else machine.instance_type,
+            image=machine.image if server_provider == 'aliyun' else '',
+            bandwidth=machine.bandwidth if server_provider == 'aliyun' else None,
+            kernel_version=machine.kernel_version,
+            distro=machine.distro,
+            gcc=machine.gcc,
+            rpm_list=machine.rpm_list,
+            glibc=machine.glibc,
+            memory_info=machine.memory_info,
+            disk=machine.disk,
+            cpu_info=machine.cpu_info,
+            ether=machine.ether,
+        )
+        BaselineServerSnapshot.objects.create(**baseline_server)
+    else:
+        BaselineServerSnapshot.objects.filter(baseline_id=baseline_id, test_suite_id=suite_id,
+                                              test_case_id=case_id).update(
+            test_job_id=job_id,
+            ip=machine.ip if server_provider == 'aligroup' else machine.private_ip,
+            sn=machine.sn,
+            sm_name=machine.sm_name if server_provider == 'aligroup' else machine.instance_type,
+            image=machine.image if server_provider == 'aliyun' else '',
+            bandwidth=machine.bandwidth if server_provider == 'aliyun' else None,
+            kernel_version=machine.kernel_version,
+            distro=machine.distro,
+            gcc=machine.gcc,
+            rpm_list=machine.rpm_list,
+            glibc=machine.glibc,
+            memory_info=machine.memory_info,
+            disk=machine.disk,
+            cpu_info=machine.cpu_info,
+            ether=machine.ether)
 
 
 class PerfBaselineService(CommonService):
@@ -446,17 +512,21 @@ class PerfBaselineService(CommonService):
         test_step_case = TestStep.objects.filter(job_id=job_id, job_case_id=job_case_id).first()
         if test_step_case and test_step_case.server:
             server_object_id = test_step_case.server
+            server_provider = 'aliyun'
             machine = TestServerSnapshot.objects.filter(id=server_object_id, query_scope='all').first()
             if machine is not None:
                 sm_name = machine.sm_name
                 machine_ip = machine.ip
+                server_provider = 'aligroup'
             else:
                 machine = CloudServerSnapshot.objects.filter(id=server_object_id, query_scope='all').first()
                 if machine is not None:
+                    server_provider = 'aliyun'
                     instance_type = machine.instance_type
                     image = machine.image
                     bandwidth = machine.bandwidth
                     machine_ip = machine.private_ip
+            save_baseline_server(baseline_id, server_provider, machine, job_id, suite_id, case_id)
         perf_res_list = PerfResult.objects.filter(test_job_id=job_id, test_suite_id=suite_id, test_case_id=case_id)
         create_list = []
         update_dict = dict()
@@ -601,54 +671,74 @@ class PerfBaselineService(CommonService):
         suite_data_list = data.get('suite_data', [])
         suite_id_list = data.get('suite_list')
         perf_baseline_detail_list = list()
-
-        perf_res_id_list = self.get_perf_res_id_list(job_id, suite_id_list, suite_data_list)
-        thread_tasks = []
-        for perf_res_id in set(perf_res_id_list):
-            thread_tasks.append(
-                ToneThread(self._add_perf_baseline, (perf_res_id, job_id, baseline_id))
-            )
-            thread_tasks[-1].start()
-        for thread_task in thread_tasks:
-            thread_task.join()
-            perf_baseline_detail_obj = thread_task.get_result()
-            if perf_baseline_detail_obj:
-                perf_baseline_detail_list.append(perf_baseline_detail_obj)
-        return True, PerfBaselineDetail.objects.bulk_create(perf_baseline_detail_list)
-
-    def _add_perf_baseline(self, perf_res_id, job_id, baseline_id):
-        sm_name = ''
-        instance_type = ''
-        image = ''
-        bandwidth = 10
-        machine = None
-        machine_ip = ''
+        baseline_server_list = list()
         test_job = TestJob.objects.filter(id=job_id).first()
         if not test_job:
             return False, "关联job不存在!"
-        perf_result = PerfResult.objects.filter(id=perf_res_id).first()
-        suite_id = perf_result.test_suite_id
-        case_id = perf_result.test_case_id
-        test_job_case = TestJobCase.objects.filter(job_id=job_id, test_suite_id=suite_id,
-                                                   test_case_id=case_id).first()
-        job_case_id = test_job_case.id
-        test_step_case = TestStep.objects.filter(job_id=job_id, job_case_id=job_case_id).first()
-        server_object_id = test_step_case.server
+        pre_aligroup = 'SELECT a.test_job_id,a.test_suite_id,a.test_case_id,a.metric, a.test_value, ' \
+                       'a.cv_value, a.max_value, a.min_value, a.value_list,a.match_baseline,' \
+                       'b.note,b.run_mode,c.ip,c.sn,c.sm_name,"" as image,0 as bandwidth,c.kernel_version,' \
+                       'c.distro,c.gcc,c.rpm_list,c.glibc,c.memory_info,c.distro,c.cpu_info,c.disk,c.ether FROM ' \
+                       'perf_result a LEFT JOIN test_job_case b ON a.test_job_id=b.job_id AND ' \
+                       'a.test_suite_id=b.test_suite_id AND a.test_case_id=b.test_case_id LEFT JOIN ' \
+                       'test_server_snapshot c ON b.server_snapshot_id=c.id WHERE a.test_job_id=%s AND '
+        pre_aliyun = 'SELECT a.test_job_id,a.test_suite_id,a.test_case_id,a.metric, a.test_value, ' \
+                     'a.cv_value, a.max_value, a.min_value, a.value_list,a.match_baseline,' \
+                     'b.note,b.run_mode,c.private_ip AS ip,c.sn,c.instance_type AS sm_name,c.image,' \
+                     'c.bandwidth,c.kernel_version,c.distro,c.gcc,' \
+                     'c.rpm_list,c.glibc,c.memory_info,c.distro,c.cpu_info,c.disk,c.ether FROM perf_result a ' \
+                     'LEFT JOIN test_job_case b ON a.test_job_id=b.job_id AND ' \
+                     'a.test_suite_id=b.test_suite_id AND a.test_case_id=b.test_case_id LEFT JOIN ' \
+                     'cloud_server_snapshot c ON b.server_snapshot_id=c.id WHERE a.test_job_id=%s AND '
+        end_sql = 'AND a.is_deleted is FALSE AND b.is_deleted is FALSE AND c.is_deleted is FALSE'
+        pre_sql = pre_aligroup if test_job.server_provider == 'aligroup' else pre_aliyun
+        q = Q(test_job_id=job_id)
+        if suite_data_list:
+            suite_list = list()
+            case_list = list()
+            for suite_data in suite_data_list:
+                if suite_data.get('suite_id') not in suite_list:
+                    suite_list.append(suite_data.get('suite_id'))
+                if suite_data.get('case_list'):
+                    case_list.extend(suite_data.get('case_list'))
+            suite_id_list_str = ','.join(str(e) for e in suite_list)
+            case_id_list_str = ','.join(str(e) for e in case_list)
+            raw_sql = pre_sql + 'a.test_suite_id IN (' + suite_id_list_str + ') AND ' \
+                                                                             'a.test_case_id IN (' + case_id_list_str + ') ' + end_sql
+            q &= Q(test_suite_id__in=suite_list, test_case_id__in=case_list)
+        elif suite_id_list:
+            suite_id_list_str = ','.join(str(e) for e in suite_id_list)
+            raw_sql = pre_sql + 'a.test_suite_id IN (' + suite_id_list_str + ') ' + end_sql
+            q &= Q(test_suite_id__in=suite_id_list)
+        else:
+            return False, "请求参数错误！"
+        # 加入基线和测试基线相同时，匹配基线
+        if test_job.baseline_id == baseline_id:
+            PerfResult.objects.filter(q).update(match_baseline=True)
+        all_perf_results = query_all_dict(raw_sql.replace('\'', ''), params=[job_id])
+        for perf_result in all_perf_results:
+            perf_baseline_detail_obj = self._add_perf_baseline(perf_result, job_id, baseline_id,
+                                                               test_job.server_provider)
+            if perf_baseline_detail_obj:
+                perf_baseline_detail_list.append(perf_baseline_detail_obj)
+            baseline_server_obj = self._add_baseline_server(perf_result, job_id, baseline_id)
+            if baseline_server_obj:
+                exist_server = [server for server in baseline_server_list
+                                if server.baseline_id == baseline_server_obj.baseline_id and
+                                server.test_job_id == baseline_server_obj.test_job_id and
+                                server.test_suite_id == baseline_server_obj.test_suite_id and
+                                server.test_case_id == baseline_server_obj.test_case_id]
+                if len(exist_server) == 0:
+                    baseline_server_list.append(baseline_server_obj)
+        if len(baseline_server_list) > 0:
+            BaselineServerSnapshot.objects.bulk_create(baseline_server_list)
+        return True, PerfBaselineDetail.objects.bulk_create(perf_baseline_detail_list)
 
-        if server_object_id:
-            machine = TestServerSnapshot.objects.filter(id=int(server_object_id), query_scope='all').first()
-            if machine is not None:
-                sm_name = machine.sm_name
-                machine_ip = machine.ip
-            else:
-                machine = CloudServerSnapshot.objects.filter(id=server_object_id, query_scope='all').first()
-                if machine is not None:
-                    instance_type = machine.instance_type
-                    image = machine.image
-                    bandwidth = machine.bandwidth
-                    machine_ip = machine.private_ip
+    def _add_perf_baseline(self, perf_result, job_id, baseline_id, server_provider):
+        suite_id = perf_result['test_suite_id']
+        case_id = perf_result['test_case_id']
         perf_detail = PerfBaselineDetail.objects.filter(baseline_id=baseline_id, test_suite_id=suite_id,
-                                                        test_case_id=case_id, metric=perf_result.metric)
+                                                        test_case_id=case_id)
         # 重复详情不再加入
         if not perf_detail.exists():
             perf_baseline_detail_obj = PerfBaselineDetail(
@@ -656,26 +746,22 @@ class PerfBaselineService(CommonService):
                 test_job_id=job_id,
                 test_suite_id=suite_id,
                 test_case_id=case_id,
-                server_ip=machine_ip,
-                server_sn='' if machine is None else machine.sn,
-                server_sm_name=sm_name,
-                server_instance_type=instance_type,
-                server_image=image,
-                server_bandwidth=bandwidth,
-                run_mode=test_job_case.run_mode,
+                server_ip=perf_result['ip'],
+                server_sn=perf_result['sn'],
+                server_sm_name=perf_result['sm_name'] if server_provider == 'aligroup' else '',
+                server_instance_type=perf_result['sm_name'] if server_provider == 'aliyun' else '',
+                server_image=perf_result['image'],
+                server_bandwidth=perf_result['bandwidth'],
+                run_mode=perf_result['run_mode'],
                 source_job_id=job_id,
-                metric=perf_result.metric,
-                test_value=perf_result.test_value,
-                cv_value=perf_result.cv_value,
-                max_value=perf_result.max_value,
-                min_value=perf_result.min_value,
-                value_list=perf_result.value_list,
-                note=test_job_case.note
+                metric=perf_result['metric'],
+                test_value=perf_result['test_value'],
+                cv_value=perf_result['cv_value'],
+                max_value=perf_result['max_value'],
+                min_value=perf_result['min_value'],
+                value_list=perf_result['value_list'],
+                note=perf_result['note']
             )
-            # 加入基线和测试基线相同时，匹配基线
-            if test_job.baseline_id == baseline_id:
-                perf_result.match_baseline = True
-                perf_result.save()
             return perf_baseline_detail_obj
         else:
             PerfBaselineDetail.objects.filter(id=perf_detail[0].id).update(
@@ -683,23 +769,69 @@ class PerfBaselineService(CommonService):
                 test_job_id=job_id,
                 test_suite_id=suite_id,
                 test_case_id=case_id,
-                server_ip=machine_ip,
-                server_sn='' if machine is None else machine.sn,
-                server_sm_name=sm_name,
-                server_instance_type=instance_type,
-                server_image=image,
-                server_bandwidth=bandwidth,
-                run_mode=test_job_case.run_mode,
+                server_ip=perf_result['ip'],
+                server_sn=perf_result['sn'],
+                server_sm_name=perf_result['sm_name'] if server_provider == 'aligroup' else '',
+                server_instance_type=perf_result['sm_name'] if server_provider == 'aliyun' else '',
+                server_image=perf_result['image'],
+                server_bandwidth=perf_result['bandwidth'],
+                run_mode=perf_result['run_mode'],
                 source_job_id=job_id,
-                metric=perf_result.metric,
-                test_value=perf_result.test_value,
-                cv_value=perf_result.cv_value,
-                max_value=perf_result.max_value,
-                min_value=perf_result.min_value,
-                value_list=perf_result.value_list,
-                note=test_job_case.note
+                metric=perf_result['metric'],
+                test_value=perf_result['test_value'],
+                cv_value=perf_result['cv_value'],
+                max_value=perf_result['max_value'],
+                min_value=perf_result['min_value'],
+                value_list=perf_result['value_list'],
+                note=perf_result['note']
             )
             return None
+
+    def _add_baseline_server(self, perf_result, job_id, baseline_id):
+        suite_id = perf_result['test_suite_id']
+        case_id = perf_result['test_case_id']
+        if not BaselineServerSnapshot.objects.filter(baseline_id=baseline_id, test_suite_id=suite_id,
+                                                     test_case_id=case_id).exists():
+            baseline_server = BaselineServerSnapshot(
+                baseline_id=baseline_id,
+                test_job_id=job_id,
+                test_suite_id=suite_id,
+                test_case_id=case_id,
+                ip=perf_result['ip'],
+                sn=perf_result['sn'],
+                sm_name=perf_result['sm_name'],
+                image=perf_result['image'],
+                bandwidth=perf_result['bandwidth'],
+                kernel_version=perf_result['kernel_version'],
+                distro=perf_result['distro'],
+                gcc=perf_result['gcc'],
+                rpm_list=perf_result['rpm_list'],
+                glibc=perf_result['glibc'],
+                memory_info=perf_result['memory_info'],
+                disk=perf_result['disk'],
+                cpu_info=perf_result['cpu_info'],
+                ether=perf_result['ether']
+            )
+            return baseline_server
+        else:
+            BaselineServerSnapshot.objects.filter(baseline_id=baseline_id, test_suite_id=suite_id,
+                                                  test_case_id=case_id).update(
+                test_job_id=job_id,
+                ip=perf_result['ip'],
+                sn=perf_result['sn'],
+                sm_name=perf_result['sm_name'],
+                image=perf_result['image'],
+                bandwidth=perf_result['bandwidth'],
+                kernel_version=perf_result['kernel_version'],
+                distro=perf_result['distro'],
+                gcc=perf_result['gcc'],
+                rpm_list=perf_result['rpm_list'],
+                glibc=perf_result['glibc'],
+                memory_info=perf_result['memory_info'],
+                disk=perf_result['disk'],
+                cpu_info=perf_result['cpu_info'],
+                ether=perf_result['ether'])
+        return None
 
 
 class SuiteSearchServer(CommonService):

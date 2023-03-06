@@ -74,6 +74,8 @@ class UserView(CommonAPIView):
     search_fields = ['first_name', 'last_name']
 
     def get(self, request):
+        request.roles = list(Role.objects.all())
+        request.role_members = list(RoleMember.objects.all())
         queryset = self.service.filter(self.get_queryset(), request.GET, request.user.id)
         source_data = self.get_response_data(queryset)
         response_data = self.service.query_user_from_db(source_data, request.GET, request.user)

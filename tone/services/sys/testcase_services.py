@@ -229,17 +229,15 @@ class TestCaseService(CommonService):
             ws_id=ws_id, test_suite_id=test_suite_id).values_list('test_case_id', flat=True)
         return SimpleCaseSerializer(TestCase.objects.filter(id__in=case_id_list), many=True).data
 
+
 class TestSuiteService(CommonService):
     def filter(self, queryset, data):
         test_framework = get_config_from_db('TEST_FRAMEWORK', 'tone')
         q = Q(test_framework=test_framework)
-        order = ['gmt_created']
-        if data.get('order'):
-            order = data.get('order').split(',')
         if data.get('is_default') is not None:
             q &= Q(is_default=data.get('is_default'))
         q = self.base_filter(data, q)
-        return queryset.filter(q).order_by(*order)
+        return queryset.filter(q)
 
     @staticmethod
     def filter_test_type(data, q):
@@ -550,6 +548,24 @@ class TestSuiteService(CommonService):
                 test_case_id__in=exist_test_case_id_list).delete()
             WorkspaceCaseRelation.objects.filter(test_suite_id=suite.id).exclude(
                 test_case_id__in=exist_test_case_id_list).delete()
+        suite_domain_list = DomainRelation.objects.filter(object_type='suite', object_id=suite_id)
+        suite_domain_id_list = []
+        for suite_domain in suite_domain_list:
+            suite_domain_id_list.append(suite_domain.domain_id)
+        test_case_id_list = list(TestCase.objects.filter(test_suite_id=suite_id).values_list('id', flat=True))
+        case_domain_id = list(DomainRelation.objects.filter(object_type='case',
+                                                            object_id__in=test_case_id_list
+                                                            ).values_list('object_id', flat=True))
+        case_domain_noneid_list = []
+        for test_case_id in test_case_id_list:
+            if test_case_id not in case_domain_id:
+                case_domain_noneid_list.append(test_case_id)
+        for index in range(len(suite_domain_id_list)):
+            for case_domain_noneid in case_domain_noneid_list:
+                update_dict = {'object_type': 'case',
+                               'object_id': case_domain_noneid,
+                               'domain_id': suite_domain_list[index].domain_id}
+                DomainRelation.objects.create(**update_dict)
         return 200, 'sync case success'
 
     def _sync_case_from_aktf(self, pk):

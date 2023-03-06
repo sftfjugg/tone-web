@@ -68,11 +68,9 @@ class WorkspaceSerializer(CommonSerializer):
 
     def get_member_count(self, obj):
         member_list = self.context['request'].member_list
-        member_count = 0
-        for member in member_list:
-            if member.ws_id == obj.id:
-                member_count += 1
-        return member_count
+        for member_dict in member_list:
+            if member_dict.get('ws_id') == obj.id:
+                return member_dict.get('count')
 
     @staticmethod
     def get_logo(obj):

@@ -15,24 +15,47 @@ class DashboardService(CommonService):
     @staticmethod
     def get_live_data(_):
         """dashboard实时数据 5s刷新一次"""
-        # job info
-        ws_id_list = Workspace.objects.filter(is_approved=1).values_list('id', flat=True)
-        job_total_num = TestJob.objects.filter(ws_id__in=ws_id_list).count()
-        job_running_num = TestJob.objects.filter(state='running').count()
-        # test run
-        test_run_total_num = TestJobCase.objects.all().count()
-        test_run_running_num = TestJobCase.objects.filter(state='running').count()
-        # server alloc
-        group_num = TestServerSnapshot.objects.all().count()
-        group_running_num = TestServer.objects.filter(state='Occupied').count()
-        cloud_num = CloudServerSnapshot.objects.all().count()
-        cloud_running_num = CloudServer.objects.filter(state='Occupied').count()
-        server_alloc_num = group_num + cloud_num
-        server_running_num = group_running_num + cloud_running_num
-        # test results
-        func_result_num = FuncResult.objects.all().count()
-        perf_result_num = PerfResult.objects.all().count()
-        result_total_num = func_result_num + perf_result_num
+        job_total_num, job_running_num, test_run_total_num, test_run_running_num, server_alloc_num, server_running_num \
+            , total_duration, result_total_num, func_result_num, perf_result_num = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        with connection.cursor() as cursor:
+            search_sql = """
+            SELECT COUNT(*) FROM test_job where ws_id in (
+                SELECT id FROM workspace WHERE is_approved=1 AND is_deleted is False) AND is_deleted is False
+            UNION ALL
+            SELECT COUNT(*) FROM test_job where state='running' AND is_deleted is False
+            UNION ALL
+            SELECT COUNT(*) FROM test_job_case WHERE is_deleted is False
+            UNION ALL
+            SELECT COUNT(*) FROM test_job_case WHERE state='running' AND is_deleted is False
+            UNION ALL
+            SELECT SUM(T) FROM (
+                SELECT COUNT(*) AS T FROM test_server_snapshot WHERE is_deleted is False
+                UNION ALL
+                SELECT COUNT(*) AS T FROM cloud_server_snapshot WHERE is_deleted is False
+            ) AS snapshot_server_total
+            UNION ALL
+            SELECT SUM(T) FROM (
+                SELECT COUNT(*) AS T FROM test_server WHERE state='Occupied' AND is_deleted is False
+                UNION ALL
+                SELECT COUNT(*) AS T FROM cloud_server WHERE state='Occupied' AND is_deleted is False
+            ) AS server_total
+            UNION ALL
+            (SELECT id FROM func_result ORDER BY id DESC LIMIT 0,1)
+            UNION ALL
+            (SELECT id FROM perf_result ORDER BY id DESC LIMIT 0,1)
+            """
+            cursor.execute(search_sql)
+            rows = cursor.fetchall()
+            if rows:
+                job_total_num = rows[0]
+                job_running_num = rows[1]
+                test_run_total_num = rows[2]
+                test_run_running_num = rows[3]
+                server_alloc_num = rows[4]
+                server_running_num = rows[5]
+                func_result_num = rows[6][0] if rows[6] else 0
+                perf_result_num = rows[7][0] if rows[7] else 0
+                result_total_num = int(func_result_num) + int(perf_result_num)
         # test duration
         redis_test_duration = 'test_duration'
         if redis_cache.get(redis_test_duration)[0]:
@@ -65,7 +88,7 @@ class DashboardService(CommonService):
             'total_duration': round(total_duration / 3600 / 24, 2),
             'result_total_num': result_total_num,
             'func_result_num': func_result_num,
-            'perf_result_num': perf_result_num,
+            'perf_result_num': perf_result_num
         }
 
     def get_sys_data_v2(self, params):
@@ -208,37 +231,89 @@ class DashboardService(CommonService):
     def _get_task_execute_trend_data_v2(start_time, day):
         day_start_time = datetime.strptime(start_time, '%Y-%m-%d') + timedelta(days=day)
         day_end_time = day_start_time + timedelta(days=1)
-        job_queryset = TestJob.objects.filter(start_time__gt=day_start_time, start_time__lt=day_end_time)
-        job_ids = job_queryset.values_list('id', flat=True)
-        job_count = job_queryset.count()
-
-        all_metric_count = 0
-        all_sub_case_count = 0
-        all_test_conf_count = 0
-        thread_run_job_num = 30
-        thread_num = (job_count // thread_run_job_num) + 1
-        thread_tasks = []
-        res_data = []
-        for i in range(thread_num):
-            job_id_list = list(job_ids)[thread_run_job_num * i:thread_run_job_num * i + thread_run_job_num]
-            thread_tasks.append(
-                ToneThread(DashboardService._get_result_count, (job_id_list, day))
-            )
-            thread_tasks[-1].start()
-        for thread_task in thread_tasks:
-            thread_task.join()
-            res_data.append(thread_task.get_result())
-        for res in res_data:
-            all_metric_count += res['metric_count']
-            all_sub_case_count += res['sub_case_count']
-            all_test_conf_count += res['test_conf_count']
-        return {
-            'job': job_count,
-            'metric': all_metric_count,
-            'sub_case': all_sub_case_count,
-            'test_conf': all_test_conf_count,
+        search_sql = DashboardService.get_chart_data_sql(day_end_time, day_start_time)
+        data = {
+            'job': 0,
+            'sub_case': 0,
+            'metric': 0,
+            'test_conf': 0,
             'date': datetime.strftime(day_start_time, "%Y-%m-%d"),
         }
+        with connection.cursor() as cursor:
+            cursor.execute(search_sql)
+            rows = cursor.fetchall()
+            if rows:
+                data = {
+                    'job': rows[0][0],
+                    'metric': rows[2][0],
+                    'sub_case': rows[1][0],
+                    'test_conf': rows[3][0],
+                    'date': datetime.strftime(day_start_time, "%Y-%m-%d"),
+                }
+        return data
+
+    @staticmethod
+    def get_chart_data_sql(day_end_time, day_start_time):
+        job_count_sql = """
+            SELECT
+              COUNT(*)
+            FROM
+              test_job
+            WHERE
+              (start_time > '{}')
+              AND (start_time < '{}')
+              AND is_deleted IS FALSE
+        """.format(day_start_time, day_end_time)
+        job_id_sql = """
+            SELECT
+              id
+            FROM
+              test_job
+            WHERE
+              (start_time > '{}')
+              AND (start_time < '{}')
+              AND is_deleted IS FALSE
+        """.format(day_start_time, day_end_time)
+        func_sql = """
+            SELECT
+              COUNT(*)
+            FROM
+              func_result
+            WHERE
+              test_job_id in (
+                {}
+              )
+        """.format(job_id_sql)
+        perf_sql = """
+            SELECT
+              COUNT(*)
+            FROM
+              perf_result
+            WHERE
+              test_job_id in (
+                {}
+              )
+        """.format(job_id_sql)
+        case_sql = """
+            SELECT
+              COUNT(*)
+            FROM
+              test_job_case
+            WHERE
+              job_id in (
+                {}
+              )
+        """.format(job_id_sql)
+        search_sql = """
+            {}
+            UNION ALL
+            {}
+            UNION ALL
+            {}
+            UNION ALL
+            {}
+        """.format(job_count_sql, func_sql, perf_sql, case_sql)
+        return search_sql
 
     @staticmethod
     def _get_result_count(job_id_list, day):

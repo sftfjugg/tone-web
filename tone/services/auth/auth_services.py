@@ -402,16 +402,16 @@ class MsgNotifyService(CommonService):
         """查询消息通知状态"""
         # 任务通知全部已读 红点提示
         task_msg_state = False
-        task_msg_total_num = len(InSiteSimpleMsg.objects.filter(receiver=operator))
-        task_msg_unread_num = len(InSiteSimpleMsg.objects.filter(receiver=operator, is_read=False))
+        task_msg_total_num = InSiteSimpleMsg.objects.filter(receiver=operator).count()
+        task_msg_unread_num = InSiteSimpleMsg.objects.filter(receiver=operator, is_read=False).count()
         if task_msg_unread_num:
             task_msg_state = True
         # 审批通知未处理数量
         apply_msg_id_list = InSiteWorkProcessUserMsg.objects.filter(user_id=operator, i_am_handle=False
                                                                     ).values_list('msg_id', flat=True)
-        apply_msg_num = len(InSiteWorkProcessMsg.objects.filter(id__in=apply_msg_id_list))
+        apply_msg_num = InSiteWorkProcessMsg.objects.filter(id__in=apply_msg_id_list).count()
         apply_msg_id_list = InSiteWorkProcessUserMsg.objects.filter(user_id=operator).values_list('msg_id', flat=True)
-        apply_msg_total_num = len(InSiteWorkProcessMsg.objects.filter(id__in=apply_msg_id_list))
+        apply_msg_total_num = InSiteWorkProcessMsg.objects.filter(id__in=apply_msg_id_list).count()
         return {
             'task_msg_state': task_msg_state,
             'apply_msg_unread_num': apply_msg_num,

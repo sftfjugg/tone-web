@@ -124,7 +124,7 @@ class TestSuiteView(CommonAPIView):
     queryset = TestSuite.objects.all()
     service_class = TestSuiteService
     schema_class = TestSuiteSchema
-    order_by = []
+    order_by = ['-gmt_created']
 
     def get(self, request):
         """
@@ -136,6 +136,8 @@ class TestSuiteView(CommonAPIView):
         elif request.GET.get('scope') == 'brief_case':
             self.serializer_class = BriefSuiteSerializer
             page_many = False
+        if request.GET.get('order'):
+            self.order_by = request.GET.get('order').split(',')
         queryset = self.service.filter(self.get_queryset(), request.GET)
         response_data = self.get_response_data(queryset, page=page_many)
         return Response(response_data)
@@ -350,6 +352,8 @@ class WorkspaceCaseView(CommonAPIView):
         workspace下获取case列表
         """
         page = True
+        if request.GET.get('order'):
+            self.order_by = request.GET.get('order').split(',')
         if request.GET.get('object_type') and request.GET.get('object_id'):
             self.serializer_class = TestMetricSerializer
         elif request.GET.get('suite_id'):

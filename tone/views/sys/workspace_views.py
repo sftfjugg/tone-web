@@ -1,5 +1,6 @@
 import datetime
 
+from django.db.models import Count
 from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.response import Response
@@ -34,11 +35,13 @@ class WorkspaceView(CommonAPIView):
         可以根据关键字进行模糊搜索
         """
         request.user_list = list(User.objects.all())
-        request.member_list = list(WorkspaceMember.objects.all())
         if request.GET.get('brief'):
             self.serializer_class = WorkspaceBriefSerializer
-        if request.GET.get('call_page') == 'index':
+        elif request.GET.get('call_page') == 'index':
             self.serializer_class = WorkspaceIndexListSerializer
+        else:
+            request.member_list = list(WorkspaceMember.objects.all().
+                                       values('ws_id').annotate(count=Count('ws_id')))
         queryset = self.service.filter(self.get_queryset(), request.GET, operator=request.user.id)
         response_data = self.get_response_data(queryset)
         return Response(response_data)
@@ -49,7 +52,8 @@ class WorkspaceView(CommonAPIView):
         提交表单之后需要管理员进行审批，请务必写清楚申请理由
         """
         request.user_list = list(User.objects.all())
-        request.member_list = list(WorkspaceMember.objects.all())
+        request.member_list = list(WorkspaceMember.objects.all().
+                                   values('ws_id').annotate(count=Count('ws_id')))
         success, result = self.service.create(request.data, operator=request.user.id)
         if not success:
             return Response(self.get_response_code(code=status.HTTP_208_ALREADY_REPORTED, msg=result))
@@ -63,7 +67,8 @@ class WorkspaceView(CommonAPIView):
         当前owner离职或者转岗后可以转交
         """
         request.user_list = list(User.objects.all())
-        request.member_list = list(WorkspaceMember.objects.all())
+        request.member_list = list(WorkspaceMember.objects.all().
+                                   values('ws_id').annotate(count=Count('ws_id')))
         success, instance = self.service.update(request.data, operator=request.user.id)
         if success:
             response_data = self.get_response_data(instance, many=False)
@@ -356,7 +361,8 @@ class AllWorkspaceView(CommonAPIView):
         可以根据关键字进行模糊搜索
         """
         request.user_list = list(User.objects.all())
-        request.member_list = list(WorkspaceMember.objects.all())
+        request.member_list = list(WorkspaceMember.objects.all().
+                                   values('ws_id').annotate(count=Count('ws_id')))
         if request.GET.get('brief'):
             self.serializer_class = WorkspaceBriefSerializer
         if request.GET.get('call_page') == 'index':

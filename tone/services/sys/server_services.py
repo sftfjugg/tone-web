@@ -1772,13 +1772,13 @@ class ServerSnapshotService(CommonService):
         if data.get('ws_id'):
             q &= Q(ws_id=data.get('ws_id'))
         test_server_list = TestServerSnapshot.objects.exclude(ip='').filter(q).values_list('ip', flat=True).distinct()
-        cloud_server_list = CloudServerSnapshot.objects.exclude(pub_ip='').filter(q).values_list('pub_ip', flat=True). \
-            distinct()
-        test_server_sn_list = TestServerSnapshot.objects.exclude(sn='').filter(q & Q(ip='') & Q(sn__isnull=False)).\
+        cloud_server_list = CloudServerSnapshot.objects.exclude(private_ip='').filter(q). \
+            values_list('private_ip', flat=True).distinct()
+        test_server_sn_list = TestServerSnapshot.objects.exclude(sn='').filter(q & Q(ip='') & Q(sn__isnull=False)). \
             values_list('sn', flat=True).distinct()
-        cloud_server_sn_list = CloudServerSnapshot.objects.exclude(sn='').\
+        cloud_server_sn_list = CloudServerSnapshot.objects.exclude(sn=''). \
             filter(q & Q(pub_ip='') & Q(sn__isnull=False)).values_list('sn', flat=True).distinct()
-        return list(test_server_list)+list(cloud_server_list)+list(test_server_sn_list)+list(cloud_server_sn_list)
+        return list(test_server_list) + list(cloud_server_list) + list(test_server_sn_list) + list(cloud_server_sn_list)
 
 
 class SyncServerStateService(CommonService):
@@ -1835,20 +1835,24 @@ def release_cloud_server(cloud_server):
 
 class AgentTaskInfoService(CommonService):
     def get_agent_task_info(self, data):
-        request = QueryTaskRequest(
-            settings.TONEAGENT_ACCESS_KEY,
-            settings.TONEAGENT_SECRET_KEY
-        )
-        request.set_tid(data.get('tid'))
-        request.set_query_detail(True)
-        res = request.send_request()
-        task_info = res.get('data')
-        if task_info.get('env'):
-            new_env_info = self._parse_env_info(task_info.get('env'))
-            task_info['env'] = new_env_info
-        new_script = self._parse_script(task_info.get('script'))
-        task_info['script'] = new_script
-        return task_info
+        try:
+            request = QueryTaskRequest(
+                settings.TONEAGENT_ACCESS_KEY,
+                settings.TONEAGENT_SECRET_KEY
+            )
+            request.set_tid(data.get('tid'))
+            request.set_query_detail(True)
+            res = request.send_request()
+            task_info = res.get('data')
+            if task_info.get('env'):
+                new_env_info = self._parse_env_info(task_info.get('env'))
+                task_info['env'] = new_env_info
+            new_script = self._parse_script(task_info.get('script'))
+            task_info['script'] = new_script
+            return task_info
+        except Exception as e:
+            error_logger.error(f'get agent task info failed:{e}')
+            return dict()
 
     @staticmethod
     def _parse_env_info(env_info):

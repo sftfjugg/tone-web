@@ -30,14 +30,26 @@ class ScheduleHandle(ScheduleJob):
     def day_of_week_format(cls, day_of_week):
         # 此方法为了解决添加定时任务时格式效验和实际运行定时任务两个模块对day_of_week差异
         # 添加定时任务效验定时任务格式使用CronTrigger.from_crontab(cron_express)，该模块中1-6代表周一到周六，0代表周天
-        # 实际使用scheduler.add_job添加定时任务时，day_of_week参数中，0代表周一，1代表周二，2代表周三，***，5代表周六，6代表周天
+        # 实际使用scheduler.add_job添加定时任务时，day_of_week参数中，6代表周一，0代表周二，1代表周三，***，4代表周六，5代表周天
         real_day_of_week = ""
         for i in day_of_week:
             if not i.isdigit():
                 real_day_of_week += i
             else:
-                real_day_of_week += str((int(i) + 6) % 7)
-        return real_day_of_week
+                real_day_of_week += str((int(i) + 5) % 7)
+        return cls.week_replace(real_day_of_week)
+
+    @classmethod
+    def week_replace(cls, real_day_of_week):
+        # 将day_of_week中数字转换为星期缩写，避免周一至周五6-3报错
+        return real_day_of_week \
+            .replace('6', 'mon') \
+            .replace('0', 'tue') \
+            .replace('1', 'wed') \
+            .replace('2', 'thu') \
+            .replace('3', 'fri') \
+            .replace('4', 'sat') \
+            .replace('5', 'sun')
 
     @classmethod
     def add_standard_job(cls, job_function, trigger_type, **kwargs):
