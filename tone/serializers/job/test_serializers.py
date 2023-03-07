@@ -90,7 +90,7 @@ class JobTestConfigSerializer(CommonSerializer):
     project_name = serializers.SerializerMethodField()
     test_config = serializers.SerializerMethodField()
     iclone_info = serializers.JSONField()
-    env_info = serializers.JSONField()
+    env_info = serializers.SerializerMethodField()
     script_info = serializers.JSONField()
     kernel_info = serializers.SerializerMethodField()
     build_pkg_info = serializers.JSONField()
