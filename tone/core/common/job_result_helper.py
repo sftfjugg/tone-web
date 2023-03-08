@@ -974,20 +974,17 @@ def get_suite_conf_metric_v1(suite_id, suite_name, base_index, group_list, suite
             case_result_list = [result for result in job_result_list if result['test_case_id'] == case_info['conf_id']]
         thread_tasks.append(
             ToneThread(_get_suite_conf_metric_v1, (case_info, suite_obj, group_list, base_index, base_is_baseline,
-                                                   case_result_list, baseline_result_list, job_result_list))
+                                                   case_result_list, duplicate_conf, baseline_result_list,
+                                                   job_result_list))
         )
         thread_tasks[-1].start()
     for thread_task in thread_tasks:
         thread_task.join()
         conf_obj = thread_task.get_result()
         if conf_obj:
-            if _check_has_duplicate(duplicate_conf, conf_obj['conf_id']):
-                if _check_duplicate_hit(duplicate_conf, conf_obj['conf_id'], conf_obj['obj_id']):
-                    conf_list.append(conf_obj)
-            else:
-                exist_list = [conf for conf in conf_list if conf['conf_id'] == conf_obj['conf_id']]
-                if len(exist_list) == 0:
-                    conf_list.append(conf_obj)
+            exist_list = [conf for conf in conf_list if conf['conf_id'] == conf_obj['conf_id']]
+            if len(exist_list) == 0:
+                conf_list.append(conf_obj)
     suite_obj['conf_list'] = conf_list
     base_metric_count = 0
     for metric in conf_list:
@@ -1019,7 +1016,7 @@ def _check_duplicate_hit(duplicate_conf, conf_id, test_job_id):
 
 
 def _get_suite_conf_metric_v1(conf_info, suite_obj, group_list, base_index, base_is_baseline, perf_results,
-                              baseline_result_list, job_result_list):
+                              base_duplicate_conf, baseline_result_list, job_result_list):
     conf_id = conf_info['conf_id']
     if not suite_obj.get('compare_count'):
         suite_obj['compare_count'] = [{'all': 0, 'increase': 0, 'decline': 0} for _ in range(len(group_list))]
@@ -1075,6 +1072,11 @@ def _get_suite_conf_metric_v1(conf_info, suite_obj, group_list, base_index, base
             'is_baseline': is_baseline
         }))
     base_job_id = perf_results[0].get('test_job_id')
+    for perf_result in perf_results:
+        if _check_has_duplicate(base_duplicate_conf, conf_id):
+            if _check_duplicate_hit(base_duplicate_conf, conf_id, perf_result.get('test_job_id')):
+                base_job_id = perf_result.get('test_job_id')
+                break
     conf_compare_data.insert(base_index, dict({
         'is_job': base_is_job,
         'obj_id': base_job_id,
