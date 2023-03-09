@@ -935,7 +935,7 @@ def get_suite_conf_metric_v1(suite_id, suite_name, base_index, group_list, suite
     if baseline_id_list:
         baseline_id_str = ','.join(str(e) for e in baseline_id_list)
         raw_sql = 'SELECT DISTINCT a.baseline_id as test_job_id,a.test_case_id,c.name as test_case_name,' \
-                  'a.test_value,a.cv_value,a.max_value,a.value_list,a.metric,' \
+                  'a.test_value,a.cv_value,a.max_value,a.value_list,a.metric,b.object_type,' \
                   'b.cv_threshold,b.cmp_threshold,b.direction,b.unit FROM perf_baseline_detail a LEFT JOIN ' \
                   'test_track_metric b ON a.metric = b.name AND ((b.object_type = "case" AND ' \
                   'b.object_id = a.test_case_id) or (b.object_type = "suite" AND ' \
@@ -946,7 +946,7 @@ def get_suite_conf_metric_v1(suite_id, suite_name, base_index, group_list, suite
     if job_id_list:
         job_id_str = ','.join(str(e) for e in job_id_list)
         raw_sql = 'SELECT DISTINCT a.test_job_id,a.test_case_id,c.name as test_case_name,a.test_value,' \
-                  'a.cv_value,a.max_value,' \
+                  'a.cv_value,a.max_value,b.object_type,' \
                   'a.value_list,a.metric,b.cv_threshold,b.cmp_threshold,b.direction,b.unit FROM perf_result a ' \
                   'LEFT JOIN test_track_metric b ON a.metric = b.name AND ((b.object_type = "case" AND ' \
                   'b.object_id = a.test_case_id) or (b.object_type = "suite" AND ' \
@@ -982,13 +982,9 @@ def get_suite_conf_metric_v1(suite_id, suite_name, base_index, group_list, suite
         thread_task.join()
         conf_obj = thread_task.get_result()
         if conf_obj:
-            if _check_has_duplicate(duplicate_conf, conf_obj['conf_id']):
-                if _check_duplicate_hit(duplicate_conf, conf_obj['conf_id'], conf_obj['obj_id']):
-                    conf_list.append(conf_obj)
-            else:
-                exist_list = [conf for conf in conf_list if conf['conf_id'] == conf_obj['conf_id']]
-                if len(exist_list) == 0:
-                    conf_list.append(conf_obj)
+            exist_list = [conf for conf in conf_list if conf['conf_id'] == conf_obj['conf_id']]
+            if len(exist_list) == 0:
+                conf_list.append(conf_obj)
     suite_obj['conf_list'] = conf_list
     base_metric_count = 0
     for metric in conf_list:
