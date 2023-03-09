@@ -313,8 +313,10 @@ class FuncBaselineService(CommonService):
 
 
 def save_baseline_server(baseline_id, server_provider, machine, job_id, suite_id, case_id):
-    if machine and not BaselineServerSnapshot.objects.filter(baseline_id=baseline_id, test_suite_id=suite_id,
-                                                             test_case_id=case_id).exists():
+    if not machine:
+        return
+    if not BaselineServerSnapshot.objects.filter(baseline_id=baseline_id, test_suite_id=suite_id,
+                                                 test_case_id=case_id).exists():
         baseline_server = dict(
             baseline_id=baseline_id,
             test_job_id=job_id,
