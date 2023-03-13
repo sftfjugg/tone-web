@@ -41,6 +41,9 @@ def pack_env_infos(data):
     """
     组装env_info
     """
+    # 环境变量 value 中包含引号的，先替换为 \"
+    if '\\' not in data:
+        data = data.replace('"', r'\"')
     list_equal_sign = []
     list_equal_sign_index = []
     list_connect_equal_sign_tuple = []
