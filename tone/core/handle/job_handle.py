@@ -115,6 +115,10 @@ class JobDataHandle(BaseHandle):
             kernel_info = self.data.get('kernel_info')
             if not kernel_info:
                 kernel_info = template_obj.kernel_info
+            else:
+                if 'scripts' not in kernel_info and template_obj.kernel_info and \
+                        'scripts' in template_obj.kernel_info and template_obj.kernel_info['scripts']:
+                    kernel_info['scripts'] = template_obj.kernel_info['scripts']
             kernel_info = kernel_info_format(kernel_info)
             self.data_dic['kernel_info'] = kernel_info
             self.data_dic['build_pkg_info'] = self.data.get('build_pkg_info', template_obj.build_pkg_info)
