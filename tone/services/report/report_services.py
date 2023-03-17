@@ -14,7 +14,7 @@ from tone.models import Report, ReportItem, ReportItemConf, ReportItemMetric, Re
     ReportItemSuite, TestJobCase, TestServerSnapshot, CloudServerSnapshot, PlanInstance, PlanInstanceTestRelation, \
     PerfResult, FuncResult, TestMetric, ReportDetail, FuncBaselineDetail, PerfBaselineDetail
 from tone.core.common.job_result_helper import get_compare_result, get_func_compare_data
-from tone.core.handle.report_handle import save_report_detail, get_old_report, get_server_info
+from tone.core.handle.report_handle import save_report_detail, get_old_report, get_group_server_info
 from tone.core.common.services import CommonService
 from tone.models.report.test_report import ReportTemplate, ReportTmplItem, ReportTmplItemSuite
 from tone.services.plan.plan_services import random_choice_str
@@ -286,18 +286,10 @@ class ReportService(CommonService):
         assert tmpl_id, ReportException(ErrorCode.TEMPLATE_NEED)
         assert test_item, ReportException(ErrorCode.TEST_ITEM_NEED)
         base_index = test_env.get('base_index', 0)
-        # test_env['base_group']['is_job'] = 1
-        if not test_env['base_group'].get('server_info'):
-            test_env['base_group']['server_info'] = list()
-        test_env['base_group'] = get_server_info(test_env['base_group'].get('tag'),
-                                                 test_env['base_group'].get('base_objs'))
-        count = len(test_env['base_group']['base_objs'])
-        compare_index = 0
-        for group in test_env['compare_groups']:
-            compare_group = get_server_info(group.get('tag'), group.get('base_objs'))
-            test_env['compare_groups'][compare_index] = compare_group
-            compare_index += 1
-        test_env['count'] = count
+        server_info = get_group_server_info(test_env['base_group'], test_env['compare_groups'])
+        test_env['base_group'] = server_info['base_group']
+        test_env['compare_groups'] = server_info['compare_groups']
+        test_env['count'] = len(test_env['base_group']['base_objs'])
         with transaction.atomic():
             report = Report.objects.create(name=name, product_version=product_version, project_id=project_id,
                                            ws_id=ws_id, test_method=test_method, test_conclusion=test_conclusion,
