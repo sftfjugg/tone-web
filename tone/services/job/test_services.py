@@ -30,7 +30,7 @@ from tone.core.utils.permission_manage import check_operator_permission
 from tone.core.utils.tone_thread import ToneThread
 from tone.core.utils.verify_tools import check_contains_chinese
 from tone.models import TestJob, TestJobCase, TestJobSuite, JobCollection, TestServerSnapshot, CloudServerSnapshot, \
-    PerfResult, TestServer, CloudServer, BaseConfig, TestClusterSnapshot, JobDownloadRecord
+    PerfResult, TestServer, TestClusterServer, CloudServer, BaseConfig, TestClusterSnapshot, JobDownloadRecord
 from tone.models import JobType, User, FuncResult, Baseline, BuildJob, Project, Product, ReportObjectRelation, \
     Report, MonitorInfo, Workspace, TestSuite, TestCase, ServerTag, ReportTemplate, TestCluster, TestStep, \
     PlanInstanceTestRelation
@@ -1409,9 +1409,16 @@ class MachineFaultService(CommonService):
                 raise JobTestException(ErrorCode.TEST_JOB_NONEXISTENT)
             job_id = data.get('job_id')
             server_provider = TestJob.objects.filter(id=job_id).first().server_provider
+            cluster_server = TestJobCase.objects.filter(
+                job_id=job_id, state__in=['pending', 'running'], run_mode='cluster').values('server_object_id')
+            cluster_server_id = None
+            if cluster_server:
+                cluster_server_id = TestClusterServer.objects.filter(cluser_id__in=cluster_server).values('server_id')
+            test_server = TestJobCase.objects.filter(
+                job_id=job_id, state__in=['pending', 'running'], run_mode='standalone').values('server_object_id')
+            if cluster_server_id:
+                test_server.extend(cluster_server_id)
             if server_provider == 'aligroup':
-                test_server = TestJobCase.objects.filter(
-                 job_id=job_id, state__in=['pending', 'running']).values('server_object_id')
                 if test_server:
                     q = Q(id__in=test_server) & Q(state='Broken')
                     return TestServer.objects.filter(q)
@@ -1421,8 +1428,6 @@ class MachineFaultService(CommonService):
                     q = Q(id__in=test_server_snapshot) & Q(state='Broken')
                     return TestServerSnapshot.objects.filter(q)
             else:
-                test_server = TestJobCase.objects.filter(
-                    job_id=job_id, state__in=['pending', 'running']).values('server_object_id')
                 if test_server:
                     q = Q(id__in=test_server) & Q(state='Broken')
                     return CloudServer.objects.filter(q)
