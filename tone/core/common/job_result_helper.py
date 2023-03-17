@@ -375,8 +375,9 @@ def _get_server_for_aligroup_standalone(job_case, obj):
         server_list = list(TestServer.objects.filter(id=job_case.server_object_id,
                                                      query_scope='deleted').values_list('ip', 'sn'))
         obj.server_is_deleted = True
-        obj.server_deleted = [{'ip': server_list[0][0],
-                               'sn': server_list[0][1]}]
+        obj.server_deleted = [{'ip': '', 'sn': ''}]
+        if server_list:
+            obj.server_deleted = [{'ip': server_list[0][0], 'sn': server_list[0][1]}]
     else:
         obj.server = test_server.ip if test_server.ip else test_server.sn
 
@@ -935,25 +936,25 @@ def get_suite_conf_metric_v1(suite_id, suite_name, base_index, group_list, suite
     if baseline_id_list:
         baseline_id_str = ','.join(str(e) for e in baseline_id_list)
         raw_sql = 'SELECT DISTINCT a.baseline_id as test_job_id,a.test_case_id,c.name as test_case_name,' \
-                  'a.test_value,a.cv_value,a.max_value,a.value_list,a.metric,b.object_type,' \
+                  'a.test_value,a.cv_value,a.max_value,a.value_list,a.metric,b.object_type,b.id,' \
                   'b.cv_threshold,b.cmp_threshold,b.direction,b.unit FROM perf_baseline_detail a LEFT JOIN ' \
                   'test_track_metric b ON a.metric = b.name AND ((b.object_type = "case" AND ' \
                   'b.object_id = a.test_case_id) or (b.object_type = "suite" AND ' \
                   'b.object_id = a.test_suite_id )) LEFT JOIN test_case c ON a.test_case_id=c.id WHERE ' \
                   'a.baseline_id IN (' + baseline_id_str + ') AND a.test_suite_id=' + str(suite_id) + case_id_sql + \
-                  ' AND b.cv_threshold > 0 ORDER BY b.object_type'
+                  ' AND b.cv_threshold > 0 ORDER BY b.object_type,b.id desc'
         baseline_result_list = query_all_dict(raw_sql.replace('\'', ''), params=None)
     if job_id_list:
         job_id_str = ','.join(str(e) for e in job_id_list)
         raw_sql = 'SELECT DISTINCT a.test_job_id,a.test_case_id,c.name as test_case_name,a.test_value,' \
-                  'a.cv_value,a.max_value,b.object_type,' \
+                  'a.cv_value,a.max_value,b.object_type,b.id,' \
                   'a.value_list,a.metric,b.cv_threshold,b.cmp_threshold,b.direction,b.unit FROM perf_result a ' \
                   'LEFT JOIN test_track_metric b ON a.metric = b.name AND ((b.object_type = "case" AND ' \
                   'b.object_id = a.test_case_id) or (b.object_type = "suite" AND ' \
                   'b.object_id = a.test_suite_id )) LEFT JOIN test_case c ON a.test_case_id=c.id' \
                   ' WHERE a.test_job_id IN (' + job_id_str + \
                   ') AND a.test_suite_id=' + str(suite_id) + case_id_sql + \
-                  ' AND b.cv_threshold > 0 ORDER BY b.object_type'
+                  ' AND b.cv_threshold > 0 ORDER BY b.object_type,b.id desc'
         job_result_list = query_all_dict(raw_sql.replace('\'', ''), params=None)
     base_job_list = group_list.pop(base_index)
     base_is_baseline = base_job_list.get('is_baseline', 0)
