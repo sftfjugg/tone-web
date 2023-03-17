@@ -240,7 +240,7 @@ class ReportHandle(object):
         compare_data = list()
         if self.job_obj.baseline_id:
             perf_baseline = PerfBaselineDetail.objects.filter(baseline_id=perf_result.compare_baseline,
-                                                              metric=perf_result.metric).first()
+                                                              test_case_id=conf_id, metric=perf_result.metric).first()
             compare_obj['test_value'] = perf_result.test_value
             compare_obj['cv_value'] = perf_result.cv_value.replace('±', '')
             compare_obj['max_value'] = perf_result.max_value
@@ -529,7 +529,6 @@ def _get_compare_data(metric_obj):
             metric_cmp['cv_value'] = item.get('cv_value')
             metric_cmp['compare_result'] = item.get('compare_result')
             metric_cmp['compare_value'] = item.get('compare_value')
-            metric_cmp['compare_value'] = item['compare_value'].strip('-') if item.get('compare_value') else ''
             compare_data.append(metric_cmp)
         else:
             compare_data.append(dict())
